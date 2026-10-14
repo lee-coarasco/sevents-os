@@ -63,8 +63,8 @@ boundaries, the same way tickets 0001-0006 were built.
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
-| Company / Leadership | 70 | 20 | Partial — Chairman (0032) done; CEO untouched |
-| **Total** | **1,308** | **840** | **468 rows remain** |
+| Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
+| **Total** | **1,308** | **890** | **418 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -205,3 +205,16 @@ that persona group, not a sign the import stalled.
   entire catalogue footprint is reserved-matter sign-off with execution
   staying with the CEO. 840/1,308 rows classified, 468 remain. Next: CEO
   (50 rows), the last role in the last department.
+- 2026-10-14 (later session): Classified CEO (ticket 0033, 50 rows) —
+  second and final Company/Leadership role, same all-Configure-
+  approval/decision pattern as Chairman (ticket 0032). **Company/
+  Leadership department now fully classified (70/70 rows).** 890/1,308
+  rows classified overall, 418 remain. Only two departments are still
+  open — both partially done from the original pilot-flow tickets
+  (0001-0006), before this tracking ticket existed: Projects (304 total,
+  11 classified +1 excluded, 293 remain — QHSE, QS billing/claims, COO,
+  Foreman/Chargehand/labour and schedule/progress rows all untouched)
+  and Procurement (160 total, 35 classified, 125 remain — CPO strategy/
+  governance rows 571-600 minus 582/584, and vendor-management-beyond-
+  RFQ rows). Next: pick either department's largest untouched role
+  using `catalogue_lookup.py`, same method as every batch above.
