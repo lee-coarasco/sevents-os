@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 182 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039); Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 202 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040); MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,061** | **247 rows remain** |
+| **Total** | **1,308** | **1,081** | **227 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -286,3 +286,16 @@ that persona group, not a sign the import stalled.
   Supervisor with `catalogue_lookup.py` and pick the larger one, or
   switch to Procurement's untouched CPO/vendor-management rows (125
   remain there) for variety.
+- 2026-10-14 (later session): Classified Civil Supervisor (ticket
+  0040, 20 rows) — seventh Projects role, first field-supervisor tier
+  (reports to Site Civil Engineer, 0038). All 20 rows Configure
+  workflow (receive plan & brief crew → supervise execution →
+  self-check/correct minor issues → shift-end report & handover), with
+  authority explicitly capped to "minor issues" per source text;
+  anything beyond that escalates to the Site Civil Engineer.
+  `role.civil_supervisor` was already present in
+  `docs/canonical-role-map.md` (added pre-emptively alongside MEP
+  Supervisor when the Projects department row was first drafted), so
+  no map edit was needed. Projects: 202/304 rows classified, 102
+  remain. 1,081/1,308 rows classified overall, 227 remain. Next: MEP
+  Supervisor (20 rows) should mirror this ticket's pattern exactly.
