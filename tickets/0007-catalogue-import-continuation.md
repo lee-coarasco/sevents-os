@@ -1,7 +1,7 @@
 ---
 id: 7
 title: Continue catalogue import/classification for remaining departments
-status: next
+status: done
 roles: [architect]
 priority: 2
 created: 2026-10-14
@@ -56,7 +56,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
 | Projects | 304 | 304 | **Done** — tickets 0001-0002 (pilot slice, folded into Site Civil/MEP Engineer and QS totals, not counted separately) + 0034-0047 (all 14 roles) |
-| Procurement | 160 | 131 | Partial — pilot slice (0001-0006) + CPO (0048, 30/30) + Procurement Lead (0049, 55/55) + Storekeeper (0050, 40/40) all fully classified; Logistics Coordinator (29 of 35 remain) is the only open role left in the catalogue |
+| Procurement | 160 | 160 | **Done** — pilot slice (0001-0006) + 0048-0051 (all 4 roles) |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,279** | **29 rows remain (Logistics Coordinator only)** |
+| **Total** | **1,308** | **1,308** | **0 rows remain — catalogue import complete** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -82,12 +82,12 @@ large Reference/policy-only count is the correct, expected outcome for
 that persona group, not a sign the import stalled.
 
 ## Acceptance
-- [ ] All 1,308 rows have a ticket (individually or as part of a cluster
+- [x] All 1,308 rows have a ticket (individually or as part of a cluster
       ticket) recording at least: disposition, canonical role, and
       source-row list.
-- [ ] Every row's disposition is one of the 7 BRD §6.5 values — none left
+- [x] Every row's disposition is one of the 7 BRD §6.5 values — none left
       unclassified silently.
-- [ ] Table above reflects true per-department progress after each batch.
+- [x] Table above reflects true per-department progress after each batch.
 
 ## Progress
 - 2026-10-14: Architect session. Classified the pilot-flow slice (tickets
@@ -412,3 +412,23 @@ that persona group, not a sign the import stalled.
   1,279/1,308 rows classified overall, **29 rows remain in the entire
   catalogue.** Next: Logistics Coordinator (29 rows) — classifying it
   completes all 1,308 rows.
+- 2026-10-14 (later session): Classified Logistics Coordinator's
+  remaining 29 rows (ticket 0051, #656-690 minus the 6 already in
+  ticket 0005) — delivery planning, a brand-new booking/dispatch-
+  compliance cluster (#664-672, 9 rows) and arrival-coordination
+  cluster (#673-680, 8 rows), and exceptions/transfers/closure. Mostly
+  Configure workflow with 1 Periodic review/monitor split (689,
+  logistics cost/carrier-performance/exception reporting). **Logistics
+  Coordinator role now fully classified (35/35).** **Procurement
+  department now fully classified (160/160).** **All 1,308 rows in
+  the source catalogue are now classified, across tickets 0001-0051.**
+  This ticket's 3 acceptance boxes are now all checked; closing it as
+  `done`. Open cross-cutting items that remain (not blocking the
+  import, already flagged in individual tickets throughout): every
+  row's SLA/`Timing` is `TBD` (source says "to be confirmed"
+  everywhere), and Delegation-of-Authority/approval-value bands
+  (`docs/PRD.md` §9) are still an open owner decision needed before any
+  approval-gate disposition can be simulated. Next: whatever
+  `docs/PRD.md`/`docs/IMPLEMENTATION-PLAN.md` names as the next Phase 0
+  deliverable — the catalogue-classification work this ticket tracked
+  is finished.
