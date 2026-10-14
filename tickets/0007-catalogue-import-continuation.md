@@ -57,14 +57,14 @@ boundaries, the same way tickets 0001-0006 were built.
 |---|---:|---:|---|
 | Projects | 304 | 11 (+1 reviewed/excluded: #525) | Partial — only the material-request slice (tickets 0001-0002); QHSE, QS billing/claims, COO, Foreman/Chargehand/labour rows, schedule/progress rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
-| Technical Engineering | 196 | 146 | Partial — CTO (0008), Architect (Lead) (0009), Structural Designer (0010), Civil Draftsman (0011), Electrical Draftsman (0012), HVAC & Plumbing Draftsman (0013) done; Civil/MEP Estimator (50 rows, 2 raw labels) untouched |
+| Technical Engineering | 196 | 171 | Partial — CTO (0008), Architect (Lead) (0009), Structural Designer (0010), Civil Draftsman (0011), Electrical Draftsman (0012), HVAC & Plumbing Draftsman (0013), Civil Estimator (0014) done; MEP Estimator (25 rows) untouched |
 | Finance | 120 | 0 | Not started |
 | Legal | 120 | 0 | Not started |
 | Marketing & Sales | 120 | 0 | Not started |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **192** | **1,116 rows remain** |
+| **Total** | **1,308** | **217** | **1,091 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -103,7 +103,7 @@ that persona group, not a sign the import stalled.
   to Finance/Legal/etc.
 - 2026-10-14 (same session, cont.): Classified Structural Designer
   (ticket 0010, 22 rows), Civil Draftsman (ticket 0011, 20 rows),
-  Electrical Draftsman (ticket 0012, 24 rows), then HVAC & Plumbing
-  Draftsman (ticket 0013, 25 rows). 1,116 rows remain. Next: Civil
-  Estimator, MEP Estimator (50 rows) to finish Technical Engineering,
-  then move to Finance (120 rows, not started).
+  Electrical Draftsman (ticket 0012, 24 rows), HVAC & Plumbing Draftsman
+  (ticket 0013, 25 rows), then Civil Estimator (ticket 0014, 25 rows).
+  1,091 rows remain. Next: MEP Estimator (25 rows) to finish Technical
+  Engineering entirely, then move to Finance (120 rows, not started).
