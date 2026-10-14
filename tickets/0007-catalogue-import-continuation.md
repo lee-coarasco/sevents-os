@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 126 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037); Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 154 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038); Site MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,005** | **303 rows remain** |
+| **Total** | **1,308** | **1,033** | **275 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -262,3 +262,14 @@ that persona group, not a sign the import stalled.
   1,005/1,308 rows classified overall, 303 remain. Next: Site Civil
   Engineer or Site MEP Engineer (28 rows each) are the next-largest
   untouched Projects roles.
+- 2026-10-14 (later session): Classified Site Civil Engineer (ticket
+  0038, 28 rows) — fifth Projects role. All 28 rows Configure workflow
+  (work-front mobilisation readiness, daily/lookahead planning,
+  supervised earthworks/concrete/masonry/finishes execution, material/
+  inspection/concealment control including RFI-raising and NCR-
+  recording, reporting/measurement/closeout) — same zero-approval
+  discipline-engineer pattern as Project Engineer Lead (0035), one
+  level under the Project Engineer/CTO/QHSE who hold the actual sign-
+  off. Projects: 154/304 rows classified, 150 remain. 1,033/1,308 rows
+  classified overall, 275 remain. Next: Site MEP Engineer (28 rows),
+  same pattern expected.
