@@ -48,7 +48,7 @@ new classification judgment calls, no owner approval needed.
   tickets 0001-0051 (confirmed via `tickets.py check`, 51 tickets/0
   problems); this ticket only consolidates that existing work into one
   traceable file, it does not reclassify anything.
-- 2026-10-14 19:05 UTC: Done. Built `docs/catalogue/disposition-workbook.csv`
+- 2026-10-14 18:39 UTC: Done. Built `docs/catalogue/disposition-workbook.csv`
   (1,308 rows) by reading all 51 ticket files' "Source rows covered" and
   "## Disposition" sections, including named per-row exceptions (e.g.
   ticket 0016's CFO rows 735/742/748 as Periodic review/monitor vs. the
