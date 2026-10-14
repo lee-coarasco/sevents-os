@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 222 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041); Foreman/Chargehand/Plant Operator/Labour/Driver rows untouched |
+| Projects | 304 | 240 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042); Chargehand/Plant Operator/Labour/Driver rows untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,101** | **207 rows remain** |
+| **Total** | **1,308** | **1,119** | **189 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -310,3 +310,13 @@ that persona group, not a sign the import stalled.
   that the labour-tier roles (Chargehand/Plant Operator/Skilled/
   Unskilled Labour/Driver) will likely finish Projects department
   entirely, then only Procurement's 125 untouched rows remain overall.
+- 2026-10-14 (later session): Classified Foreman (ticket 0042, 18
+  rows) — ninth Projects role, one tier below Civil/MEP Supervisor
+  (not split by trade, unlike the roles above it). All 18 rows
+  Configure workflow, same authority-capped pattern (changes to
+  drawing/method/sequence/resources require supervisor approval; no
+  claiming unverified quantities or inspection status). Projects:
+  240/304 rows classified, 64 remain — Chargehand (16), Plant &
+  Equipment Operator (16), Skilled Labour (14), Driver (14), Unskilled
+  Labour (12). 1,119/1,308 rows classified overall, 189 remain. Next:
+  Chargehand (16 rows), likely one more tier down from Foreman.
