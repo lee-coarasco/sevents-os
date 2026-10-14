@@ -56,7 +56,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
 | Projects | 304 | 304 | **Done** — tickets 0001-0002 (pilot slice, folded into Site Civil/MEP Engineer and QS totals, not counted separately) + 0034-0047 (all 14 roles) |
-| Procurement | 160 | 63 | Partial — pilot slice (0001-0006) + CPO fully classified (0048, 30/30 combining 0004+0048); Procurement Lead (39 of 55 remain), Storekeeper (29 of 40 remain), Logistics Coordinator (29 of 35 remain) |
+| Procurement | 160 | 102 | Partial — pilot slice (0001-0006) + CPO (0048, 30/30) + Procurement Lead (0049, 55/55) both fully classified; Storekeeper (29 of 40 remain), Logistics Coordinator (29 of 35 remain) |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,211** | **97 rows remain (all Procurement)** |
+| **Total** | **1,308** | **1,250** | **58 rows remain (all Procurement)** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -387,3 +387,15 @@ that persona group, not a sign the import stalled.
   (vendor management, prequalification, contract administration —
   beyond the RFQ/comparison slice already done in ticket 0003) is the
   largest untouched role left in the entire catalogue.
+- 2026-10-14 (later session): Classified Procurement Lead's remaining
+  39 rows (ticket 0049, #601-655 minus the 16 already in tickets
+  0003-0004) — intake, vendor sourcing/RFQ, quotation evaluation/
+  negotiation, commitment drafting, and a brand-new post-award
+  administration & closeout cluster (#641-655, 15 rows, not touched by
+  any prior ticket). Mostly Configure workflow with 2 per-row splits:
+  the negotiation-plan approval (627) and the weekly/monthly reporting
+  cadence row (654, Periodic review/monitor). **Procurement Lead role
+  now fully classified (55/55).** Procurement: 102/160 rows
+  classified, 58 remain — Storekeeper (29 of 40), Logistics
+  Coordinator (29 of 35). 1,250/1,308 rows classified overall, 58
+  remain. Next: Storekeeper's remaining 29 rows.
