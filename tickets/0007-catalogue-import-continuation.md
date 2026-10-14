@@ -61,10 +61,10 @@ boundaries, the same way tickets 0001-0006 were built.
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
-| People & Culture | 98 | 85 | Partial — CPCO (0025), HR & Admin Lead (0026), HR & Admin Assistant (0027), Office Assistant (0028) done; IT Support Engineer untouched |
+| People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **687** | **621 rows remain** |
+| **Total** | **1,308** | **700** | **608 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -157,3 +157,19 @@ that persona group, not a sign the import stalled.
   Mulkiya, RTA, Salik, ENOC VIP, GPS) / 1 Periodic review/monitor (daily
   facility/safety checks). 621 rows remain overall. Next: IT Support
   Engineer (13 rows) is the last role in People & Culture.
+- 2026-10-14 (later session): Classified IT Support Engineer (ticket
+  0029, 13 rows) — joiner/leaver access provisioning and exit clearance
+  (1056-1059, 1062-1064 all Configure workflow, same joiner/mover/leaver
+  pipeline as HR & Admin Lead/Assistant/Office Assistant), asset/licence/
+  access register maintenance (1065) and event-triggered incident/
+  security reporting (1066, 1068) also Configure workflow, with 1067
+  ("perform backup, endpoint security and patch controls" — run "at the
+  approved security cadence") split out as the one Periodic review/
+  monitor row. **People & Culture department now fully classified
+  (98/98 rows, tickets 0025-0029).** This correction fixes a handoff gap:
+  ticket 0029 was committed in session `a666da1` (13:37 UTC) but that
+  session ended before updating this tracking table, so the table still
+  read "IT Support Engineer untouched" / 621 rows remain for four later
+  sessions. 700/1,308 rows classified, 608 remain. Next: Research &
+  Development (120 rows, 2 roles — CRO 60 rows, Document Controller 60
+  rows), the next "not started" department in the table above.
