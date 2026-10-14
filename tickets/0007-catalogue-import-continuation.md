@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 264 | Partial — material-request slice (0001-0002, folded into the Site Civil/MEP Engineer and QS totals below, not counted separately — see correction note) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042) + Chargehand (0043) + Plant & Equipment Operator (0044) — 11 of 14 roles now fully classified; Skilled Labour (14), Driver (14), Unskilled Labour (12) untouched, no overlap with the pilot tickets (they're all Site Civil/Site MEP/QS rows) |
+| Projects | 304 | 304 | **Done** — tickets 0001-0002 (pilot slice, folded into Site Civil/MEP Engineer and QS totals, not counted separately) + 0034-0047 (all 14 roles) |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,143** | **165 rows remain** |
+| **Total** | **1,308** | **1,183** | **125 rows remain (all Procurement)** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -363,3 +363,15 @@ that persona group, not a sign the import stalled.
   inspection that Skilled Labour/Driver/Unskilled Labour's row ranges
   do not appear in tickets 0001-0002, so the next session can classify
   all 40 of their rows with no overlap risk.
+- 2026-10-14 (later session): Classified the last 3 Projects roles —
+  Skilled Labour (ticket 0045, 14 rows), Driver (ticket 0046, 14 rows)
+  and Unskilled Labour (ticket 0047, 12 rows), confirming beforehand
+  (per the correction note above) that none overlap with tickets
+  0001-0002. All 40 rows Configure workflow, same narrowing-authority
+  pattern as every tier above them down to the Chargehand/foreman
+  level. **Projects department now fully classified (304/304 rows).**
+  1,183/1,308 rows classified overall. **Procurement (160 total, 35
+  classified, 125 remain) is now the only open department.** Next:
+  pick Procurement's largest untouched role with
+  `catalogue_lookup.py` — vendor-management-beyond-RFQ rows and any
+  CPO rows not already covered by the original pilot tickets.
