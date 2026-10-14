@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 96 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036, incl. #525); QHSE, Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 126 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037); Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **975** | **333 rows remain** |
+| **Total** | **1,308** | **1,005** | **303 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -248,3 +248,17 @@ that persona group, not a sign the import stalled.
   0002 and 0036). Projects: 96/304 rows classified, 208 remain.
   975/1,308 rows classified overall, 333 remain. Next: QHSE Engineer
   (30 rows) is the next-largest untouched Projects role.
+- 2026-10-14 (later session): Classified QHSE Engineer (ticket 0037,
+  30 rows) — fourth Projects role, spanning both QA/QC and Safety
+  Officer personas as one job title (M19/M20 in the module catalogue).
+  Mostly Configure workflow (23/30: mobilisation HSE/quality setup,
+  daily site inspection, inspection-point/NCR management, incident/
+  emergency response, record compilation/closeout), with the pre-work
+  method/material/permit/competency approval gate (546-550, 5/30) as
+  Configure approval/decision and the daily/weekly QHSE reporting pair
+  (566-567, 2/30) as Periodic review/monitor. Flagged BRD M20's "safety
+  decisions remain human-controlled" constraint for future AI-agent-
+  studio scoping. Projects: 126/304 rows classified, 178 remain.
+  1,005/1,308 rows classified overall, 303 remain. Next: Site Civil
+  Engineer or Site MEP Engineer (28 rows each) are the next-largest
+  untouched Projects roles.
