@@ -58,13 +58,13 @@ boundaries, the same way tickets 0001-0006 were built.
 | Projects | 304 | 11 (+1 reviewed/excluded: #525) | Partial — only the material-request slice (tickets 0001-0002); QHSE, QS billing/claims, COO, Foreman/Chargehand/labour rows, schedule/progress rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
-| Finance | 120 | 30 | Partial — CFO (ticket 0016) done; Senior Accountant (Lead), Accountant (90 rows) untouched |
+| Finance | 120 | 75 | Partial — CFO (0016), Senior Accountant (Lead) (0017) done; Accountant (45 rows) untouched |
 | Legal | 120 | 0 | Not started |
 | Marketing & Sales | 120 | 0 | Not started |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **272** | **1,036 rows remain** |
+| **Total** | **1,308** | **317** | **991 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -110,5 +110,7 @@ that persona group, not a sign the import stalled.
   Finance with CFO (ticket 0016, 30 rows) — first department where the
   CXO role skews almost entirely to Configure approval/decision rather
   than Configure workflow (see ticket 0016's Disposition section for why).
-  1,036 rows remain overall. Next: Senior Accountant (Lead), Accountant
-  (90 rows) to finish Finance.
+  Then classified Senior Accountant (Lead) (ticket 0017, 45 rows) — first
+  use of the Defer disposition, for the Phase 5 vendor-bill-matching/
+  payment cluster already excluded from the pilot per DECISIONS.md. 991
+  rows remain overall. Next: Accountant (45 rows) to finish Finance.
