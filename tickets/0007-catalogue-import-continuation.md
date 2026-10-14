@@ -61,10 +61,10 @@ boundaries, the same way tickets 0001-0006 were built.
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
-| People & Culture | 98 | 33 | Partial — CPCO (ticket 0025) and HR & Admin Lead (ticket 0026) done; HR & Admin Assistant, Office Assistant, IT Support Engineer untouched |
+| People & Culture | 98 | 64 | Partial — CPCO (0025), HR & Admin Lead (0026), HR & Admin Assistant (0027) done; Office Assistant, IT Support Engineer untouched |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **635** | **673 rows remain** |
+| **Total** | **1,308** | **666** | **642 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -145,5 +145,11 @@ that persona group, not a sign the import stalled.
   smallest CXO raw-label count in the catalogue) and HR & Admin Lead
   (ticket 0026, 27 rows, mostly Configure workflow with one Track
   obligation/document row for visa/PRO/renewal transactions). 673 rows
-  remain overall. Next: HR & Admin Assistant (31 rows) is the next role
-  within People & Culture.
+  remain overall.
+- 2026-10-14 (later session): Classified HR & Admin Assistant (ticket
+  0027, 31 rows) — mostly Configure workflow (24/31) with a larger
+  Track obligation/document split (7/31) than HR & Admin Lead's single
+  row, since this role executes the actual visa/MOHRE/Invest-in-Dubai/
+  DEQ government-portal filing transactions. 642 rows remain overall.
+  Next: Office Assistant (21 rows) is the next role within People &
+  Culture.
