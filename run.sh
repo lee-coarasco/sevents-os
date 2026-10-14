@@ -12,6 +12,7 @@ cd "$PROJECT_DIR"
 # shellcheck disable=SC1091
 [ -f "$PROJECT_DIR/appyard.env" ] && . "$PROJECT_DIR/appyard.env"
 MAX_BUDGET_USD="${AGENT_MAX_BUDGET_USD:-10.00}"
+TZ_LABEL="${AGENT_TZ_LABEL:-$(date +%Z)}"
 export AGENT_NEAR_CAP_USD="${AGENT_NEAR_CAP_USD:-9.0}"
 MAX_BUDGET_RETRIES="${AGENT_MAX_BUDGET_RETRIES:-2}"
 ALLOWED_TOOLS="${AGENT_ALLOWED_TOOLS:-Edit,Bash(git *),Bash(npm *),Bash(node *),Bash(python3 *),WebFetch,WebSearch}"
@@ -141,7 +142,7 @@ prompt_for() {
   if [ "$budget" != "$MAX_BUDGET_USD" ]; then
     near="$(python3 -c "import sys; print(f'{float(sys.argv[1]) * 0.9:.2f}')" "$budget")"
   fi
-  sed -e "s/{{MAX_BUDGET_USD}}/$budget/g" -e "s/{{NEAR_CAP_USD}}/$near/g" "$PROMPT_FILE"
+  sed -e "s/{{MAX_BUDGET_USD}}/$budget/g" -e "s/{{NEAR_CAP_USD}}/$near/g" -e "s/{{TZ_LABEL}}/$TZ_LABEL/g" "$PROMPT_FILE"
 }
 
 LEDGER="$PROJECT_DIR/scripts/usage_ledger.py"

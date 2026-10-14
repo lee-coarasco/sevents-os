@@ -69,7 +69,7 @@ Before ending the session, always:
   This project runs on a schedule of multiple sessions per day, so a
   date-only file is not enough to tell sessions apart: run `date +'%Y-%m-%d
   %H:%M %Z'` and start your entry with that exact heading, e.g.
-  `## 2026-09-17 14:32 IST — <one-line label for this session>` (label
+  `## 2026-09-17 14:32 GST — <one-line label for this session>` (label
   it by role/focus, e.g. "architect — Sprint 1 breakdown"), separated
   from the previous entry with a `---` line. Always append your entry at
   the END of the file (never insert it at the top): notifications send
