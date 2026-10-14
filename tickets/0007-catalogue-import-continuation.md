@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 71 (+1 reviewed/excluded: #525) | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035); QHSE, QS, Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 96 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036, incl. #525); QHSE, Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **950** | **358 rows remain** |
+| **Total** | **1,308** | **975** | **333 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -238,3 +238,13 @@ that persona group, not a sign the import stalled.
   rows classified, 232 remain. 950/1,308 rows classified overall, 358
   remain. Next: Quantity Surveyor (28 rows) is the next-largest
   untouched Projects role.
+- 2026-10-14 (later session): Classified the remaining 25 Quantity
+  Surveyor rows (ticket 0036), resolving ticket 0002's deferred row
+  #525. Mostly Configure workflow (23/25: cost-baseline setup, budget
+  tracking, progress measurement, variation/claims management, client/
+  subcontractor billing, final-account/closeout), with the monthly
+  forecast/variance-reporting pair (537-538) as Periodic review/monitor.
+  Quantity Surveyor role now fully classified (28/28 combining tickets
+  0002 and 0036). Projects: 96/304 rows classified, 208 remain.
+  975/1,308 rows classified overall, 333 remain. Next: QHSE Engineer
+  (30 rows) is the next-largest untouched Projects role.
