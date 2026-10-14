@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 36 (+1 reviewed/excluded: #525) | Partial — material-request slice (tickets 0001-0002) + COO (0034); QHSE, QS billing/claims, Project Engineer Lead, Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour, schedule/progress rows all untouched |
+| Projects | 304 | 71 (+1 reviewed/excluded: #525) | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035); QHSE, QS, Site Civil/MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **915** | **393 rows remain** |
+| **Total** | **1,308** | **950** | **358 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -228,3 +228,13 @@ that persona group, not a sign the import stalled.
   915/1,308 rows classified overall, 393 remain. Next: any other
   Projects role (Project Engineer Lead 35 rows is the next-largest) or
   Procurement's untouched CPO/vendor-management rows.
+- 2026-10-14 (later session): Classified Project Engineer (Lead)
+  (ticket 0035, 35 rows) — second Projects role. All 35 rows Configure
+  workflow (project acceptance/setup, mobilisation planning, daily site
+  coordination, procurement/billing coordination, progress/variation
+  management, testing/handover/DLP) — the clean inverse of COO's
+  (0034) mostly-approval pattern, since the PE Lead executes and
+  coordinates but holds no final sign-off anywhere. Projects: 71/304
+  rows classified, 232 remain. 950/1,308 rows classified overall, 358
+  remain. Next: Quantity Surveyor (28 rows) is the next-largest
+  untouched Projects role.
