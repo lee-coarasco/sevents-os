@@ -56,7 +56,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
 | Projects | 304 | 304 | **Done** — tickets 0001-0002 (pilot slice, folded into Site Civil/MEP Engineer and QS totals, not counted separately) + 0034-0047 (all 14 roles) |
-| Procurement | 160 | 102 | Partial — pilot slice (0001-0006) + CPO (0048, 30/30) + Procurement Lead (0049, 55/55) both fully classified; Storekeeper (29 of 40 remain), Logistics Coordinator (29 of 35 remain) |
+| Procurement | 160 | 131 | Partial — pilot slice (0001-0006) + CPO (0048, 30/30) + Procurement Lead (0049, 55/55) + Storekeeper (0050, 40/40) all fully classified; Logistics Coordinator (29 of 35 remain) is the only open role left in the catalogue |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,250** | **58 rows remain (all Procurement)** |
+| **Total** | **1,308** | **1,279** | **29 rows remain (Logistics Coordinator only)** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -399,3 +399,16 @@ that persona group, not a sign the import stalled.
   classified, 58 remain — Storekeeper (29 of 40), Logistics
   Coordinator (29 of 35). 1,250/1,308 rows classified overall, 58
   remain. Next: Storekeeper's remaining 29 rows.
+- 2026-10-14 (later session): Classified Storekeeper's remaining 29
+  rows (ticket 0050, #691-730 minus the 11 already in tickets
+  0005-0006) — receiving, GRN/acceptance, a brand-new storage &
+  preservation cluster (#706-713, 8 rows), stock-ledger maintenance,
+  and issue/transfer/closeout. Mostly Configure workflow with a
+  3-row Periodic review/monitor split (718 cycle counts, 719 monthly
+  physical count, 721 slow-moving/obsolete stock report) consistent
+  with ticket 0006's existing split of row 720 in the same cluster.
+  **Storekeeper role now fully classified (40/40).** Procurement:
+  131/160 rows classified, 29 remain — Logistics Coordinator only.
+  1,279/1,308 rows classified overall, **29 rows remain in the entire
+  catalogue.** Next: Logistics Coordinator (29 rows) — classifying it
+  completes all 1,308 rows.
