@@ -1,14 +1,23 @@
-# Project: sevents-os
+# Project: SEVENTS
 
 ## One-line idea
-The Operating System for Intelligent Construction.
+UAE-first, country-agnostic construction ERP with workflow automation and controlled AI agents, initially deployed for a UAE-based construction company.
 
-Full requirements: docs/BRD.md (if you have one). The architect turns them into
-docs/PRD.md; nothing is built until the PRD is approved.
+Full requirements: `docs/BRD.md` — read this every session before doing anything.
+Implementation plan: `docs/IMPLEMENTATION-PLAN.md`
+Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — import and classify into tickets)
 
 ## Status
-`SPEC_PENDING` — the architect writes docs/PRD.md and the tech-stack proposal to
-NEEDS_APPROVAL.md. Change to `BUILDING` once they are approved.
+`PHASE_0` — Discovery and configuration design. **No application code yet.**
+
+The architect's job this phase:
+1. Read `docs/BRD.md` (sections 1–4) and `docs/IMPLEMENTATION-PLAN.md` (Phase 0).
+2. Produce `docs/PRD.md` covering the pilot scope only (Phase 3 vertical slice: material request → PO → GRN → site issue, or whatever the business owner confirms).
+3. Import and classify work items from `docs/work-item-catalogue.xlsx` into `tickets/` — one ticket per actionable item, following the disposition categories in the Implementation Plan section 2.
+4. Produce `docs/canonical-role-map.md` mapping source roles to canonical system roles.
+5. Record all open questions and unknown SLAs in `DECISIONS.md` / `NEEDS_APPROVAL.md`.
+
+**Do NOT write application code until the PRD is approved and status changes to `BUILDING`.**
 
 ---
 
@@ -25,12 +34,12 @@ session should delegate to the right one rather than doing everything
 itself. See those files before assuming what a subagent can/can't do.
 
 ## What the agent may decide on its own (no approval needed)
+- Ticket classification, disposition and ordering
 - Folder/module structure, naming conventions, code style
-- Which testing framework/library to use
+- Which testing framework/library to use (once BUILDING)
 - Internal API design, DB schema details, additive/non-destructive migrations
 - UI component structure and styling approach
-- Which open-source libraries to pull in (as long as license is permissive:
-  MIT/Apache/BSD) and they're added to package manifests properly
+- Which open-source libraries to pull in (MIT/Apache/BSD licence only)
 - Writing tests, fixing bugs it introduced, refactoring its own code
 - Day-to-day task breakdown and ordering within an approved milestone
 - Preview deploys (do not affect the live app)
@@ -38,14 +47,13 @@ itself. See those files before assuming what a subagent can/can't do.
 ## What requires YOUR approval (ask the owner and STOP that work)
 - The overall PRD / feature scope before any code is written
 - Tech stack choice (language, framework, database, hosting target)
+- UAE VAT / tax treatment — do NOT activate tax posting without finance owner sign-off
 - Authentication/authorization strategy
-- Payment integration (or any handling of real money/real user financial data)
+- Payment or banking integrations
 - Third-party paid services or anything with a monthly cost
-- Any decision that would be expensive or risky to reverse later
+- Any decision that would be expensive or risky to reverse
 - **Production deploys** — the devops subagent will never do this itself
-- **Destructive database changes** — dropping/truncating tables with real
-  data, lossy column changes, rotating or revealing API keys/secrets — the
-  backend-engineer subagent will never do these itself
+- **Destructive database changes** — the backend-engineer subagent will never do these itself
 - Anything explicitly marked "ask first" in DECISIONS.md by you
 
 Standing approvals (work the owner has pre-approved, with its limits) go here
@@ -64,7 +72,7 @@ whole session's commits are lost. Needed workflow changes go into a ticket with
    format); other tickets carry on. NEEDS_APPROVAL.md is only for a question
    that must stop ALL work, because it pauses every session until answered.
 2. Every session: read CLAUDE.md, DECISIONS.md, NEEDS_APPROVAL.md and
-   tickets/README.md, then the ticket `scripts/tickets.py next` names.
+   tickets/README.md, then the tickets `scripts/tickets.py next` names.
 3. Every code change is a git commit with a clear message.
 4. Write or update tests for anything you build. Do not mark a task done
    until its tests pass.
@@ -80,11 +88,17 @@ whole session's commits are lost. Needed workflow changes go into a ticket with
    rather than skipping silently.
 
 ## How the owner tests
-Web preview — the devops agent publishes a URL after each deploy.
-Daily log: `New build needed: NO - preview URL is in the dashboard under Builds.`
+No builds in Phase 0 — all output is documentation and ticket files.
+Daily log: `New build needed: NO`
 
 ## Tech stack
-(Decided after PRD approval — do not re-litigate without writing to NEEDS_APPROVAL.md first.)
+TBD — architect proposes in NEEDS_APPROVAL.md after PRD is approved.
+Do not re-litigate without writing to NEEDS_APPROVAL.md first.
 
 ## Business rules / domain notes
-(Decisions that change or add to the requirements, with the reason.)
+- Architecture is country-agnostic, multi-tenant, configuration-first (BRD section 2, Implementation Plan section 1).
+- UAE is the initial localization profile. GST must NOT be assumed or hard-coded anywhere.
+- VAT is configurable — do not apply a default rate. Finance owner confirmation required before activation.
+- Do not hard-code any country's tax rates, statutory IDs, invoice formats or filing requirements. Use localization configuration packs.
+- AI agents must not invent authority limits, SLA values, approval policies or production data. Use `TBD—Business Owner Decision` entries for unknowns.
+- The 1,308-row work-item catalogue configures the system; it does not define module or code boundaries.
