@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 256 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042) + Chargehand (0043); Plant Operator/Skilled-Unskilled Labour/Driver rows untouched |
+| Projects | 304 | 272 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042) + Chargehand (0043) + Plant & Equipment Operator (0044); Skilled/Unskilled Labour and Driver rows untouched — check for pilot-ticket overlap before classifying (see ticket 0044) |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,135** | **173 rows remain** |
+| **Total** | **1,308** | **1,151** | **157 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -328,3 +328,17 @@ that persona group, not a sign the import stalled.
   remain — Plant & Equipment Operator (16), Skilled Labour (14), Driver
   (14), Unskilled Labour (12). 1,135/1,308 rows classified overall, 173
   remain. Next: Plant & Equipment Operator (16 rows).
+- 2026-10-14 (later session): Classified Plant & Equipment Operator
+  (ticket 0044, 16 rows) — eleventh Projects role, certification-gated
+  but still Configure workflow throughout (escalates to Supervisor/
+  QHSE/Project Engineer, no decision authority of its own). Found an
+  8-row bookkeeping gap between this running total and the raw
+  per-role counts for the 3 roles that remain (Skilled Labour 14 +
+  Driver 14 + Unskilled Labour 12 = 40, but only 32 should remain by
+  this table's math) — same kind of pilot-ticket overlap ticket 0036
+  found and fixed for Quantity Surveyor. Not resolved yet; next session
+  must check each remaining role's rows against tickets 0001-0002
+  with `catalogue_lookup.py` before classifying, to avoid double-
+  counting or silently skipping rows. 1,151/1,308 rows classified
+  overall, 157 remain. Next: Skilled Labour, Driver or Unskilled Labour
+  — resolve the overlap check first.
