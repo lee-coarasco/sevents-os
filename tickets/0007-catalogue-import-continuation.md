@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 154 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038); Site MEP Engineer, Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 182 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039); Civil/MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,033** | **275 rows remain** |
+| **Total** | **1,308** | **1,061** | **247 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -273,3 +273,16 @@ that persona group, not a sign the import stalled.
   off. Projects: 154/304 rows classified, 150 remain. 1,033/1,308 rows
   classified overall, 275 remain. Next: Site MEP Engineer (28 rows),
   same pattern expected.
+- 2026-10-14 (later session): Classified Site MEP Engineer (ticket
+  0039, 28 rows) — sixth Projects role, mirroring Site Civil Engineer
+  (0038) exactly: same 5 trigger-cluster shape, all Configure workflow,
+  same escalation path to Project Engineer/CTO/QHSE, including the
+  ELV/fire-alarm/life-safety installation row (#368) which stayed
+  Configure workflow since it's execution not the approval itself.
+  Projects: 182/304 rows classified, 122 remain (Civil/MEP Supervisor,
+  Foreman, Chargehand, Plant & Equipment Operator, Skilled/Unskilled
+  Labour, Driver all untouched). 1,061/1,308 rows classified overall,
+  247 remain. Next: check row counts for Civil Supervisor / MEP
+  Supervisor with `catalogue_lookup.py` and pick the larger one, or
+  switch to Procurement's untouched CPO/vendor-management rows (125
+  remain there) for variety.
