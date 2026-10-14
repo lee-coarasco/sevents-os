@@ -59,12 +59,12 @@ boundaries, the same way tickets 0001-0006 were built.
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
-| Legal | 120 | 30 | Partial — CLO done (ticket 0019); Legal Counsel (Lead) and Contracts & Legal Assistant untouched |
+| Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
 | Marketing & Sales | 120 | 0 | Not started |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **392** | **916 rows remain** |
+| **Total** | **1,308** | **482** | **826 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -116,10 +116,15 @@ that persona group, not a sign the import stalled.
   Accountant (ticket 0018, 45 rows), completing Finance (120/120 rows,
   tickets 0016-0018), with a second consistent Defer cluster one role
   level down from 0017's. 946 rows remain overall.
-- 2026-10-14 (later session): Started Legal with CLO (ticket 0019, 30
-  rows) — same CXO skew to Configure approval/decision as CFO (ticket
-  0016), but with a larger review/monitor slice (6/30 vs 3/30) because
-  more Legal rows use oversight/advisory verbs ("oversee," "review,"
-  "advise," "chair," "present," "sponsor") than "approve." 916 rows
-  remain overall. Next: Legal Counsel (Lead) (50 rows) is the next role
-  within Legal.
+- 2026-10-14 (later session): Classified Legal in full — CLO (ticket
+  0019, 30 rows, CXO skew to Configure approval/decision like CFO/ticket
+  0016 but with a larger review/monitor slice because more rows use
+  oversight/advisory verbs than "approve"), Legal Counsel (Lead) (ticket
+  0020, 50 rows, all Configure workflow — the operational role running
+  the matter/contract/claims pipelines the CLO approves into), and
+  Contracts & Legal Assistant (ticket 0021, 40 rows, mostly Configure
+  workflow with a small Periodic review/monitor + Track obligation/
+  document split for the reporting/archival-rule rows, same pattern as
+  Accountant/ticket 0018). Legal department complete (120/120 rows,
+  tickets 0019-0021). 826 rows remain overall. Next: Marketing & Sales
+  (120 rows, not started) is the next department per the table above.
