@@ -1,0 +1,102 @@
+{
+  "sheet_name": "Jurisdiction Setup",
+  "header": [
+    "Setting",
+    "SEVENTS Initial Value / Decision",
+    "Status",
+    "Owner / Notes"
+  ],
+  "row_count": 15,
+  "records": [
+    {
+      "Setting": "Product architecture",
+      "SEVENTS Initial Value / Decision": "Country-agnostic core; localization packs per jurisdiction",
+      "Status": "Baseline decision",
+      "Owner / Notes": "Core engineering"
+    },
+    {
+      "Setting": "Initial deployment country",
+      "SEVENTS Initial Value / Decision": "United Arab Emirates (UAE)",
+      "Status": "Assumed; confirm legal entities",
+      "Owner / Notes": "SEVENTS leadership"
+    },
+    {
+      "Setting": "Legal entity / branch structure",
+      "SEVENTS Initial Value / Decision": "TBD",
+      "Status": "Open decision",
+      "Owner / Notes": "Finance / Legal"
+    },
+    {
+      "Setting": "UAE VAT registration status",
+      "SEVENTS Initial Value / Decision": "TBD \u2014 do not assume registered or unregistered",
+      "Status": "Must confirm before tax posting",
+      "Owner / Notes": "Finance / UAE tax adviser"
+    },
+    {
+      "Setting": "UAE VAT rates and treatments",
+      "SEVENTS Initial Value / Decision": "Configurable, reviewed against current official guidance; no hard-coded assumptions",
+      "Status": "Must validate before activation",
+      "Owner / Notes": "Finance / UAE tax adviser"
+    },
+    {
+      "Setting": "GST",
+      "SEVENTS Initial Value / Decision": "Not mandatory in generic core; only enabled for a jurisdiction/entity that requires it",
+      "Status": "Baseline decision",
+      "Owner / Notes": "Product / Finance"
+    },
+    {
+      "Setting": "Corporate tax",
+      "SEVENTS Initial Value / Decision": "Separate from transaction-level VAT/GST; reporting support to be configured",
+      "Status": "Needs scope review",
+      "Owner / Notes": "Finance / UAE tax adviser"
+    },
+    {
+      "Setting": "Base/reporting currency",
+      "SEVENTS Initial Value / Decision": "TBD; likely AED for UAE entity but confirm",
+      "Status": "Open decision",
+      "Owner / Notes": "Finance"
+    },
+    {
+      "Setting": "Project currencies / FX",
+      "SEVENTS Initial Value / Decision": "Support project/transaction currency and approved exchange-rate source policy",
+      "Status": "Design requirement",
+      "Owner / Notes": "Finance / Product"
+    },
+    {
+      "Setting": "Fiscal year and accounting basis",
+      "SEVENTS Initial Value / Decision": "TBD",
+      "Status": "Open decision",
+      "Owner / Notes": "Finance"
+    },
+    {
+      "Setting": "Invoice numbering and mandatory fields",
+      "SEVENTS Initial Value / Decision": "Localization-pack configuration",
+      "Status": "Needs UAE validation",
+      "Owner / Notes": "Finance / Legal"
+    },
+    {
+      "Setting": "Language / timezone / date formats",
+      "SEVENTS Initial Value / Decision": "Configurable; defaults confirmed by deployment",
+      "Status": "Open decision",
+      "Owner / Notes": "Admin / Operations"
+    },
+    {
+      "Setting": "Other operating countries",
+      "SEVENTS Initial Value / Decision": "TBD",
+      "Status": "Open decision",
+      "Owner / Notes": "Leadership / Finance"
+    },
+    {
+      "Setting": "Localization pack version",
+      "SEVENTS Initial Value / Decision": "Must be stored and auditable on relevant transactions",
+      "Status": "Design requirement",
+      "Owner / Notes": "Engineering"
+    },
+    {
+      "Setting": "Statutory filing integration",
+      "SEVENTS Initial Value / Decision": "Not assumed in MVP; scope only after requirements confirmed",
+      "Status": "Open decision",
+      "Owner / Notes": "Product / Finance"
+    }
+  ]
+}

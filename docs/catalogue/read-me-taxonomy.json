@@ -1,0 +1,90 @@
+{
+  "sheet_name": "Read Me & Taxonomy",
+  "header": [
+    "SEVENTS Jurisdiction Architecture",
+    "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST."
+  ],
+  "row_count": 20,
+  "records": [
+    {
+      "SEVENTS Jurisdiction Architecture": "Tax Configuration",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "GST is not mandatory. Use generic tax types; configure UAE VAT only after SEVENTS finance/tax owners confirm registration status, treatment and applicable rules."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Localization Configuration",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Country/legal entity/project configuration should hold jurisdiction, currency, language, timezone, fiscal calendar, statutory identifiers, invoice fields and supported localization-pack version."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Configuration Safety",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Do not invent tax rates, legal deadlines, SLA values or approval limits. Unknowns must remain TBD and block consequential activation where appropriate."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Scope Limitation",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Country-agnostic architecture does not automatically guarantee compliance in every country; new statutory calculations, reports, integrations or expert reviews may still be required."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "SEVENTS Construction ERP \u2014 Work Item Configuration Review Workbook",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": null
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Purpose",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Preserve the original 1,308 work-item rows and add a separate review/configuration layer. Blank review columns are intentionally not guessed."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Principle",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Source catalogue is configuration input, not a list of 1,308 software features. Build reusable capabilities and map items to them."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Configure workflow",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Actionable recurring work that fits supported workflow capabilities."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Configure approval/decision",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "A decision with inputs, authorized approver, recorded outcome and follow-up."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Track obligation/document",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Filing, signature, renewal, paper step, or evidence obligation."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Periodic review/monitor",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Scheduled review with a defined cadence, output and exception path."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Reference/policy only",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Broad responsibility or guidance without a discrete task outcome."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Clarify/de-duplicate",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Ambiguous, overlapping, inconsistent or dependent item requiring process-owner review."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Disposition: Defer",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Valid work not needed for the current delivery phase."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Operational fields",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Trigger; responsible canonical role; action/capability; output/evidence; SLA/timing; handoff/dependency; exception/escalation; approval/risk/agent policy."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Reference fields",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Governance Understanding, Governance Inputs for SOP Creation, and reviewer columns remain reference/provenance by default."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "SLA handling",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Do not infer or invent. Mark SLA Confirmed only after the owner confirms the timing rule and business calendar."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Role mapping",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Map raw role labels to canonical Role IDs. Raw role names are not permission grants."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Leadership and paper-based work",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "Create tasks only where a record, decision, obligation, measurable outcome or follow-up exists. Track physical signature/custody evidence where needed; do not assume scan equals valid e-signature."
+    },
+    {
+      "SEVENTS Jurisdiction Architecture": "Publication gate",
+      "Country-agnostic ERP core; initial deployment profile is UAE. Do not assume India, INR or GST.": "No row becomes executable until the required fields are validated, risk and approval policies are set, and an authorized process owner approves publication."
+    }
+  ]
+}

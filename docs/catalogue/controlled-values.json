@@ -1,0 +1,206 @@
+{
+  "sheet_name": "Controlled Values",
+  "header": [
+    "Field",
+    "Allowed Value"
+  ],
+  "row_count": 49,
+  "records": [
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Configure workflow"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Configure approval/decision"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Track obligation/document"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Periodic review/monitor"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Reference/policy only"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Clarify/de-duplicate"
+    },
+    {
+      "Field": "Disposition",
+      "Allowed Value": "Defer"
+    },
+    {
+      "Field": "Priority",
+      "Allowed Value": "P0 - Critical"
+    },
+    {
+      "Field": "Priority",
+      "Allowed Value": "P1 - High"
+    },
+    {
+      "Field": "Priority",
+      "Allowed Value": "P2 - Medium"
+    },
+    {
+      "Field": "Priority",
+      "Allowed Value": "P3 - Low"
+    },
+    {
+      "Field": "Priority",
+      "Allowed Value": "Unassessed"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Tier 0 - Read-only"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Tier 1 - Draft/preparation"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Tier 2 - Reversible low-risk"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Tier 3 - Human-approved transaction"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Tier 4 - No autonomous execution"
+    },
+    {
+      "Field": "Risk Tier",
+      "Allowed Value": "Unassessed"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Not reviewed"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Needs clarification"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Mapped - pending validation"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Validated - pending approval"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Published/active"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Reference only"
+    },
+    {
+      "Field": "Mapping Status",
+      "Allowed Value": "Deferred"
+    },
+    {
+      "Field": "Confirmation",
+      "Allowed Value": "Yes"
+    },
+    {
+      "Field": "Confirmation",
+      "Allowed Value": "No"
+    },
+    {
+      "Field": "Confirmation",
+      "Allowed Value": "TBD"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Phase 0"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Phase 1"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Phase 2"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Phase 3"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Phase 4+"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "Deferred"
+    },
+    {
+      "Field": "Phase Target",
+      "Allowed Value": "TBD"
+    },
+    {
+      "Field": "Jurisdiction Profile",
+      "Allowed Value": "UAE initial profile"
+    },
+    {
+      "Field": "Jurisdiction Profile",
+      "Allowed Value": "Other country profile \u2014 configure and validate"
+    },
+    {
+      "Field": "Tax Type",
+      "Allowed Value": "VAT"
+    },
+    {
+      "Field": "Tax Type",
+      "Allowed Value": "GST"
+    },
+    {
+      "Field": "Tax Type",
+      "Allowed Value": "Sales tax"
+    },
+    {
+      "Field": "Tax Type",
+      "Allowed Value": "Withholding/retention tax"
+    },
+    {
+      "Field": "Tax Type",
+      "Allowed Value": "No tax / out of scope"
+    },
+    {
+      "Field": "Tax Status",
+      "Allowed Value": "TBD\u2014Finance/Tax Review"
+    },
+    {
+      "Field": "Tax Status",
+      "Allowed Value": "Configured\u2014Not Activated"
+    },
+    {
+      "Field": "Tax Status",
+      "Allowed Value": "Approved for Use"
+    },
+    {
+      "Field": "Localization Status",
+      "Allowed Value": "Not assessed"
+    },
+    {
+      "Field": "Localization Status",
+      "Allowed Value": "In review"
+    },
+    {
+      "Field": "Localization Status",
+      "Allowed Value": "Validated"
+    },
+    {
+      "Field": "Localization Status",
+      "Allowed Value": "Active"
+    }
+  ]
+}
