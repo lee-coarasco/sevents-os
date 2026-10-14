@@ -56,7 +56,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
 | Projects | 304 | 304 | **Done** — tickets 0001-0002 (pilot slice, folded into Site Civil/MEP Engineer and QS totals, not counted separately) + 0034-0047 (all 14 roles) |
-| Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
+| Procurement | 160 | 63 | Partial — pilot slice (0001-0006) + CPO fully classified (0048, 30/30 combining 0004+0048); Procurement Lead (39 of 55 remain), Storekeeper (29 of 40 remain), Logistics Coordinator (29 of 35 remain) |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,183** | **125 rows remain (all Procurement)** |
+| **Total** | **1,308** | **1,211** | **97 rows remain (all Procurement)** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -375,3 +375,15 @@ that persona group, not a sign the import stalled.
   pick Procurement's largest untouched role with
   `catalogue_lookup.py` — vendor-management-beyond-RFQ rows and any
   CPO rows not already covered by the original pilot tickets.
+- 2026-10-14 (later session): Classified CPO's remaining 28 rows
+  (ticket 0048, #571-600 minus 582/584 already in ticket 0004) — same
+  heavy approval/decision skew as every other C-suite ticket, with a
+  3-row review/monitor split for the weekly/monthly/CEO-reporting
+  cadence rows (596-598), matching the CFO/CMO pattern. **CPO role now
+  fully classified (30/30).** Procurement: 63/160 rows classified, 97
+  remain — Procurement Lead (39 of 55), Storekeeper (29 of 40),
+  Logistics Coordinator (29 of 35). 1,211/1,308 rows classified
+  overall, 97 remain. Next: Procurement Lead's remaining 39 rows
+  (vendor management, prequalification, contract administration —
+  beyond the RFQ/comparison slice already done in ticket 0003) is the
+  largest untouched role left in the entire catalogue.
