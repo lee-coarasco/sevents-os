@@ -62,9 +62,9 @@ boundaries, the same way tickets 0001-0006 were built.
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
-| Research & Development | 120 | 0 | Not started |
+| Research & Development | 120 | 60 | Partial — CRO (0030) done; Document Controller untouched |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **700** | **608 rows remain** |
+| **Total** | **1,308** | **760** | **548 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -173,3 +173,15 @@ that persona group, not a sign the import stalled.
   sessions. 700/1,308 rows classified, 608 remain. Next: Research &
   Development (120 rows, 2 roles — CRO 60 rows, Document Controller 60
   rows), the next "not started" department in the table above.
+- 2026-10-14 (later session): Classified CRO (ticket 0030, 60 rows) —
+  first of 2 Research & Development roles. Verb mix skews mostly
+  Configure workflow (48/60: process architecture, SOP lifecycle,
+  FirstBit ERP workflow change control, master-data governance,
+  continuous improvement, innovation scouting, lessons-learned, change
+  management) rather than Configure approval/decision like the other
+  C-suite tickets, because the CRO is an internal process-excellence/R&D
+  function, not a pure sign-off authority — only the strategy/portfolio
+  cluster (6/60) is Configure approval/decision, plus KPI/performance
+  management (6/60) as Periodic review/monitor. 760/1,308 rows
+  classified, 548 remain. Next: Document Controller (60 rows), the last
+  role in Research & Development.
