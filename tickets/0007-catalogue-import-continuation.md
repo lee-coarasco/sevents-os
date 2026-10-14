@@ -60,11 +60,11 @@ boundaries, the same way tickets 0001-0006 were built.
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
-| Marketing & Sales | 120 | 30 | Partial — CMO done (ticket 0022); Marketing Manager (Lead) and Business Development Executive untouched |
+| Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **512** | **796 rows remain** |
+| **Total** | **1,308** | **602** | **706 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -127,8 +127,16 @@ that persona group, not a sign the import stalled.
   document split for the reporting/archival-rule rows, same pattern as
   Accountant/ticket 0018). Legal department complete (120/120 rows,
   tickets 0019-0021). 826 rows remain overall.
-- 2026-10-14 (later session): Started Marketing & Sales with CMO (ticket
-  0022, 30 rows) — same CXO skew to Configure approval/decision (24/30)
-  with a review/monitor split (6/30) as CFO/CLO. 796 rows remain overall.
-  Next: Marketing Manager (Lead) (50 rows) is the next role within
-  Marketing & Sales.
+- 2026-10-14 (later session): Classified Marketing & Sales in full — CMO
+  (ticket 0022, 30 rows, CXO skew to Configure approval/decision 24/30
+  with a review/monitor split 6/30 like CFO/CLO), Marketing Manager
+  (Lead) (ticket 0023, 50 rows, mostly Configure workflow 46/50 running
+  the campaign/lead pipeline the CMO approves into, with a small
+  review/monitor split 4/50 for scheduled pipeline/performance reports),
+  and Business Development Executive (ticket 0024, 40 rows, almost all
+  Configure workflow 39/40 — the most junior operational layer,
+  prospecting through technical-handover support — with 1 review/monitor
+  row for daily/weekly pipeline reporting). Marketing & Sales department
+  complete (120/120 rows, tickets 0022-0024). 706 rows remain overall.
+  Next: People & Culture (98 rows, not started) is the next department
+  per the table above.
