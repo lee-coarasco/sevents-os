@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 202 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040); MEP Supervisor, Foreman/Chargehand/labour rows all untouched |
+| Projects | 304 | 222 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041); Foreman/Chargehand/Plant Operator/Labour/Driver rows untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,081** | **227 rows remain** |
+| **Total** | **1,308** | **1,101** | **207 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -299,3 +299,14 @@ that persona group, not a sign the import stalled.
   no map edit was needed. Projects: 202/304 rows classified, 102
   remain. 1,081/1,308 rows classified overall, 227 remain. Next: MEP
   Supervisor (20 rows) should mirror this ticket's pattern exactly.
+- 2026-10-14 (later session): Classified MEP Supervisor (ticket 0041,
+  20 rows) — eighth Projects role, mirroring Civil Supervisor (0040)
+  exactly (same 4 trigger clusters, all Configure workflow, same
+  escalation to Site MEP Engineer). Projects: 222/304 rows classified,
+  82 remain — all 5 remaining roles are 12-18 rows each (Foreman,
+  Chargehand, Plant & Equipment Operator, Skilled/Unskilled Labour,
+  Driver). 1,101/1,308 rows classified overall, 207 remain. Next:
+  Foreman (18 rows) is the next-largest untouched Projects role; after
+  that the labour-tier roles (Chargehand/Plant Operator/Skilled/
+  Unskilled Labour/Driver) will likely finish Projects department
+  entirely, then only Procurement's 125 untouched rows remain overall.
