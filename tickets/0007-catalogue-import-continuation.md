@@ -58,13 +58,13 @@ boundaries, the same way tickets 0001-0006 were built.
 | Projects | 304 | 11 (+1 reviewed/excluded: #525) | Partial — only the material-request slice (tickets 0001-0002); QHSE, QS billing/claims, COO, Foreman/Chargehand/labour rows, schedule/progress rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
-| Finance | 120 | 75 | Partial — CFO (0016), Senior Accountant (Lead) (0017) done; Accountant (45 rows) untouched |
+| Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 0 | Not started |
 | Marketing & Sales | 120 | 0 | Not started |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **317** | **991 rows remain** |
+| **Total** | **1,308** | **362** | **946 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -112,5 +112,8 @@ that persona group, not a sign the import stalled.
   than Configure workflow (see ticket 0016's Disposition section for why).
   Then classified Senior Accountant (Lead) (ticket 0017, 45 rows) — first
   use of the Defer disposition, for the Phase 5 vendor-bill-matching/
-  payment cluster already excluded from the pilot per DECISIONS.md. 991
-  rows remain overall. Next: Accountant (45 rows) to finish Finance.
+  payment cluster already excluded from the pilot per DECISIONS.md. Then
+  Accountant (ticket 0018, 45 rows), completing Finance (120/120 rows,
+  tickets 0016-0018), with a second consistent Defer cluster one role
+  level down from 0017's. 946 rows remain overall. Next: Legal (120
+  rows, not started) is the next department per the table above.
