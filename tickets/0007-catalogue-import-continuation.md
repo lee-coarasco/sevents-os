@@ -61,10 +61,10 @@ boundaries, the same way tickets 0001-0006 were built.
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
 | Legal | 120 | 120 | Done — tickets 0019-0021 (all 3 roles) |
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
-| People & Culture | 98 | 64 | Partial — CPCO (0025), HR & Admin Lead (0026), HR & Admin Assistant (0027) done; Office Assistant, IT Support Engineer untouched |
+| People & Culture | 98 | 85 | Partial — CPCO (0025), HR & Admin Lead (0026), HR & Admin Assistant (0027), Office Assistant (0028) done; IT Support Engineer untouched |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **666** | **642 rows remain** |
+| **Total** | **1,308** | **687** | **621 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -151,5 +151,9 @@ that persona group, not a sign the import stalled.
   Track obligation/document split (7/31) than HR & Admin Lead's single
   row, since this role executes the actual visa/MOHRE/Invest-in-Dubai/
   DEQ government-portal filing transactions. 642 rows remain overall.
-  Next: Office Assistant (21 rows) is the next role within People &
-  Culture.
+- 2026-10-14 (later session): Classified Office Assistant (ticket 0028,
+  21 rows) — facilities/fleet/admin support, split 15 Configure workflow
+  / 5 Track obligation/document (UAE vehicle-registration/licensing rows:
+  Mulkiya, RTA, Salik, ENOC VIP, GPS) / 1 Periodic review/monitor (daily
+  facility/safety checks). 621 rows remain overall. Next: IT Support
+  Engineer (13 rows) is the last role in People & Culture.
