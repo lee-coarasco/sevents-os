@@ -63,8 +63,8 @@ boundaries, the same way tickets 0001-0006 were built.
 | Marketing & Sales | 120 | 120 | Done — tickets 0022-0024 (all 3 roles) |
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
-| Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **820** | **488 rows remain** |
+| Company / Leadership | 70 | 20 | Partial — Chairman (0032) done; CEO untouched |
+| **Total** | **1,308** | **840** | **468 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -196,3 +196,12 @@ that persona group, not a sign the import stalled.
   **Research & Development department now fully classified (120/120
   rows, tickets 0030-0031).** 820/1,308 rows classified, 488 remain.
   Next: Company/Leadership (70 rows) is the only remaining department.
+- 2026-10-14 (later session): Classified Chairman (ticket 0032, 20
+  rows) — first of 2 Company/Leadership roles. All 20 rows Configure
+  approval/decision (vision/strategy governance, CEO appointment/
+  performance, budget/capital/financial exposure, strategic portfolio/
+  crisis/board oversight) — sharper skew than any other C-suite ticket
+  so far, zero workflow or review/monitor slice, because the Chairman's
+  entire catalogue footprint is reserved-matter sign-off with execution
+  staying with the CEO. 840/1,308 rows classified, 468 remain. Next: CEO
+  (50 rows), the last role in the last department.
