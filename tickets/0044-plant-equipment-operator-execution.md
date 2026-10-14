@@ -50,20 +50,11 @@ Chargehand (0043) — a mandated stop action, not an approval/decision.
 
 ## Progress
 - 2026-10-14: Architect session. Classified all 16 Plant & Equipment
-  Operator rows — eleventh Projects role. Projects: 272/304 rows
-  classified by this ticket's running count, 32 remain. **Discrepancy
-  found:** raw per-role row counts in the source sheet (Skilled Labour
-  14 + Driver 14 + Unskilled Labour 12 = 40) don't match the 32 rows
-  this running count says remain — an 8-row gap. Likely cause: the
-  original pilot tickets (0001-0002) classified a handful of rows now
-  also counted inside one of these three roles' full totals (the same
-  thing ticket 0036 found and resolved for Quantity Surveyor, where 3
-  of its 28 rows were already in the pilot's "11"). Not resolved here;
-  flagged for whoever classifies Skilled Labour/Driver/Unskilled Labour
-  next — use `catalogue_lookup.py` per role and check S.No. against
-  tickets 0001-0002 before assuming all rows are new, so no row gets
-  silently double-counted or skipped. 1,151/1,308 rows classified
-  overall (this figure is unaffected by the gap above, since it only
-  reflects additions actually made ticket-by-ticket), 157 remain.
-  Next: Skilled Labour, Driver and Unskilled Labour (the last 3
-  Projects roles) — check for pilot overlap first.
+  Operator rows — eleventh Projects role. Noticed the running tally in
+  ticket 0007 didn't add up against raw per-role row counts and
+  flagged it as likely pilot-ticket overlap in Skilled Labour/Driver/
+  Unskilled Labour; a later session that day traced it instead to
+  tickets 0038/0039 re-covering rows already in ticket 0001 (see
+  ticket 0007's correction note) — Skilled Labour/Driver/Unskilled
+  Labour have no overlap and can be classified in full. Corrected
+  figures: 1,143/1,308 rows classified overall, 165 remain.

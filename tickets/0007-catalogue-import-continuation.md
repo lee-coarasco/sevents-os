@@ -55,7 +55,7 @@ boundaries, the same way tickets 0001-0006 were built.
 
 | Department | Total rows | Classified | Status |
 |---|---:|---:|---|
-| Projects | 304 | 272 | Partial — material-request slice (0001-0002) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042) + Chargehand (0043) + Plant & Equipment Operator (0044); Skilled/Unskilled Labour and Driver rows untouched — check for pilot-ticket overlap before classifying (see ticket 0044) |
+| Projects | 304 | 264 | Partial — material-request slice (0001-0002, folded into the Site Civil/MEP Engineer and QS totals below, not counted separately — see correction note) + COO (0034) + Project Engineer Lead (0035) + Quantity Surveyor (0036) + QHSE Engineer (0037) + Site Civil Engineer (0038) + Site MEP Engineer (0039) + Civil Supervisor (0040) + MEP Supervisor (0041) + Foreman (0042) + Chargehand (0043) + Plant & Equipment Operator (0044) — 11 of 14 roles now fully classified; Skilled Labour (14), Driver (14), Unskilled Labour (12) untouched, no overlap with the pilot tickets (they're all Site Civil/Site MEP/QS rows) |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
 | Technical Engineering | 196 | 196 | Done — tickets 0008-0015 (all 8 roles) |
 | Finance | 120 | 120 | Done — tickets 0016-0018 (all 3 roles) |
@@ -64,7 +64,7 @@ boundaries, the same way tickets 0001-0006 were built.
 | People & Culture | 98 | 98 | Done — tickets 0025-0029 (all 5 roles) |
 | Research & Development | 120 | 120 | Done — tickets 0030-0031 (both roles) |
 | Company / Leadership | 70 | 70 | Done — tickets 0032-0033 (both roles) |
-| **Total** | **1,308** | **1,151** | **157 rows remain** |
+| **Total** | **1,308** | **1,143** | **165 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -342,3 +342,24 @@ that persona group, not a sign the import stalled.
   counting or silently skipping rows. 1,151/1,308 rows classified
   overall, 157 remain. Next: Skilled Labour, Driver or Unskilled Labour
   — resolve the overlap check first.
+- 2026-10-14 (later session, correction): Traced the 8-row gap flagged
+  above. It is **not** in Skilled Labour/Driver/Unskilled Labour — none
+  of those roles' rows are in tickets 0001-0002. The actual cause:
+  ticket 0038 ("all 28 Site Civil Engineer rows, #327-354") and ticket
+  0039 ("all 28 Site MEP Engineer rows, #355-382") each re-covered rows
+  already classified in ticket 0001 (civil #334/343/348, MEP
+  #360/361/362/371/376 — 3+5=8 rows), and the running tally in this
+  table added the pilot's "11" and tickets 0038/0039's "28 each" as if
+  fully separate, double-counting those 8. The classifications
+  themselves are not wrong or contradictory (both tickets reached the
+  same Configure workflow disposition for the shared rows) — tickets
+  0001, 0038 and 0039 are left as-is, only this table's arithmetic is
+  corrected: Projects classified corrected from 272 to 264 (11 of 14
+  roles now genuinely fully classified, unique rows), overall total
+  corrected from 1,151/157-remain to **1,143/165-remain**. Quantity
+  Surveyor (ticket 0036) did this subtraction correctly at the time
+  (explicitly classified "the remaining 25", not all 28) — Site
+  Civil/MEP Engineer just didn't follow the same care. Confirmed by
+  inspection that Skilled Labour/Driver/Unskilled Labour's row ranges
+  do not appear in tickets 0001-0002, so the next session can classify
+  all 40 of their rows with no overlap risk.
