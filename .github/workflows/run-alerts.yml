@@ -1,0 +1,45 @@
+name: Run alerts
+
+# Sends a Slack alert when one of the workflows below fails, times out or can't
+# start: which job and step failed, and a link to the run. Cancelled runs are
+# not alerted (they were stopped on purpose). Covers what run.sh can't report
+# itself: a job timeout, a failed install step, a failed deploy or app build.
+#
+# List every workflow to watch by its `name:`. A workflow another one calls
+# (workflow_call) is covered by its caller's run, but list it too for the times
+# it's started on its own. Only takes effect once this file is on the default branch.
+on:
+  workflow_run:
+    workflows: ["Autonomous Dev Agent", "Approval Listener"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  alert:
+    if: contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts
+            appyard.env
+          sparse-checkout-cone-mode: false
+      - name: Send the alert
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          [ -f appyard.env ] && set -a && . ./appyard.env && set +a
+          python3 scripts/run_alert.py

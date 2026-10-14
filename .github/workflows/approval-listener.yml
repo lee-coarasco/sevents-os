@@ -1,0 +1,54 @@
+name: Approval Listener
+
+# Triggered by an HTTP request from Slack's Workflow Builder ("Send an HTTP
+# request" step) when someone answers a pending question. See the kit README,
+# "Two-way Slack approvals".
+on:
+  repository_dispatch:
+    types: [slack-approval]
+
+# Commits and pushes (records the answer into DECISIONS.md).
+permissions:
+  contents: write
+
+jobs:
+  record-answer:
+    runs-on: ubuntu-latest
+    env:
+      TZ: ${{ vars.AGENT_TZ || 'UTC' }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.AGENT_MAIN_BRANCH || 'main' }}
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "${{ vars.AGENT_GIT_NAME || 'github-actions[bot]' }}"
+          git config --global user.email "${{ vars.AGENT_GIT_EMAIL || '41898282+github-actions[bot]@users.noreply.github.com' }}"
+
+      - name: Record the Slack answer and clear the approval queue
+        env:
+          SLACK_ANSWER: ${{ github.event.client_payload.answer }}
+          SLACK_QUESTION: ${{ github.event.client_payload.question }}
+        run: python3 scripts/record_approval.py .
+
+      - name: Commit and push
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Record Slack approval answer $(date +'%Y-%m-%d %H:%M %Z')"
+            git push
+          else
+            echo "Nothing to commit."
+          fi
+
+      - name: Confirm back to Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x notify.sh
+          ./notify.sh "✅ Got your answer — the agent will pick it up on its next run."
