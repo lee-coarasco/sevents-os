@@ -57,14 +57,14 @@ boundaries, the same way tickets 0001-0006 were built.
 |---|---:|---:|---|
 | Projects | 304 | 11 (+1 reviewed/excluded: #525) | Partial — only the material-request slice (tickets 0001-0002); QHSE, QS billing/claims, COO, Foreman/Chargehand/labour rows, schedule/progress rows all untouched |
 | Procurement | 160 | 35 | Partial — CPO strategy/governance rows (571-600 minus 582/584), vendor-management-beyond-RFQ rows untouched |
-| Technical Engineering | 196 | 0 | Not started |
+| Technical Engineering | 196 | 55 | Partial — CTO (tickets 0008) and Architect (Lead) (0009) done; Structural Designer, Civil/Electrical/HVAC&Plumbing Draftsman, Civil/MEP Estimator (141 rows, 6 raw labels) untouched |
 | Finance | 120 | 0 | Not started |
 | Legal | 120 | 0 | Not started |
 | Marketing & Sales | 120 | 0 | Not started |
 | People & Culture | 98 | 0 | Not started |
 | Research & Development | 120 | 0 | Not started |
 | Company / Leadership | 70 | 0 | Not started |
-| **Total** | **1,308** | **46** | **1,262 rows remain** |
+| **Total** | **1,308** | **101** | **1,207 rows remain** |
 
 ## A note on "Leadership and paper-based items" (BRD §22, "Leadership,
 paper-based and broad-responsibility items")
@@ -95,3 +95,9 @@ that persona group, not a sign the import stalled.
   ticket for the remaining 1,262 rows across 9 departments. Left `next`,
   priority 2 (behind nothing right now — tickets 0001-0006 are done), for
   whichever session picks up Phase 0 catalogue work next.
+- 2026-10-14 (later session): Classified Technical Engineering's two
+  largest roles — CTO (ticket 0008, 25 rows) and Architect (Lead)
+  (ticket 0009, 30 rows), 55 rows total. 1,207 rows remain. Next: pick up
+  Structural Designer (22 rows) within Technical Engineering, then the
+  remaining 4 draftsman/estimator roles in that department before moving
+  to Finance/Legal/etc.
