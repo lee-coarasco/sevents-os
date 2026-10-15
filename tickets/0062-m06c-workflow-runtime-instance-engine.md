@@ -1,7 +1,7 @@
 ---
 id: 62
 title: "M06c — Workflow Runtime / Instance Engine"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 4
 created: 2026-10-15
@@ -75,19 +75,19 @@ FR-WI-008, FR-WI-009, FR-WI-010, FR-WI-011.
   that is ticket 0063.
 
 ## Acceptance
-- [ ] A workflow instance created from a published version is pinned to
+- [x] A workflow instance created from a published version is pinned to
       that version id for its whole lifecycle (test: publishing a newer
       version after instance creation does not change the running
       instance's `workflow_version_id`).
-- [ ] Each BRD §5.4.3 step type has at least one executor test.
-- [ ] `evaluate_condition` steps use the same deterministic evaluator as
+- [x] Each BRD §5.4.3 step type has at least one executor test.
+- [x] `evaluate_condition` steps use the same deterministic evaluator as
       ticket 0061, not a second implementation.
-- [ ] Pause/resume/cancel each produce a `workflow_events` row and the
+- [x] Pause/resume/cancel each produce a `workflow_events` row and the
       expected instance status.
-- [ ] A `complete` node is unreachable while a required evidence/
+- [x] A `complete` node is unreachable while a required evidence/
       approval step is outstanding, unless an exception is recorded
       (test both the blocked and the authorized-exception path).
-- [ ] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
+- [x] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
 
 ## Progress
 - 2026-10-15: Filed as the third of four M06 sub-tickets. Flagging now:
@@ -99,3 +99,60 @@ FR-WI-008, FR-WI-009, FR-WI-010, FR-WI-011.
   (everything except `create_task`/`request_approval`'s actual queue
   hand-off), leaving a clearly marked seam for M07/M08 to plug into
   later rather than inventing a throwaway task table.
+- 2026-10-15 15:39 UTC: Built per the confirmed scope decision (M07/M08
+  still `next`, not re-litigated). Migration
+  `supabase/migrations/20261015000007_m06c_workflow_runtime.sql` adds
+  `workflow_instances` (workflow_version_id pinned at creation —
+  enforced in code, never updated after insert), `workflow_step_instances`
+  (status pending/active/waiting/completed/skipped/failed,
+  `assigned_to`), and append-only `workflow_events`, plus
+  `workflow.instance.manage`/`workflow.instance.act` permissions
+  (platform_administrator only, same deny-by-default bootstrap as
+  0060/0061). Types added to `types.ts` (WorkflowInstance,
+  WorkflowStepInstance, WorkflowEvent, status enums,
+  HUMAN_HANDOFF_NODE_TYPES). Repository extended (not duplicated) with
+  instance/step-instance/event CRUD in both the Supabase-backed and
+  FakeWorkflowRepository implementations. New `runtime.ts` holds the
+  step-executor helpers: a hard-coded `REGISTERED_SERVICES` allow-list
+  for `call_service` (one trivial `echo` service; an unregistered name
+  throws `UnregisteredServiceError`), `resolveNextNodeIds` (FR-WI-009:
+  fans out to *all* unconditional outgoing transitions vs. picking one
+  by condition) and `predecessorsSatisfied` (FR-WI-009: a node with
+  >1 incoming transition only activates once every predecessor step is
+  completed/skipped). `evaluate_condition` imports the now-exported
+  `evaluateExpression`/`pickNextTransition` from ticket 0061's
+  `simulation.ts` — no second evaluator. `service.ts` adds
+  `startWorkflowInstance`, `completeStepInstance`, `pauseInstance`,
+  `resumeInstance`, `cancelInstance`, `getWorkflowInstance`, a dispatch
+  switch covering every BRD §5.4.3 node type, and the FR-WI-010
+  complete-node gate: `request_upload_evidence`/`request_approval` steps
+  block a `complete` node from being reached (`IncompleteGateError`,
+  `gate_blocked` event) unless an authorized `GateException` (who +
+  reason) is supplied, in which case it's recorded in both `context`
+  and a `gate_exception` event. Writing the tests caught a real bug
+  (step completion was persisted before the gate check, so a blocked
+  attempt burned the step and made retrying with an exception
+  impossible) — fixed by pre-checking the gate (excluding the step
+  being completed) before any mutation. New routes:
+  `POST /workflow/instances` (start), `GET /workflow/instances/:id`,
+  `POST .../pause`, `.../resume`, `.../cancel`,
+  `POST .../steps/:stepId/complete`, folded into the existing
+  `workflowRoutes` registration (no change needed to `app.ts`'s
+  `app.register(workflowRoutes, {...})` call).
+  M07/M08 seam: `create_task`/`assign_role_user`/`request_approval`
+  nodes only ever create a `workflow_step_instances` row with
+  `status='waiting'` and `assigned_to` set, plus a `step_activated`
+  event, then stop — documented on `WorkflowStepInstance.assigned_to`
+  in `types.ts` as "M07 will poll `workflow_step_instances` where
+  `status='waiting'` and `node_type` in
+  (`create_task`, `assign_role_user`, `request_approval`)"; no parallel
+  task/approval table was created. Test coverage:
+  `backend/src/modules/workflow/runtime.test.ts` (25 tests: version
+  pinning, one test per node type, pause/resume/cancel, FR-WI-009
+  fan-out/fan-in, FR-WI-010 blocked + exception paths) and additions to
+  `routes.test.ts` (12 tests total in that file now, covering the new
+  instance routes + a 403 check). `cd backend && npm run build` and
+  `npm test` both pass (155 tests across the whole backend suite).
+  `python3 scripts/tickets.py check` clean. Status set to `testing`.
+  Next: ticket 0063 (migrating running instances to a newer template
+  version).
