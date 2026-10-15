@@ -42,6 +42,8 @@ import type {
   WorkflowVersion,
   WorkflowVersionGraph,
   TaskComment,
+  TaskQueueEntry,
+  TaskQueueFilters,
 } from "../modules/workflow/types.js";
 
 let idCounter = 0;
@@ -82,6 +84,12 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   taskComments: TaskComment[] = [];
   /** fileObjectId -> workflow_step_instance_id, standing in for file_objects.workflow_step_instance_id (that table lives in modules/tenancy, out of scope for this fake). */
   evidenceLinks = new Map<string, string>();
+  /** accessToken -> caller user id, standing in for the Supabase auth.getUser() call listMyWorkQueue resolves against in the real repository. */
+  sessions = new Map<string, string>();
+
+  addSession(accessToken: string, userId: string) {
+    this.sessions.set(accessToken, userId);
+  }
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
     const definition: WorkflowDefinition = {
@@ -535,5 +543,47 @@ export class FakeWorkflowRepository implements WorkflowRepository {
 
   async listMigrationInstanceResults(_accessToken: string, migrationId: string): Promise<WorkflowMigrationInstanceResult[]> {
     return this.migrationResults.filter((r) => r.migration_id === migrationId);
+  }
+
+  private resolveTaskQueue(filters: TaskQueueFilters): TaskQueueEntry[] {
+    let steps = [...this.stepInstancesById.values()];
+    if (filters.assignedTo !== undefined) steps = steps.filter((s) => s.assigned_to === filters.assignedTo);
+    if (filters.statuses && filters.statuses.length > 0) steps = steps.filter((s) => filters.statuses!.includes(s.status));
+    if (filters.dueBefore !== undefined) steps = steps.filter((s) => s.due_at !== null && s.due_at < filters.dueBefore!);
+    if (filters.dueAfter !== undefined) steps = steps.filter((s) => s.due_at !== null && s.due_at >= filters.dueAfter!);
+    if (filters.blockedOnly) steps = steps.filter((s) => s.blocked_reason !== null);
+    if (filters.completedAfter !== undefined)
+      steps = steps.filter((s) => s.completed_at !== null && s.completed_at >= filters.completedAfter!);
+    if (filters.completedBefore !== undefined)
+      steps = steps.filter((s) => s.completed_at !== null && s.completed_at <= filters.completedBefore!);
+
+    const entries: TaskQueueEntry[] = [];
+    for (const step of steps) {
+      const node = this.nodesById.get(step.node_id);
+      if (!node) continue;
+      const instance = this.instancesById.get(step.workflow_instance_id);
+      entries.push({
+        ...step,
+        nodeType: node.node_type,
+        nodeKey: node.node_key,
+        workflowDefinitionId: instance?.workflow_definition_id ?? "",
+      });
+    }
+
+    if (filters.nodeTypes && filters.nodeTypes.length > 0) {
+      const allowed = new Set(filters.nodeTypes);
+      return entries.filter((e) => allowed.has(e.nodeType));
+    }
+    return entries;
+  }
+
+  async listMyWorkQueue(accessToken: string): Promise<TaskQueueEntry[]> {
+    const userId = this.sessions.get(accessToken);
+    if (!userId) throw new Error("no caller context for this access token");
+    return this.resolveTaskQueue({ assignedTo: userId, statuses: ["waiting", "active"] });
+  }
+
+  async listTaskQueue(_accessToken: string, filters: TaskQueueFilters): Promise<TaskQueueEntry[]> {
+    return this.resolveTaskQueue(filters);
   }
 }

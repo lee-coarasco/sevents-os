@@ -23,6 +23,7 @@ import type {
   DefinitionFilters,
   GateException,
   SimulationTestCase,
+  TaskQueueEntry,
   WorkflowCondition,
   WorkflowDefinition,
   WorkflowInstance,
@@ -1125,6 +1126,59 @@ export async function attachTaskEvidence(
     eventType: "evidence_attached",
     payload: { fileObjectId },
   });
+}
+
+// ---------------------------------------------------------------------------
+// My Work / Team Work queue views (ticket 0071, M07b)
+// ---------------------------------------------------------------------------
+
+/** BRD §8.3 FR-TASK-001's open statuses — a task is "in the queues" while waiting on or being actively worked. */
+const OPEN_TASK_STATUSES: WorkflowStepInstance["status"][] = ["waiting", "active"];
+
+/** Default window for Due Soon when the caller doesn't supply one — documented here, not a hard-coded business rule. */
+export const DEFAULT_DUE_SOON_WINDOW_HOURS = 72;
+/** Default lookback for Completed when the caller supplies no range — avoids an unbounded history query by default. */
+export const DEFAULT_COMPLETED_RANGE_DAYS = 30;
+
+export async function myWorkQueue(repository: WorkflowRepository, accessToken: string): Promise<TaskQueueEntry[]> {
+  return repository.listMyWorkQueue(accessToken);
+}
+
+/** "Team" is left undefined by BRD/PRD — this defaults to every open task in the caller's tenant; see DECISIONS.md. */
+export async function teamWorkQueue(repository: WorkflowRepository, accessToken: string): Promise<TaskQueueEntry[]> {
+  return repository.listTaskQueue(accessToken, { statuses: OPEN_TASK_STATUSES });
+}
+
+export async function dueSoonQueue(
+  repository: WorkflowRepository,
+  accessToken: string,
+  windowHours: number = DEFAULT_DUE_SOON_WINDOW_HOURS,
+): Promise<TaskQueueEntry[]> {
+  const now = new Date();
+  const dueBefore = new Date(now.getTime() + windowHours * 60 * 60 * 1000).toISOString();
+  return repository.listTaskQueue(accessToken, { statuses: OPEN_TASK_STATUSES, dueAfter: now.toISOString(), dueBefore });
+}
+
+export async function overdueQueue(repository: WorkflowRepository, accessToken: string): Promise<TaskQueueEntry[]> {
+  return repository.listTaskQueue(accessToken, { statuses: OPEN_TASK_STATUSES, dueBefore: new Date().toISOString() });
+}
+
+export async function blockedQueue(repository: WorkflowRepository, accessToken: string): Promise<TaskQueueEntry[]> {
+  return repository.listTaskQueue(accessToken, { statuses: OPEN_TASK_STATUSES, blockedOnly: true });
+}
+
+export async function waitingApprovalQueue(repository: WorkflowRepository, accessToken: string): Promise<TaskQueueEntry[]> {
+  return repository.listTaskQueue(accessToken, { statuses: OPEN_TASK_STATUSES, nodeTypes: ["request_approval"] });
+}
+
+export async function completedQueue(
+  repository: WorkflowRepository,
+  accessToken: string,
+  range: { from?: string; to?: string } = {},
+): Promise<TaskQueueEntry[]> {
+  const to = range.to ?? new Date().toISOString();
+  const from = range.from ?? new Date(Date.parse(to) - DEFAULT_COMPLETED_RANGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return repository.listTaskQueue(accessToken, { statuses: ["completed"], completedAfter: from, completedBefore: to });
 }
 
 // ---------------------------------------------------------------------------

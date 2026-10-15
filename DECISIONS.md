@@ -220,3 +220,25 @@ approved (agent-autonomous or you).
   status semantics.
 - Approved by: agent (ticket classification/ordering and DB schema
   details are both explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-15 20:37 UTC - M07b "Team Work" defaults to tenant-wide, not department/reporting-line scoped
+- Decision: Ticket 0071's Team Work queue (and the other five
+  permission-gated views — Due Soon/Overdue/Blocked/Waiting Approval/
+  Completed) show every open/completed task in the caller's tenant,
+  gated on a new `workflow.task.view_team` permission, not a
+  department- or reporting-line-scoped subset. Ticket 0071 itself
+  specified this default explicitly rather than leaving it to the
+  architect to invent.
+- Why: BRD §8.3/PRD don't define what "team" means (department? direct
+  reports? project?), and inventing an authority-limit-shaped answer
+  would violate the standing rule that AI agents must not invent
+  approval/authority scoping. Tenant-wide is the one boundary that's
+  already unambiguous (every table in this module is tenant-scoped by
+  RLS) and the cheapest to narrow later — a department-scoped filter
+  is an additive query param on the existing `listTaskQueue` read path,
+  not a schema or permission change, once a future PRD session defines
+  "team" for real.
+- Approved by: agent (ticket 0071 — internal API design/DB-adjacent
+  scoping detail, explicitly agent-decidable per CLAUDE.md; recorded
+  here per the ticket's own instruction to document the default
+  explicitly rather than let it pass silently).

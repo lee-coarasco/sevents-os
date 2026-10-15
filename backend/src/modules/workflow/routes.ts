@@ -31,13 +31,16 @@ import {
   addTaskComment,
   approveMigration,
   attachTaskEvidence,
+  blockedQueue,
   cancelInstance,
   cancelMigration,
   clearTaskBlocked,
+  completedQueue,
   completeStepInstance,
   createDraftVersion,
   createMigration,
   createWorkflowDefinition,
+  dueSoonQueue,
   executeMigration,
   getVersionGraph,
   getWorkflowDefinition,
@@ -46,6 +49,8 @@ import {
   listMigrationInstanceResults,
   listVersions,
   listWorkflowDefinitions,
+  myWorkQueue,
+  overdueQueue,
   pauseInstance,
   previewMigration,
   publishVersion,
@@ -56,7 +61,9 @@ import {
   simulateVersion,
   startWorkflowInstance,
   submitForApproval,
+  teamWorkQueue,
   validateVersion,
+  waitingApprovalQueue,
 } from "./service.js";
 import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions } from "./service.js";
 import type { ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
@@ -535,6 +542,110 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
         await attachTaskEvidence(options.getRepository(), token, request.params.stepId, fileObjectId);
         reply.code(201);
         return { ok: true };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // My Work / Team Work queue views (ticket 0071, M07b)
+  // ---------------------------------------------------------------------
+
+  // Self-service only — no permission required, same "is this your own
+  // row" exemption used for GET /employees/me.
+  app.get("/tasks/my-work", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    try {
+      const items = await myWorkQueue(options.getRepository(), token);
+      return { items };
+    } catch (error) {
+      return handleServiceError(error, reply);
+    }
+  });
+
+  app.get(
+    "/tasks/team-work",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await teamWorkQueue(options.getRepository(), token);
+        return { items };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Querystring: { hours?: string } }>(
+    "/tasks/due-soon",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const hours = request.query.hours !== undefined ? Number(request.query.hours) : undefined;
+      try {
+        const items = await dueSoonQueue(options.getRepository(), token, hours);
+        return { items };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get(
+    "/tasks/overdue",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await overdueQueue(options.getRepository(), token);
+        return { items };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get(
+    "/tasks/blocked",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await blockedQueue(options.getRepository(), token);
+        return { items };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get(
+    "/tasks/waiting-approval",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await waitingApprovalQueue(options.getRepository(), token);
+        return { items };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Querystring: { from?: string; to?: string } }>(
+    "/tasks/completed",
+    { preHandler: options.requirePermission("workflow.task.view_team") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await completedQueue(options.getRepository(), token, {
+          from: request.query.from,
+          to: request.query.to,
+        });
+        return { items };
       } catch (error) {
         return handleServiceError(error, reply);
       }

@@ -21,6 +21,8 @@ import type {
   StepInstanceStatus,
   TaskComment,
   TaskPriority,
+  TaskQueueEntry,
+  TaskQueueFilters,
   ValidationFinding,
   ValidationResult,
   VersionStatus,
@@ -265,6 +267,24 @@ export interface WorkflowRepository {
   /** Reuses ticket 0055's file_objects — sets its workflow_step_instance_id FK, no second attachment table. */
   attachEvidence(accessToken: string, fileObjectId: string, workflowStepInstanceId: string): Promise<void>;
 
+  /**
+   * Ticket 0071 (M07b): self-service My Work — resolves the caller's
+   * own id from the access token itself (same construction as
+   * modules/workforce's getOwnEmployeeRecord), not a passed-in id, so
+   * the route needs no permission beyond a valid session.
+   */
+  listMyWorkQueue(accessToken: string): Promise<TaskQueueEntry[]>;
+  /**
+   * The other six BRD queue views (Team Work/Due Soon/Overdue/Blocked/
+   * Waiting Approval/Completed) — different filter combinations over
+   * the same read path, gated on workflow.task.view_team. Joined
+   * against workflow_nodes for node_type/node_key and
+   * workflow_instances for workflow_definition_id (tenant isolation
+   * itself needs no join — workflow_step_instances already carries its
+   * own NOT NULL tenant_id).
+   */
+  listTaskQueue(accessToken: string, filters: TaskQueueFilters): Promise<TaskQueueEntry[]>;
+
   insertEvent(accessToken: string, input: InsertEventInput): Promise<WorkflowEvent>;
   listEvents(accessToken: string, instanceId: string): Promise<WorkflowEvent[]>;
 
@@ -286,6 +306,66 @@ export interface WorkflowRepository {
     input: InsertMigrationInstanceResultInput,
   ): Promise<WorkflowMigrationInstanceResult>;
   listMigrationInstanceResults(accessToken: string, migrationId: string): Promise<WorkflowMigrationInstanceResult[]>;
+}
+
+const OPEN_STEP_STATUSES: StepInstanceStatus[] = ["waiting", "active"];
+
+/**
+ * Shared by listMyWorkQueue and listTaskQueue: fetches step instances
+ * matching the status/assignee/due/blocked/completed filters, then
+ * joins against workflow_nodes (node_type/node_key) and
+ * workflow_instances (workflow_definition_id) in application code —
+ * same fan-out-then-merge style as getVersionGraph's parallel queries,
+ * since Supabase's JS client has no first-class multi-table join here.
+ * nodeTypes filtering happens last because node_type isn't a column on
+ * workflow_step_instances itself.
+ */
+async function fetchTaskQueue(client: SupabaseClient, filters: TaskQueueFilters): Promise<TaskQueueEntry[]> {
+  let query = client.from("workflow_step_instances").select("*");
+  if (filters.assignedTo !== undefined) query = query.eq("assigned_to", filters.assignedTo);
+  if (filters.statuses && filters.statuses.length > 0) query = query.in("status", filters.statuses);
+  if (filters.dueBefore !== undefined) query = query.lt("due_at", filters.dueBefore);
+  if (filters.dueAfter !== undefined) query = query.gte("due_at", filters.dueAfter);
+  if (filters.blockedOnly) query = query.not("blocked_reason", "is", null);
+  if (filters.completedAfter !== undefined) query = query.gte("completed_at", filters.completedAfter);
+  if (filters.completedBefore !== undefined) query = query.lte("completed_at", filters.completedBefore);
+
+  const { data: steps, error } = await query;
+  if (error) throw new Error(`fetchTaskQueue: ${error.message}`);
+  const stepRows = (steps as WorkflowStepInstance[]) ?? [];
+  if (stepRows.length === 0) return [];
+
+  const nodeIds = [...new Set(stepRows.map((s) => s.node_id))];
+  const instanceIds = [...new Set(stepRows.map((s) => s.workflow_instance_id))];
+  const [{ data: nodes, error: nodesError }, { data: instances, error: instancesError }] = await Promise.all([
+    client.from("workflow_nodes").select("id, node_type, node_key").in("id", nodeIds),
+    client.from("workflow_instances").select("id, workflow_definition_id").in("id", instanceIds),
+  ]);
+  if (nodesError) throw new Error(`fetchTaskQueue (nodes): ${nodesError.message}`);
+  if (instancesError) throw new Error(`fetchTaskQueue (instances): ${instancesError.message}`);
+
+  const nodeById = new Map(((nodes ?? []) as { id: string; node_type: NodeType; node_key: string }[]).map((n) => [n.id, n]));
+  const definitionIdByInstanceId = new Map(
+    ((instances ?? []) as { id: string; workflow_definition_id: string }[]).map((i) => [i.id, i.workflow_definition_id]),
+  );
+
+  const entries: TaskQueueEntry[] = [];
+  for (const step of stepRows) {
+    const node = nodeById.get(step.node_id);
+    if (!node) continue;
+    entries.push({
+      ...step,
+      nodeType: node.node_type,
+      nodeKey: node.node_key,
+      workflowDefinitionId: definitionIdByInstanceId.get(step.workflow_instance_id) ?? "",
+    });
+  }
+
+  if (filters.nodeTypes && filters.nodeTypes.length > 0) {
+    const allowed = new Set(filters.nodeTypes);
+    return entries.filter((e) => allowed.has(e.nodeType));
+  }
+  return entries;
 }
 
 /**
@@ -712,6 +792,18 @@ export function createSupabaseWorkflowRepository(
         .update({ workflow_step_instance_id: workflowStepInstanceId })
         .eq("id", fileObjectId);
       if (error) throw new Error(`attachEvidence: ${error.message}`);
+    },
+
+    async listMyWorkQueue(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data: authData, error: authError } = await client.auth.getUser();
+      if (authError || !authData?.user) throw new Error(`listMyWorkQueue: ${authError?.message ?? "no authenticated user"}`);
+      return fetchTaskQueue(client, { assignedTo: authData.user.id, statuses: OPEN_STEP_STATUSES });
+    },
+
+    async listTaskQueue(accessToken, filters) {
+      const client = userScopedClientFactory(accessToken);
+      return fetchTaskQueue(client, filters);
     },
 
     async insertEvent(accessToken, input) {

@@ -23,6 +23,7 @@ function appWithFakeRepos() {
   authorityRepo.grantPermission("role.platform_administrator", "workflow.definition.publish");
   authorityRepo.grantPermission("role.platform_administrator", "workflow.instance.manage");
   authorityRepo.grantPermission("role.platform_administrator", "workflow.instance.act");
+  authorityRepo.grantPermission("role.platform_administrator", "workflow.task.view_team");
 
   const workflowRepo = new FakeWorkflowRepository();
   const app = buildApp({
@@ -529,5 +530,70 @@ describe("workflow migration routes (ticket 0063, M06d)", () => {
 
     const noTokenResponse = await app.inject({ method: "POST", url: "/workflow/migrations", payload: { fromVersionId: v1Id, toVersionId: v2Id } });
     expect(noTokenResponse.statusCode).toBe(401);
+  });
+});
+
+describe("My Work / Team Work queue routes (ticket 0071, M07b)", () => {
+  const TEAM_ROUTES = ["/tasks/team-work", "/tasks/due-soon", "/tasks/overdue", "/tasks/blocked", "/tasks/waiting-approval", "/tasks/completed"];
+
+  it("GET /tasks/my-work 200s for any valid session, no permission required", async () => {
+    const { app, authorityRepo, workflowRepo } = appWithFakeRepos();
+    authorityRepo.addSession("plain-token", "plain-user", TENANT_ID);
+    workflowRepo.addSession("plain-token", "plain-user");
+
+    const response = await app.inject({ method: "GET", url: "/tasks/my-work", headers: { authorization: "Bearer plain-token" } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items).toEqual([]);
+  });
+
+  it("GET /tasks/my-work 401s without a bearer token", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({ method: "GET", url: "/tasks/my-work" });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it.each(TEAM_ROUTES)("GET %s 403s without workflow.task.view_team", async (route) => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("plain-token", "plain-user", TENANT_ID);
+
+    const response = await app.inject({ method: "GET", url: route, headers: { authorization: "Bearer plain-token" } });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it.each(TEAM_ROUTES)("GET %s 200s for a caller with workflow.task.view_team", async (route) => {
+    const { app } = appWithFakeRepos();
+
+    const response = await app.inject({ method: "GET", url: route, headers: { authorization: `Bearer ${TOKEN}` } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items).toEqual([]);
+  });
+
+  it.each(TEAM_ROUTES)("GET %s 401s without a bearer token", async (route) => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({ method: "GET", url: route });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("GET /tasks/due-soon accepts an hours query param", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "GET",
+      url: "/tasks/due-soon?hours=12",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("GET /tasks/completed accepts from/to query params", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "GET",
+      url: "/tasks/completed?from=2026-01-01T00:00:00.000Z&to=2026-12-31T00:00:00.000Z",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(response.statusCode).toBe(200);
   });
 });

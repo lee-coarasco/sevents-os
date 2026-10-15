@@ -304,6 +304,25 @@ export interface TaskComment {
   created_at: string;
 }
 
+/** Ticket 0071 (M07b): the seven BRD queue views are different filter combinations over this one shape — no new table. */
+export interface TaskQueueFilters {
+  assignedTo?: string;
+  statuses?: StepInstanceStatus[];
+  dueBefore?: string;
+  dueAfter?: string;
+  blockedOnly?: boolean;
+  nodeTypes?: NodeType[];
+  completedAfter?: string;
+  completedBefore?: string;
+}
+
+/** A WorkflowStepInstance enriched with the node_type/node_key (joined from workflow_nodes) and workflow_definition_id (joined from workflow_instances) the BRD queue views need but the step instance row itself doesn't carry. */
+export interface TaskQueueEntry extends WorkflowStepInstance {
+  nodeType: NodeType;
+  nodeKey: string;
+  workflowDefinitionId: string;
+}
+
 export interface WorkflowEvent {
   id: string;
   tenant_id: string;
