@@ -194,3 +194,29 @@ approved (agent-autonomous or you).
   table in this project already uses.
 - Approved by: agent (ticket classification/ordering and DB schema
   details are both explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-15 21:05 UTC - M07 split into three sequential sub-tickets; reuses workflow_step_instances as the task record
+- Decision: Ticket 0065 (M07 — Tasks, My Work & Work Queues) is closed
+  with no code of its own and split into tickets 0070 (M07a — task
+  metadata: owner/reviewer/due date/priority/blocked-reason columns on
+  `workflow_step_instances`, plus a new `task_comments` table and a
+  nullable evidence FK on `file_objects`), 0071 (M07b — the seven
+  BRD-named queue views: My Work/Team Work/Due Soon/Overdue/Blocked/
+  Waiting Approval/Completed, read-only queries/routes) and 0072 (M07c
+  — reassignment/delegation, audited). Each depends on the one before
+  it. None of the three create a second task table — all build on
+  `workflow_step_instances`, the table ticket 0062 (M06c) already
+  documented as the hand-off seam for this module.
+- Why: BRD §8.3 is only five requirements (FR-TASK-001 through 005) but
+  touches a lot of surface (seven distinct queue views, a new blocking/
+  comment/evidence mechanism, reassignment audit) — same "too large for
+  one ticket" shape ticket 0059 (M06) hit, same fix (split along natural
+  seams: schema first, then the read-only views that depend on that
+  schema, then the mutation/audit actions). Confirmed via ticket 0062's
+  Progress note and `WorkflowStepInstance.assigned_to`'s doc comment
+  that the task record already exists (a `workflow_step_instances` row
+  with `status='waiting'` and a human-handoff `node_type`) — building a
+  parallel `tasks` table would duplicate that and fork the two systems'
+  status semantics.
+- Approved by: agent (ticket classification/ordering and DB schema
+  details are both explicitly agent-decidable per CLAUDE.md).

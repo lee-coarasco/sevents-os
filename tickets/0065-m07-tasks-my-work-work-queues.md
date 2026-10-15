@@ -1,7 +1,7 @@
 ---
 id: 65
 title: "M07 — Tasks, My Work & Work Queues"
-status: next
+status: done
 roles: [architect, backend-engineer]
 priority: 7
 created: 2026-10-15
@@ -38,3 +38,22 @@ comments/evidence attachment + blocked/escalation state) — re-read BRD
   first). Not yet scoped in detail — the architect picking this up
   should re-read BRD §8.3 and ticket 0062's M07/M08 hand-off notes
   before splitting into sub-tickets.
+- 2026-10-15 21:05 UTC: Architect session. Re-read BRD §8.3 in full
+  (FR-TASK-001 through 005 is the entire section for this module — the
+  FR-APP-* items right after it belong to M08) and ticket 0062's
+  Progress note for the exact M07/M08 hand-off contract
+  (`workflow_step_instances` rows with `status='waiting'` and
+  `node_type` in `create_task`/`assign_role_user`/`request_approval`,
+  `assigned_to` already set — confirmed `workflow_step_instances` is
+  the task record, no second table). Closed this ticket with no code
+  and split into three sub-tickets, same precedent as ticket 0059 (M06)
+  splitting into 0060-0063: ticket 0070 (M07a — task metadata columns/
+  blocking/comments/evidence, additive to `workflow_step_instances` +
+  new `task_comments` + a nullable FK on `file_objects`), ticket 0071
+  (M07b — the seven BRD-named queue views as read-only queries/routes),
+  ticket 0072 (M07c — reassignment/delegation, audited). Each depends
+  on the one before it. See DECISIONS.md for the split rationale. The
+  task-delegation scope call (delegation as a reassignment variant, not
+  a second temporal entity like authority's `delegations`) is recorded
+  directly in ticket 0072 and gets its own DECISIONS.md entry when that
+  ticket is actually built, not here.
