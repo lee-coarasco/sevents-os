@@ -41,7 +41,9 @@ Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — imported an
 | **Frontend** | TBD — architect proposes in Phase 1 ticket | React-based preferred but not locked |
 | **Hosting** | TBD — architect proposes | Vercel / Railway / Fly.io all acceptable |
 
-Supabase project credentials will be provided as GitHub Actions secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`) — do not hard-code them. Use `SUPABASE_SERVICE_ROLE_KEY` only in backend/server contexts, never in client-side code.
+**Supabase project is provisioned and ready.** Credentials are already set as GitHub Actions secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. Do not hard-code them. Use `SUPABASE_SERVICE_ROLE_KEY` only in backend/server contexts, never in client-side code.
+
+Use the Supabase CLI (`supabase`) for all schema work: write migration files under `supabase/migrations/`, apply with `supabase db push`. Initialize the Supabase project config (`supabase init`) if not already present. RLS must be enabled on every table — no table is accessible without a policy.
 
 **What is decided:** Supabase for DB + Auth + Storage + Realtime. Node.js + TypeScript for the backend. These are not up for debate.
 
