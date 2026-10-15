@@ -5,9 +5,16 @@ import {
   DefinitionNotApprovedError,
   DefinitionNotDraftError,
   DefinitionNotUnderReviewError,
+  IncompleteGateError,
+  InstanceNotFoundError,
+  InstanceNotPausedError,
+  InstanceNotRunningError,
   InvalidNodeTypeError,
   NoStartNodeError,
   RollbackTargetNotPublishedError,
+  StepInstanceNotActionableError,
+  StepInstanceNotFoundError,
+  UnregisteredServiceError,
   VersionNotDraftError,
   VersionNotFoundError,
   VersionNotValidatedError,
@@ -15,20 +22,26 @@ import {
   addConditionToVersion,
   addNodeToVersion,
   addTransitionToVersion,
+  cancelInstance,
+  completeStepInstance,
   createDraftVersion,
   createWorkflowDefinition,
   getVersionGraph,
   getWorkflowDefinition,
+  getWorkflowInstance,
   listVersions,
   listWorkflowDefinitions,
+  pauseInstance,
   publishVersion,
   recordApproval,
+  resumeInstance,
   rollbackToVersion,
   simulateVersion,
+  startWorkflowInstance,
   submitForApproval,
   validateVersion,
 } from "./service.js";
-import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput } from "./service.js";
+import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions } from "./service.js";
 import type { ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
 
 export interface WorkflowRouteOptions {
@@ -51,6 +64,10 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     reply.code(404);
     return { error: error.message };
   }
+  if (error instanceof InstanceNotFoundError || error instanceof StepInstanceNotFoundError) {
+    reply.code(404);
+    return { error: error.message };
+  }
   if (
     error instanceof InvalidNodeTypeError ||
     error instanceof VersionNotDraftError ||
@@ -59,7 +76,12 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof DefinitionNotApprovedError ||
     error instanceof RollbackTargetNotPublishedError ||
     error instanceof VersionNotValidatedError ||
-    error instanceof NoStartNodeError
+    error instanceof NoStartNodeError ||
+    error instanceof InstanceNotRunningError ||
+    error instanceof InstanceNotPausedError ||
+    error instanceof StepInstanceNotActionableError ||
+    error instanceof IncompleteGateError ||
+    error instanceof UnregisteredServiceError
   ) {
     reply.code(400);
     return { error: error.message };
@@ -318,6 +340,101 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
           callerUserId,
         );
         return { run };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Runtime / instance engine (ticket 0062, M06c)
+  // ---------------------------------------------------------------------
+
+  app.post<{ Body: { definitionId: string; context?: Record<string, unknown> } }>(
+    "/workflow/instances",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const result = await startWorkflowInstance(
+          options.getRepository(),
+          token,
+          request.body.definitionId,
+          callerUserId,
+          request.body.context ?? {},
+        );
+        return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/workflow/instances/:id",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const result = await getWorkflowInstance(options.getRepository(), token, request.params.id);
+        return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/instances/:id/pause",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const instance = await pauseInstance(options.getRepository(), token, request.params.id);
+        return { instance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/instances/:id/resume",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const instance = await resumeInstance(options.getRepository(), token, request.params.id);
+        return { instance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { reason?: string | null } }>(
+    "/workflow/instances/:id/cancel",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const instance = await cancelInstance(options.getRepository(), token, request.params.id, request.body?.reason ?? null);
+        return { instance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string; stepId: string }; Body: CompleteStepInstanceOptions }>(
+    "/workflow/instances/:id/steps/:stepId/complete",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const result = await completeStepInstance(options.getRepository(), token, request.params.stepId, request.body ?? {});
+        return result;
       } catch (error) {
         return handleServiceError(error, reply);
       }

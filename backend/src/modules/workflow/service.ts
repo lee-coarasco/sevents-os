@@ -4,18 +4,32 @@ import type {
   AddTransitionInput,
   WorkflowRepository,
 } from "./repository.js";
-import { simulateGraph } from "./simulation.js";
+import {
+  IncompleteGateError,
+  UnregisteredServiceError,
+  callRegisteredService,
+  indexGraph,
+  initialStepStatusFor,
+  isGatedNodeType,
+  predecessorsSatisfied,
+  resolveNextNodeIds,
+} from "./runtime.js";
+import { pickNextTransition, simulateGraph } from "./simulation.js";
 import { NODE_TYPES } from "./types.js";
 import type {
   ConfigurationSimulationRun,
   ConfigurationValidationRun,
   DefinitionFilters,
+  GateException,
   SimulationTestCase,
   WorkflowCondition,
   WorkflowDefinition,
+  WorkflowInstance,
   WorkflowNode,
+  WorkflowStepInstance,
   WorkflowTransition,
   WorkflowVersion,
+  WorkflowVersionGraph,
 } from "./types.js";
 import { findStartNodeIds, validateGraph } from "./validation.js";
 
@@ -29,6 +43,12 @@ export class DefinitionNotApprovedError extends Error {}
 export class RollbackTargetNotPublishedError extends Error {}
 export class VersionNotValidatedError extends Error {}
 export class NoStartNodeError extends Error {}
+export class InstanceNotFoundError extends Error {}
+export class StepInstanceNotFoundError extends Error {}
+export class InstanceNotRunningError extends Error {}
+export class InstanceNotPausedError extends Error {}
+export class StepInstanceNotActionableError extends Error {}
+export { IncompleteGateError, UnregisteredServiceError };
 
 export interface CreateWorkflowDefinitionInput {
   key: string;
@@ -457,4 +477,482 @@ export async function simulateVersion(
   if (!startNodeId) throw new NoStartNodeError(`version ${versionId} has no unambiguous start node to simulate from`);
   const result = simulateGraph(graph, startNodeId, testCases);
   return repository.insertSimulationRun(accessToken, { versionId, runBy, testCases, result });
+}
+
+// ---------------------------------------------------------------------------
+// Runtime / instance engine (ticket 0062, M06c)
+// ---------------------------------------------------------------------------
+
+async function requireInstance(repository: WorkflowRepository, accessToken: string, id: string): Promise<WorkflowInstance> {
+  const instance = await repository.getInstance(accessToken, id);
+  if (!instance) throw new InstanceNotFoundError(`workflow instance ${id} not found`);
+  return instance;
+}
+
+async function requireStepInstance(repository: WorkflowRepository, accessToken: string, id: string): Promise<WorkflowStepInstance> {
+  const step = await repository.getStepInstance(accessToken, id);
+  if (!step) throw new StepInstanceNotFoundError(`workflow step instance ${id} not found`);
+  return step;
+}
+
+/**
+ * Creates (or re-fetches, if one already exists for this node on this
+ * instance) a step instance for `node`, records a step_activated
+ * event, and — for node types the executor can resolve synchronously
+ * in this same pass (everything except create_task/assign_role_user/
+ * request_approval, the M07/M08 seam) — runs its handler immediately
+ * and recurses into its successors. Returns every step instance
+ * touched so the caller can report the whole batch.
+ */
+async function activateNode(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+  graph: WorkflowVersionGraph,
+  indexed: ReturnType<typeof indexGraph>,
+  node: WorkflowNode,
+  touched: WorkflowStepInstance[],
+): Promise<void> {
+  const initialStatus = initialStepStatusFor(node.node_type);
+  const step = await repository.createStepInstance(accessToken, {
+    instanceId: instance.id,
+    nodeId: node.id,
+    status: initialStatus,
+    assignedTo: resolveAssignee(node),
+  });
+  touched.push(step);
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: step.id,
+    eventType: "step_activated",
+    payload: { nodeKey: node.node_key, nodeType: node.node_type, status: initialStatus },
+  });
+
+  if (initialStatus === "waiting") {
+    // M07 (Tasks, My Work & Work Queues) will poll
+    // workflow_step_instances where status = 'waiting' and node_type
+    // in ('create_task', 'assign_role_user', 'request_approval') —
+    // joined against workflow_nodes for node_type — to build its work
+    // queues; M08 (Approvals & Delegation) will act on the
+    // request_approval subset the same way. Nothing further happens
+    // here until completeStepInstance is called from that side.
+    return;
+  }
+
+  await resolveAndAdvance(repository, accessToken, instance, graph, indexed, node, step, touched);
+}
+
+function resolveAssignee(node: WorkflowNode): string | null {
+  const roleId = typeof node.config.roleId === "string" ? node.config.roleId : null;
+  const userId = typeof node.config.userId === "string" ? node.config.userId : null;
+  return userId ?? roleId ?? null;
+}
+
+/**
+ * Runs the handler for a non-waiting node type, writes its output onto
+ * the step instance, completes it, and fans out into successor nodes
+ * per FR-WI-009 semantics (resolveNextNodeIds / predecessorsSatisfied).
+ * This is the dispatch map ticket 0062 asked for: one branch per BRD
+ * §5.4.3 node type, not thirteen near-duplicate functions.
+ */
+async function resolveAndAdvance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+  graph: WorkflowVersionGraph,
+  indexed: ReturnType<typeof indexGraph>,
+  node: WorkflowNode,
+  step: WorkflowStepInstance,
+  touched: WorkflowStepInstance[],
+): Promise<void> {
+  let output: Record<string, unknown> = {};
+  let contextPatch: Record<string, unknown> = {};
+  let terminal: "completed" | "cancelled" | null = null;
+
+  switch (node.node_type) {
+    case "evaluate_condition": {
+      const outgoing = indexed.outgoingByNode.get(node.id) ?? [];
+      // evaluate_condition always picks exactly one branch by its
+      // condition, same single-pick evaluator ticket 0061 validated
+      // with — never the fan-out path, regardless of how many
+      // outgoing transitions exist.
+      const picked = pickNextTransition(outgoing, indexed.conditionsById, instance.context);
+      output = { pickedToNodeId: picked?.to_node_id ?? null };
+      break;
+    }
+    case "call_service": {
+      const serviceName = typeof node.config.service === "string" ? node.config.service : "";
+      const serviceConfig = (node.config.config as Record<string, unknown> | undefined) ?? {};
+      const result = await callRegisteredService(serviceName, serviceConfig, instance.context);
+      output = { service: serviceName, result };
+      contextPatch = result;
+      await repository.insertEvent(accessToken, {
+        instanceId: instance.id,
+        stepInstanceId: step.id,
+        eventType: "service_called",
+        payload: { service: serviceName, result },
+      });
+      break;
+    }
+    case "send_notification": {
+      output = { notified: true, config: node.config };
+      await repository.insertEvent(accessToken, {
+        instanceId: instance.id,
+        stepInstanceId: step.id,
+        eventType: "notification_sent",
+        payload: { nodeKey: node.node_key, config: node.config },
+      });
+      break;
+    }
+    case "wait_event_time": {
+      // No named event/timer infrastructure exists yet in this ticket's
+      // scope; treat as immediately satisfied so the graph can still be
+      // exercised end to end. A future ticket wiring real timers/events
+      // would flip this node type into WAITING_NODE_TYPES instead.
+      output = { waited: true };
+      break;
+    }
+    case "collect_form_data": {
+      output = { formSchema: node.config };
+      break;
+    }
+    case "request_upload_evidence": {
+      // Evidence collection also hands off to a human in practice, but
+      // ticket scope only requires the gate (FR-WI-010) to observe this
+      // node type's completion state — model it the same as the other
+      // gated node types by leaving it waiting rather than auto-resolving.
+      await repository.updateStepInstance(accessToken, step.id, { status: "waiting" });
+      step.status = "waiting";
+      return;
+    }
+    case "create_linked_followup": {
+      output = { followup: node.config };
+      break;
+    }
+    case "escalate": {
+      output = { escalated: true };
+      await repository.insertEvent(accessToken, {
+        instanceId: instance.id,
+        stepInstanceId: step.id,
+        eventType: "escalated",
+        payload: { nodeKey: node.node_key },
+      });
+      break;
+    }
+    case "complete": {
+      await enforceCompleteGate(repository, accessToken, instance);
+      terminal = "completed";
+      break;
+    }
+    case "cancel": {
+      terminal = "cancelled";
+      break;
+    }
+    default:
+      output = {};
+  }
+
+  const completedAt = new Date().toISOString();
+  const mergedContext = { ...instance.context, ...contextPatch };
+  instance.context = mergedContext;
+  await repository.updateStepInstance(accessToken, step.id, { status: "completed", completedAt, output });
+  step.status = "completed";
+  step.completed_at = completedAt;
+  step.output = output;
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: step.id,
+    eventType: "step_completed",
+    payload: { nodeKey: node.node_key, nodeType: node.node_type, output },
+  });
+
+  if (Object.keys(contextPatch).length > 0) {
+    await repository.updateInstance(accessToken, instance.id, { context: mergedContext });
+  }
+
+  if (terminal) {
+    const endedAt = new Date().toISOString();
+    await repository.updateInstance(accessToken, instance.id, { status: terminal, endedAt });
+    instance.status = terminal;
+    instance.ended_at = endedAt;
+    await repository.insertEvent(accessToken, {
+      instanceId: instance.id,
+      stepInstanceId: step.id,
+      eventType: terminal === "completed" ? "completed" : "cancelled",
+      payload: { nodeKey: node.node_key },
+    });
+    return;
+  }
+
+  const outgoing = indexed.outgoingByNode.get(node.id) ?? [];
+  const nextNodeIds =
+    node.node_type === "evaluate_condition"
+      ? [(output as { pickedToNodeId: string | null }).pickedToNodeId].filter((id): id is string => Boolean(id))
+      : resolveNextNodeIds(outgoing, indexed.conditionsById, instance.context);
+
+  for (const nextNodeId of nextNodeIds) {
+    const nextNode = indexed.nodesById.get(nextNodeId);
+    if (!nextNode) continue;
+    const existingSteps = await repository.listStepInstances(accessToken, instance.id);
+    const stepInstancesByNodeId = groupByNodeId(existingSteps);
+    if (!predecessorsSatisfied(nextNodeId, indexed.incomingByNode, stepInstancesByNodeId)) {
+      // Another branch feeding this node hasn't completed yet (FR-WI-009
+      // "wait for all predecessors"); this fan-in node will be activated
+      // once the last predecessor's call reaches here and finds every
+      // incoming branch satisfied.
+      continue;
+    }
+    if (stepInstancesByNodeId.has(nextNodeId)) {
+      // Already activated by a previous predecessor in this same
+      // fan-in; don't create a duplicate step instance.
+      continue;
+    }
+    await activateNode(repository, accessToken, instance, graph, indexed, nextNode, touched);
+  }
+}
+
+function groupByNodeId(steps: WorkflowStepInstance[]): Map<string, WorkflowStepInstance[]> {
+  const map = new Map<string, WorkflowStepInstance[]>();
+  for (const step of steps) {
+    const list = map.get(step.node_id) ?? [];
+    list.push(step);
+    map.set(step.node_id, list);
+  }
+  return map;
+}
+
+/**
+ * FR-WI-010: a `complete` node must not be reached while any
+ * request_upload_evidence/request_approval step instance on this
+ * instance is outstanding (not completed/skipped), unless an
+ * authorized exception is recorded via the `exception` param on
+ * completeStepInstance — see enforceCompleteGate's caller chain.
+ */
+async function enforceCompleteGate(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+  exception?: GateException,
+): Promise<void> {
+  const steps = await repository.listStepInstances(accessToken, instance.id);
+  const nodeTypeByStepNodeId = new Map<string, string>();
+  const graph = await repository.getVersionGraph(accessToken, instance.workflow_version_id);
+  for (const node of graph.nodes) nodeTypeByStepNodeId.set(node.id, node.node_type);
+
+  const outstanding = steps.filter((s) => {
+    const nodeType = nodeTypeByStepNodeId.get(s.node_id);
+    return nodeType && isGatedNodeType(nodeType) && s.status !== "completed" && s.status !== "skipped";
+  });
+
+  if (outstanding.length === 0) return;
+
+  if (!exception) {
+    await repository.insertEvent(accessToken, {
+      instanceId: instance.id,
+      stepInstanceId: null,
+      eventType: "gate_blocked",
+      payload: { outstandingStepIds: outstanding.map((s) => s.id) },
+    });
+    throw new IncompleteGateError(
+      `cannot reach a complete node: ${outstanding.length} required evidence/approval step(s) are not completed`,
+    );
+  }
+
+  const mergedContext = {
+    ...instance.context,
+    gateExceptions: [
+      ...((instance.context.gateExceptions as unknown[] | undefined) ?? []),
+      { authorizedBy: exception.authorizedBy, reason: exception.reason, outstandingStepIds: outstanding.map((s) => s.id) },
+    ],
+  };
+  instance.context = mergedContext;
+  await repository.updateInstance(accessToken, instance.id, { context: mergedContext });
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: null,
+    eventType: "gate_exception",
+    payload: {
+      authorizedBy: exception.authorizedBy,
+      reason: exception.reason,
+      outstandingStepIds: outstanding.map((s) => s.id),
+    },
+  });
+}
+
+/**
+ * Starts a new workflow instance from a definition's currently
+ * published version, pinning workflow_version_id for the instance's
+ * whole lifecycle (BRD §6.3) — this pin is never updated afterwards
+ * even if a newer version of the same definition publishes later.
+ */
+export async function startWorkflowInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  definitionId: string,
+  startedBy: string | null,
+  initialContext: Record<string, unknown> = {},
+): Promise<{ instance: WorkflowInstance; stepInstances: WorkflowStepInstance[] }> {
+  const definition = await requireDefinition(repository, accessToken, definitionId);
+  if (!definition.current_version) {
+    throw new VersionNotFoundError(`definition ${definitionId} has no published version to instantiate`);
+  }
+  const versions = await repository.listVersions(accessToken, definitionId);
+  const version = versions.find((v) => v.version === definition.current_version);
+  if (!version) throw new VersionNotFoundError(`published version ${definition.current_version} not found for definition ${definitionId}`);
+
+  const instance = await repository.createInstance(accessToken, {
+    definitionId,
+    versionId: version.id,
+    startedBy,
+    context: initialContext,
+  });
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: null,
+    eventType: "started",
+    payload: { workflowVersionId: version.id },
+  });
+
+  const graph = await repository.getVersionGraph(accessToken, version.id);
+  const [startNodeId] = findStartNodeIds(graph);
+  if (!startNodeId) throw new NoStartNodeError(`version ${version.id} has no unambiguous start node to run`);
+  const startNode = graph.nodes.find((n) => n.id === startNodeId)!;
+
+  const indexed = indexGraph(graph);
+  const touched: WorkflowStepInstance[] = [];
+  await activateNode(repository, accessToken, instance, graph, indexed, startNode, touched);
+
+  const finalInstance = await requireInstance(repository, accessToken, instance.id);
+  return { instance: finalInstance, stepInstances: touched };
+}
+
+export interface CompleteStepInstanceOptions {
+  output?: Record<string, unknown>;
+  /** Required if completing this step would otherwise unblock a `complete` node gated by FR-WI-010; see enforceCompleteGate. */
+  gateException?: GateException;
+}
+
+/**
+ * Records a step instance's output (form data, evidence reference,
+ * approval decision, etc — whatever M07/M08 or a direct caller
+ * supplies) and resumes execution from that node, exactly the entry
+ * point M07 (task completion) and M08 (approval decision) will call
+ * once they exist.
+ */
+export async function completeStepInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  options: CompleteStepInstanceOptions = {},
+): Promise<{ instance: WorkflowInstance; stepInstances: WorkflowStepInstance[] }> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  if (step.status !== "waiting" && step.status !== "active") {
+    throw new StepInstanceNotActionableError(`step instance ${stepInstanceId} is ${step.status}, not waiting/active`);
+  }
+  const instance = await requireInstance(repository, accessToken, step.workflow_instance_id);
+  if (instance.status !== "running") {
+    throw new InstanceNotRunningError(`workflow instance ${instance.id} is ${instance.status}, not running`);
+  }
+
+  const graph = await repository.getVersionGraph(accessToken, instance.workflow_version_id);
+  const indexed = indexGraph(graph);
+  const node = indexed.nodesById.get(step.node_id);
+  if (!node) throw new StepInstanceNotFoundError(`step instance ${stepInstanceId} has no matching node`);
+
+  const completedAt = new Date().toISOString();
+  const output = options.output ?? {};
+  await repository.updateStepInstance(accessToken, step.id, { status: "completed", completedAt, output });
+  step.status = "completed";
+  step.completed_at = completedAt;
+  step.output = output;
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: step.id,
+    eventType: "step_completed",
+    payload: { nodeKey: node.node_key, nodeType: node.node_type, output },
+  });
+
+  const touched: WorkflowStepInstance[] = [step];
+  const outgoing = indexed.outgoingByNode.get(node.id) ?? [];
+  const nextNodeIds = resolveNextNodeIds(outgoing, indexed.conditionsById, instance.context);
+
+  for (const nextNodeId of nextNodeIds) {
+    const nextNode = indexed.nodesById.get(nextNodeId);
+    if (!nextNode) continue;
+    const existingSteps = await repository.listStepInstances(accessToken, instance.id);
+    const stepInstancesByNodeId = groupByNodeId(existingSteps);
+    if (!predecessorsSatisfied(nextNodeId, indexed.incomingByNode, stepInstancesByNodeId)) continue;
+    if (stepInstancesByNodeId.has(nextNodeId)) continue;
+    if (nextNode.node_type === "complete") {
+      try {
+        await enforceCompleteGate(repository, accessToken, instance, options.gateException);
+      } catch (error) {
+        if (error instanceof IncompleteGateError) {
+          // Re-throw after persisting the already-completed step above —
+          // the step completion stands, but the walk stops short of the
+          // complete node rather than silently finishing the instance.
+          throw error;
+        }
+        throw error;
+      }
+    }
+    await activateNode(repository, accessToken, instance, graph, indexed, nextNode, touched);
+  }
+
+  const finalInstance = await requireInstance(repository, accessToken, instance.id);
+  return { instance: finalInstance, stepInstances: touched };
+}
+
+export async function pauseInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instanceId: string,
+): Promise<WorkflowInstance> {
+  const instance = await requireInstance(repository, accessToken, instanceId);
+  if (instance.status !== "running") {
+    throw new InstanceNotRunningError(`workflow instance ${instanceId} is ${instance.status}, not running`);
+  }
+  const updated = await repository.updateInstance(accessToken, instanceId, { status: "paused" });
+  await repository.insertEvent(accessToken, { instanceId, stepInstanceId: null, eventType: "paused", payload: {} });
+  return updated;
+}
+
+export async function resumeInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instanceId: string,
+): Promise<WorkflowInstance> {
+  const instance = await requireInstance(repository, accessToken, instanceId);
+  if (instance.status !== "paused") {
+    throw new InstanceNotPausedError(`workflow instance ${instanceId} is ${instance.status}, not paused`);
+  }
+  const updated = await repository.updateInstance(accessToken, instanceId, { status: "running" });
+  await repository.insertEvent(accessToken, { instanceId, stepInstanceId: null, eventType: "resumed", payload: {} });
+  return updated;
+}
+
+export async function cancelInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instanceId: string,
+  reason: string | null,
+): Promise<WorkflowInstance> {
+  const instance = await requireInstance(repository, accessToken, instanceId);
+  if (instance.status !== "running" && instance.status !== "paused") {
+    throw new InstanceNotRunningError(`workflow instance ${instanceId} is ${instance.status}, already terminal`);
+  }
+  const endedAt = new Date().toISOString();
+  const updated = await repository.updateInstance(accessToken, instanceId, { status: "cancelled", endedAt });
+  await repository.insertEvent(accessToken, { instanceId, stepInstanceId: null, eventType: "cancelled", payload: { reason } });
+  return updated;
+}
+
+export async function getWorkflowInstance(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instanceId: string,
+): Promise<{ instance: WorkflowInstance; stepInstances: WorkflowStepInstance[] }> {
+  const instance = await requireInstance(repository, accessToken, instanceId);
+  const stepInstances = await repository.listStepInstances(accessToken, instanceId);
+  return { instance, stepInstances };
 }
