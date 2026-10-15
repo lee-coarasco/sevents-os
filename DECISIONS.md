@@ -162,3 +162,35 @@ approved (agent-autonomous or you).
   ticket 0056's first role assignment.
 - Approved by: agent (ticket 0058, internal API design — CLAUDE.md
   "Internal API design, DB schema details" is explicitly agent-decidable).
+
+## 2026-10-15 14:30 UTC - M06 split into four sequential sub-tickets; workflow tables use NOT NULL tenant_id (unlike M03/M05's shared catalogues)
+- Decision: Ticket 0059 (M06 — Configuration Studio & Workflow Engine)
+  is closed with no code of its own and split into tickets 0060 (M06a,
+  definition/version/node/transition/condition CRUD + publish/rollback
+  lifecycle), 0061 (M06b, validation + simulation), 0062 (M06c, runtime/
+  instance engine) and 0063 (M06d, migration of active instances to a
+  newer version). Each depends on the one before it. Separately:
+  `workflow_definitions`/`workflow_versions`/`workflow_nodes`/
+  `workflow_transitions`/`workflow_conditions` and the governance tables
+  (`configuration_changes`, `configuration_approvals`,
+  `published_configurations`, `configuration_rollback_events`) use a
+  plain **NOT NULL** `tenant_id`, the same isolation pattern as
+  `companies`/`branches`/`projects` — not the nullable-tenant
+  shared-catalogue pattern used for `role_definitions` (ticket 0056) and
+  the work-item catalogue tables (ticket 0058).
+- Why: ticket 0059 itself said this was too large for one ticket and
+  that the architect should split it, same as M01-M03 were separate
+  tickets rather than one Phase-1 ticket. On the tenant_id question —
+  `role_definitions` and the work-item catalogue are shared taxonomies
+  (BRD §6.3: the same 44 canonical roles and the same 1,308-row
+  catalogue apply to every tenant; a NULL row is the one shared
+  platform-wide copy). A workflow definition is the opposite: BRD
+  §5.4.1 item 3 describes workflow configuration as each company's own
+  steps/branching/assignments/forms — there is no single shared
+  "the" material-request workflow every tenant must use identically.
+  Making it NOT NULL from the start avoids having to migrate a nullable
+  column to NOT NULL later once real tenant-specific workflows exist,
+  and matches the ordinary tenant-scoped pattern every non-catalogue
+  table in this project already uses.
+- Approved by: agent (ticket classification/ordering and DB schema
+  details are both explicitly agent-decidable per CLAUDE.md).
