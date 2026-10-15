@@ -8,7 +8,7 @@ Implementation plan: `docs/IMPLEMENTATION-PLAN.md`
 Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — imported and classified, see `tickets/` and `docs/catalogue/disposition-workbook.csv`)
 
 ## Status
-`PHASE_2` — Configuration studio and workflow runtime. **Phase 1 code-complete (tickets 0053-0056, status: testing). M05 catalogue import (ticket 0058) built, status: testing. M06 (ticket 0059) split into sub-tickets 0060-0063; M06a (ticket 0060, workflow definition/version CRUD + publish/rollback) built, status: testing. M06b (ticket 0061, validation/simulation) is next.**
+`PHASE_2` — Configuration studio and workflow runtime. **Phase 1 code-complete (tickets 0053-0056, status: testing). M05 catalogue import (ticket 0058) built, status: testing. M06 (ticket 0059) split into sub-tickets 0060-0063; M06a (ticket 0060, workflow definition/version CRUD + publish/rollback) and M06b (ticket 0061, validation/simulation, gates publish on a passing validation run) both built, status: testing. M06c (ticket 0062, runtime/instance engine) is next.**
 
 ### Phase 0 deliverables (all done ✓)
 - `docs/PRD.md` — pilot PRD for Phase 3 vertical slice (material request → PO → GRN → site issue). **Approved by owner 2026-10-15. Pilot flow confirmed.**
@@ -19,7 +19,7 @@ Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — imported an
 ### Build order (follow this exactly — do not jump phases)
 1. ✓ **Phase 0** — Discovery and configuration design. Done.
 2. ✓ **Phase 1** — Secure platform foundation. Code-complete (tickets 0053-0056, status: testing).
-3. → **Phase 2** — Configuration studio and workflow runtime. **Start here now.** M05 (ticket 0058) built; M06 split into tickets 0060-0063, M06a (ticket 0060) built, M06b (ticket 0061) next.
+3. → **Phase 2** — Configuration studio and workflow runtime. **Start here now.** M05 (ticket 0058) built; M06 split into tickets 0060-0063, M06a (0060) and M06b (0061) built, M06c (ticket 0062) next.
 4. **Phase 3 onwards** — Build BRD modules in dependency order (see below).
 5. **Phase 4+** — Knowledge assistant, controlled AI agents.
 

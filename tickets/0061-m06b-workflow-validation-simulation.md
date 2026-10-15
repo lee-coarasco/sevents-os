@@ -1,7 +1,7 @@
 ---
 id: 61
 title: "M06b — Workflow Validation & Simulation"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 3
 created: 2026-10-15
@@ -52,16 +52,51 @@ expected paths, assignments, timers and outputs"), §6.2
   `workflow.definition.manage`.
 
 ## Acceptance
-- [ ] Validator catches: unreachable node, circular path with no
+- [x] Validator catches: unreachable node, circular path with no
       terminal node, dangling role reference, dangling condition
       reference, missing terminal node — one test per case.
-- [ ] Simulator produces the correct path for a condition-branching
+- [x] Simulator produces the correct path for a condition-branching
       graph and correctly flags an unreached branch as uncovered.
-- [ ] `publishVersion` rejects publishing a version with no passing
+- [x] `publishVersion` rejects publishing a version with no passing
       validation run (test asserts this); existing ticket 0060 publish
       tests still pass once a passing validation run is added to their
       setup.
-- [ ] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
+- [x] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
 
 ## Progress
 - 2026-10-15: Filed as the second of four M06 sub-tickets.
+- 2026-10-15 15:21 UTC: Built M06b in the same session as 0060. Migration
+  `supabase/migrations/20261015000006_m06b_workflow_validation_simulation.sql`
+  adds `configuration_validation_runs`/`configuration_simulation_runs`
+  (NOT NULL tenant_id, same pattern as 0060's tables). Added to
+  `backend/src/modules/workflow/`: `validation.ts` (pure
+  `validateGraph` — reachability from an inferred start node, cycle-
+  with-no-exit detection, dangling role/condition reference checks, no
+  DB access of its own) and `simulation.ts` (pure `simulateGraph` —
+  deterministic walk using the same condition-expression evaluator
+  shape the validator reads, default/fallback branch support, branch-
+  coverage reporting). Extended (not duplicated) `repository.ts`/
+  `service.ts`/`routes.ts`/`types.ts` from ticket 0060 additively:
+  `listRoleIds`, `insertValidationRun`/`getLatestValidationRun`,
+  `insertSimulationRun`; `validateVersion`/`simulateVersion` service
+  functions; `POST /workflow/versions/:versionId/validate` and
+  `/simulate` routes, gated on `workflow.definition.manage` (authoring-
+  level, same as node/transition/condition CRUD — not a publish-level
+  action). **`publishVersion` (0060) now requires the version's latest
+  validation run to be `pass`** — the gate this ticket's own scope note
+  called for; updated 0060's existing test helper
+  (`createPublishableDefinition` in `service.test.ts`) to call
+  `validateVersion` before submit/approve so its tests keep passing
+  unchanged in intent. `npm test`: 124/124 (108 prior + 16 new), `npm
+  run build` clean, `scripts/tickets.py check` clean.
+  **Design note on "start node" inference:** BRD doesn't give workflow
+  nodes an explicit `is_start` flag (ticket 0060 didn't add one), so the
+  validator/simulator infer it structurally: a start candidate is a
+  node with no incoming transition that itself has at least one
+  outgoing transition (excludes a fully-isolated orphan node, which
+  would otherwise look identical to a legitimate start and hide itself
+  from the unreachable-node check). Zero or multiple candidates is
+  itself a validation finding (`AMBIGUOUS_START`). If a future ticket
+  needs an explicit author-declared start (e.g. multiple valid entry
+  points), that's a small additive migration on `workflow_nodes`, not a
+  rework of this logic.

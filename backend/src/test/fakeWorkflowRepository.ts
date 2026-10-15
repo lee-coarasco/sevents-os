@@ -6,6 +6,8 @@ import type {
   InsertConfigurationChangeInput,
   InsertPublishedConfigurationInput,
   InsertRollbackEventInput,
+  InsertSimulationRunInput,
+  InsertValidationRunInput,
   InsertVersionInput,
   RecordApprovalInput,
   WorkflowRepository,
@@ -14,6 +16,8 @@ import type {
   ConfigurationApproval,
   ConfigurationChange,
   ConfigurationRollbackEvent,
+  ConfigurationSimulationRun,
+  ConfigurationValidationRun,
   DefinitionFilters,
   DefinitionStatus,
   PublishedConfiguration,
@@ -51,6 +55,10 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   approvals: ConfigurationApproval[] = [];
   publishedConfigurations: PublishedConfiguration[] = [];
   rollbackEvents: ConfigurationRollbackEvent[] = [];
+  validationRuns: ConfigurationValidationRun[] = [];
+  simulationRuns: ConfigurationSimulationRun[] = [];
+  /** Stand-in for M03's role_definitions — seed with whatever role ids a test needs to resolve. */
+  knownRoleIds = new Set<string>();
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
     const definition: WorkflowDefinition = {
@@ -267,6 +275,45 @@ export class FakeWorkflowRepository implements WorkflowRepository {
       created_at: new Date(0).toISOString(),
     };
     this.changes.push(row);
+    return row;
+  }
+
+  async listRoleIds(_accessToken: string): Promise<string[]> {
+    return [...this.knownRoleIds];
+  }
+
+  async insertValidationRun(_accessToken: string, input: InsertValidationRunInput): Promise<ConfigurationValidationRun> {
+    const row: ConfigurationValidationRun = {
+      id: nextId("validation-run"),
+      tenant_id: TENANT_ID,
+      workflow_version_id: input.versionId,
+      run_by: input.runBy,
+      result: input.result,
+      findings: input.findings,
+      started_at: new Date(0).toISOString(),
+      finished_at: new Date(0).toISOString(),
+    };
+    this.validationRuns.push(row);
+    return row;
+  }
+
+  async getLatestValidationRun(_accessToken: string, versionId: string): Promise<ConfigurationValidationRun | null> {
+    const runs = this.validationRuns.filter((r) => r.workflow_version_id === versionId);
+    return runs.length > 0 ? runs[runs.length - 1]! : null;
+  }
+
+  async insertSimulationRun(_accessToken: string, input: InsertSimulationRunInput): Promise<ConfigurationSimulationRun> {
+    const row: ConfigurationSimulationRun = {
+      id: nextId("simulation-run"),
+      tenant_id: TENANT_ID,
+      workflow_version_id: input.versionId,
+      run_by: input.runBy,
+      test_cases: input.testCases,
+      result: input.result,
+      started_at: new Date(0).toISOString(),
+      finished_at: new Date(0).toISOString(),
+    };
+    this.simulationRuns.push(row);
     return row;
   }
 }

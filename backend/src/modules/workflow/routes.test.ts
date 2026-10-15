@@ -111,6 +111,14 @@ describe("workflow node/publish lifecycle via routes", () => {
       payload: { fromNodeId: startNode.json().node.id, toNodeId: endNode.json().node.id },
     });
 
+    const validateResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${versionId}/validate`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(validateResponse.statusCode).toBe(200);
+    expect(validateResponse.json().run.result).toBe("pass");
+
     const submitResponse = await app.inject({
       method: "POST",
       url: `/workflow/definitions/${definitionId}/submit`,

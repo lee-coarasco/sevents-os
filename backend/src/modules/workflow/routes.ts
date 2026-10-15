@@ -6,9 +6,11 @@ import {
   DefinitionNotDraftError,
   DefinitionNotUnderReviewError,
   InvalidNodeTypeError,
+  NoStartNodeError,
   RollbackTargetNotPublishedError,
   VersionNotDraftError,
   VersionNotFoundError,
+  VersionNotValidatedError,
   WorkflowNotFoundError,
   addConditionToVersion,
   addNodeToVersion,
@@ -22,10 +24,12 @@ import {
   publishVersion,
   recordApproval,
   rollbackToVersion,
+  simulateVersion,
   submitForApproval,
+  validateVersion,
 } from "./service.js";
 import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput } from "./service.js";
-import type { ApprovalDecision, DefinitionStatus } from "./types.js";
+import type { ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
 
 export interface WorkflowRouteOptions {
   getRepository: () => WorkflowRepository;
@@ -53,7 +57,9 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof DefinitionNotDraftError ||
     error instanceof DefinitionNotUnderReviewError ||
     error instanceof DefinitionNotApprovedError ||
-    error instanceof RollbackTargetNotPublishedError
+    error instanceof RollbackTargetNotPublishedError ||
+    error instanceof VersionNotValidatedError ||
+    error instanceof NoStartNodeError
   ) {
     reply.code(400);
     return { error: error.message };
@@ -276,6 +282,42 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
           request.body.reason ?? null,
         );
         return { version };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { versionId: string } }>(
+    "/workflow/versions/:versionId/validate",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const run = await validateVersion(options.getRepository(), token, request.params.versionId, callerUserId);
+        return { run };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { versionId: string }; Body: { testCases: SimulationTestCase[] } }>(
+    "/workflow/versions/:versionId/simulate",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const run = await simulateVersion(
+          options.getRepository(),
+          token,
+          request.params.versionId,
+          request.body.testCases ?? [],
+          callerUserId,
+        );
+        return { run };
       } catch (error) {
         return handleServiceError(error, reply);
       }

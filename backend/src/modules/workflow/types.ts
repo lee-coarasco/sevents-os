@@ -151,3 +151,61 @@ export interface DefinitionFilters {
   status?: DefinitionStatus;
   key?: string;
 }
+
+export const VALIDATION_RESULTS = ["pass", "fail"] as const;
+export type ValidationResult = (typeof VALIDATION_RESULTS)[number];
+
+export const VALIDATION_FINDING_CODES = [
+  "UNREACHABLE_NODE",
+  "NO_TERMINAL_NODE",
+  "CIRCULAR_NO_EXIT",
+  "DANGLING_ROLE_REFERENCE",
+  "DANGLING_CONDITION_REFERENCE",
+  "AMBIGUOUS_START",
+] as const;
+export type ValidationFindingCode = (typeof VALIDATION_FINDING_CODES)[number];
+
+export interface ValidationFinding {
+  code: ValidationFindingCode;
+  severity: "error" | "warning";
+  message: string;
+  nodeId?: string;
+}
+
+export interface ConfigurationValidationRun {
+  id: string;
+  tenant_id: string;
+  workflow_version_id: string;
+  run_by: string | null;
+  result: ValidationResult;
+  findings: ValidationFinding[];
+  started_at: string;
+  finished_at: string;
+}
+
+export interface SimulationTestCase {
+  label: string;
+  input: Record<string, unknown>;
+}
+
+export interface SimulationPathResult {
+  label: string;
+  path: string[];
+  blockedAtNodeKey: string | null;
+}
+
+export interface SimulationResultPayload {
+  paths: SimulationPathResult[];
+  unreachedNodeKeys: string[];
+}
+
+export interface ConfigurationSimulationRun {
+  id: string;
+  tenant_id: string;
+  workflow_version_id: string;
+  run_by: string | null;
+  test_cases: SimulationTestCase[];
+  result: SimulationResultPayload;
+  started_at: string;
+  finished_at: string;
+}

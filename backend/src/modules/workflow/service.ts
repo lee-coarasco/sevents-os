@@ -4,15 +4,20 @@ import type {
   AddTransitionInput,
   WorkflowRepository,
 } from "./repository.js";
+import { simulateGraph } from "./simulation.js";
 import { NODE_TYPES } from "./types.js";
 import type {
+  ConfigurationSimulationRun,
+  ConfigurationValidationRun,
   DefinitionFilters,
+  SimulationTestCase,
   WorkflowCondition,
   WorkflowDefinition,
   WorkflowNode,
   WorkflowTransition,
   WorkflowVersion,
 } from "./types.js";
+import { findStartNodeIds, validateGraph } from "./validation.js";
 
 export class WorkflowNotFoundError extends Error {}
 export class VersionNotFoundError extends Error {}
@@ -22,6 +27,8 @@ export class DefinitionNotDraftError extends Error {}
 export class DefinitionNotUnderReviewError extends Error {}
 export class DefinitionNotApprovedError extends Error {}
 export class RollbackTargetNotPublishedError extends Error {}
+export class VersionNotValidatedError extends Error {}
+export class NoStartNodeError extends Error {}
 
 export interface CreateWorkflowDefinitionInput {
   key: string;
@@ -326,6 +333,10 @@ export async function publishVersion(
   if (version.status !== "draft") {
     throw new VersionNotDraftError(`version ${versionId} is ${version.status}, not draft`);
   }
+  const latestValidation = await repository.getLatestValidationRun(accessToken, versionId);
+  if (!latestValidation || latestValidation.result !== "pass") {
+    throw new VersionNotValidatedError(`version ${versionId} has no passing validation run — call validateVersion first`);
+  }
 
   const effective = effectiveFrom ?? new Date().toISOString();
   const published = await repository.markVersionPublished(accessToken, versionId, publishedBy, effective);
@@ -416,4 +427,34 @@ export async function getVersionGraph(repository: WorkflowRepository, accessToke
 export async function listVersions(repository: WorkflowRepository, accessToken: string, definitionId: string): Promise<WorkflowVersion[]> {
   await requireDefinition(repository, accessToken, definitionId);
   return repository.listVersions(accessToken, definitionId);
+}
+
+/** BRD §5.4.2 structural validation, gating `publishVersion` (ticket 0061). */
+export async function validateVersion(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  runBy: string | null,
+): Promise<ConfigurationValidationRun> {
+  await requireVersion(repository, accessToken, versionId);
+  const graph = await repository.getVersionGraph(accessToken, versionId);
+  const knownRoleIds = new Set(await repository.listRoleIds(accessToken));
+  const { result, findings } = validateGraph(graph, knownRoleIds);
+  return repository.insertValidationRun(accessToken, { versionId, runBy, result, findings });
+}
+
+/** BRD §5.4.2 "simulate against representative sample cases... branch coverage and unreachable steps." */
+export async function simulateVersion(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  testCases: SimulationTestCase[],
+  runBy: string | null,
+): Promise<ConfigurationSimulationRun> {
+  await requireVersion(repository, accessToken, versionId);
+  const graph = await repository.getVersionGraph(accessToken, versionId);
+  const [startNodeId] = findStartNodeIds(graph);
+  if (!startNodeId) throw new NoStartNodeError(`version ${versionId} has no unambiguous start node to simulate from`);
+  const result = simulateGraph(graph, startNodeId, testCases);
+  return repository.insertSimulationRun(accessToken, { versionId, runBy, testCases, result });
 }

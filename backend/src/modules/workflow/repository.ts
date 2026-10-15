@@ -6,10 +6,16 @@ import type {
   ConfigurationApproval,
   ConfigurationChange,
   ConfigurationRollbackEvent,
+  ConfigurationSimulationRun,
+  ConfigurationValidationRun,
   DefinitionFilters,
   DefinitionStatus,
   NodeType,
   PublishedConfiguration,
+  SimulationResultPayload,
+  SimulationTestCase,
+  ValidationFinding,
+  ValidationResult,
   VersionStatus,
   WorkflowCondition,
   WorkflowDefinition,
@@ -87,6 +93,20 @@ export interface InsertConfigurationChangeInput {
   changedBy: string | null;
 }
 
+export interface InsertValidationRunInput {
+  versionId: string;
+  runBy: string | null;
+  result: ValidationResult;
+  findings: ValidationFinding[];
+}
+
+export interface InsertSimulationRunInput {
+  versionId: string;
+  runBy: string | null;
+  testCases: SimulationTestCase[];
+  result: SimulationResultPayload;
+}
+
 /**
  * Same convention as modules/catalogue and modules/authority: every
  * method takes the caller's own access token and goes through the
@@ -133,6 +153,12 @@ export interface WorkflowRepository {
   ): Promise<PublishedConfiguration>;
   insertRollbackEvent(accessToken: string, input: InsertRollbackEventInput): Promise<ConfigurationRollbackEvent>;
   insertConfigurationChange(accessToken: string, input: InsertConfigurationChangeInput): Promise<ConfigurationChange>;
+
+  /** Known canonical role ids (M03's role_definitions) — used to catch a dangling assign_role_user reference. */
+  listRoleIds(accessToken: string): Promise<string[]>;
+  insertValidationRun(accessToken: string, input: InsertValidationRunInput): Promise<ConfigurationValidationRun>;
+  getLatestValidationRun(accessToken: string, versionId: string): Promise<ConfigurationValidationRun | null>;
+  insertSimulationRun(accessToken: string, input: InsertSimulationRunInput): Promise<ConfigurationSimulationRun>;
 }
 
 /**
@@ -379,6 +405,64 @@ export function createSupabaseWorkflowRepository(
         .single();
       if (error || !data) throw new Error(`insertConfigurationChange: ${error?.message ?? "no row returned"}`);
       return data as ConfigurationChange;
+    },
+
+    async listRoleIds(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("role_definitions").select("id");
+      if (error) throw new Error(`listRoleIds: ${error.message}`);
+      return (data ?? []).map((row) => row.id as string);
+    },
+
+    async insertValidationRun(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const now = new Date().toISOString();
+      const { data, error } = await client
+        .from("configuration_validation_runs")
+        .insert({
+          workflow_version_id: input.versionId,
+          run_by: input.runBy,
+          result: input.result,
+          findings: input.findings,
+          started_at: now,
+          finished_at: now,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertValidationRun: ${error?.message ?? "no row returned"}`);
+      return data as ConfigurationValidationRun;
+    },
+
+    async getLatestValidationRun(accessToken, versionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("configuration_validation_runs")
+        .select("*")
+        .eq("workflow_version_id", versionId)
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(`getLatestValidationRun: ${error.message}`);
+      return (data as ConfigurationValidationRun | null) ?? null;
+    },
+
+    async insertSimulationRun(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const now = new Date().toISOString();
+      const { data, error } = await client
+        .from("configuration_simulation_runs")
+        .insert({
+          workflow_version_id: input.versionId,
+          run_by: input.runBy,
+          test_cases: input.testCases,
+          result: input.result,
+          started_at: now,
+          finished_at: now,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertSimulationRun: ${error?.message ?? "no row returned"}`);
+      return data as ConfigurationSimulationRun;
     },
   };
 }

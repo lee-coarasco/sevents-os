@@ -5,8 +5,10 @@ import {
   DefinitionNotDraftError,
   DefinitionNotUnderReviewError,
   InvalidNodeTypeError,
+  NoStartNodeError,
   RollbackTargetNotPublishedError,
   VersionNotDraftError,
+  VersionNotValidatedError,
   addConditionToVersion,
   addNodeToVersion,
   addTransitionToVersion,
@@ -16,7 +18,9 @@ import {
   publishVersion,
   recordApproval,
   rollbackToVersion,
+  simulateVersion,
   submitForApproval,
+  validateVersion,
 } from "./service.js";
 
 async function createPublishedDefinition(repo: FakeWorkflowRepository) {
@@ -39,6 +43,7 @@ async function createPublishableDefinition(repo: FakeWorkflowRepository) {
   const start = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "start", nodeType: "create_task" });
   const complete = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "complete", nodeType: "complete" });
   await addTransitionToVersion(repo, TOKEN, version.id, { fromNodeId: start.id, toNodeId: complete.id });
+  await validateVersion(repo, TOKEN, version.id, USER);
   await submitForApproval(repo, TOKEN, definition.id, version.id, USER);
   await recordApproval(repo, TOKEN, definition.id, version.id, APPROVER, "approved", null);
   return { definition, version };
@@ -147,6 +152,7 @@ describe("submit / approve / publish lifecycle", () => {
     const v1AfterFirstPublish = await repo.getVersion(TOKEN, v1.id);
 
     const v2 = await createDraftVersion(repo, TOKEN, definition.id, USER, v1.id);
+    await validateVersion(repo, TOKEN, v2.id, USER);
     await submitForApproval(repo, TOKEN, definition.id, v2.id, USER);
     await recordApproval(repo, TOKEN, definition.id, v2.id, APPROVER, "approved", null);
     await publishVersion(repo, TOKEN, definition.id, v2.id, APPROVER);
@@ -191,6 +197,7 @@ describe("rollbackToVersion", () => {
     const v1Snapshot = await repo.getVersion(TOKEN, v1.id);
 
     const v2 = await createDraftVersion(repo, TOKEN, definition.id, USER, v1.id);
+    await validateVersion(repo, TOKEN, v2.id, USER);
     await submitForApproval(repo, TOKEN, definition.id, v2.id, USER);
     await recordApproval(repo, TOKEN, definition.id, v2.id, APPROVER, "approved", null);
     await publishVersion(repo, TOKEN, definition.id, v2.id, APPROVER);
@@ -217,6 +224,66 @@ describe("rollbackToVersion", () => {
     await expect(
       rollbackToVersion(repo, TOKEN, definition.id, 1, "admin-user", null),
     ).rejects.toBeInstanceOf(RollbackTargetNotPublishedError);
+  });
+});
+
+describe("publishVersion requires a passing validation run", () => {
+  it("rejects publish when the version has never been validated", async () => {
+    const repo = new FakeWorkflowRepository();
+    const { definition, version } = await createWorkflowDefinition(repo, TOKEN, { key: "k-novalidate", name: "No Validate" }, USER);
+    const start = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "start", nodeType: "create_task" });
+    const complete = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "complete", nodeType: "complete" });
+    await addTransitionToVersion(repo, TOKEN, version.id, { fromNodeId: start.id, toNodeId: complete.id });
+    await submitForApproval(repo, TOKEN, definition.id, version.id, USER);
+    await recordApproval(repo, TOKEN, definition.id, version.id, APPROVER, "approved", null);
+
+    await expect(publishVersion(repo, TOKEN, definition.id, version.id, APPROVER)).rejects.toBeInstanceOf(
+      VersionNotValidatedError,
+    );
+  });
+
+  it("rejects publish when the latest validation run failed", async () => {
+    const repo = new FakeWorkflowRepository();
+    const { definition, version } = await createWorkflowDefinition(repo, TOKEN, { key: "k-failvalidate", name: "Fail Validate" }, USER);
+    // No terminal node -> validation fails.
+    await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "start", nodeType: "create_task" });
+    await validateVersion(repo, TOKEN, version.id, USER);
+    await submitForApproval(repo, TOKEN, definition.id, version.id, USER);
+    await recordApproval(repo, TOKEN, definition.id, version.id, APPROVER, "approved", null);
+
+    await expect(publishVersion(repo, TOKEN, definition.id, version.id, APPROVER)).rejects.toBeInstanceOf(
+      VersionNotValidatedError,
+    );
+  });
+
+  it("allows publish once a passing validation run exists (the createPublishableDefinition path)", async () => {
+    const repo = new FakeWorkflowRepository();
+    const { definition, version } = await createPublishableDefinition(repo);
+    const published = await publishVersion(repo, TOKEN, definition.id, version.id, APPROVER);
+    expect(published.status).toBe("published");
+  });
+});
+
+describe("simulateVersion", () => {
+  it("rejects a graph with no unambiguous start node", async () => {
+    const repo = new FakeWorkflowRepository();
+    const { version } = await createWorkflowDefinition(repo, TOKEN, { key: "k-nostart", name: "No Start" }, USER);
+    const a = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "a", nodeType: "create_task" });
+    const b = await addNodeToVersion(repo, TOKEN, version.id, { nodeKey: "b", nodeType: "complete" });
+    // Both a and b have an incoming transition -> no node qualifies as start.
+    await addTransitionToVersion(repo, TOKEN, version.id, { fromNodeId: a.id, toNodeId: b.id });
+    await addTransitionToVersion(repo, TOKEN, version.id, { fromNodeId: b.id, toNodeId: a.id });
+    await expect(simulateVersion(repo, TOKEN, version.id, [{ label: "case", input: {} }], USER)).rejects.toBeInstanceOf(
+      NoStartNodeError,
+    );
+  });
+
+  it("records a simulation run with the walked path", async () => {
+    const repo = new FakeWorkflowRepository();
+    const { version } = await createPublishableDefinition(repo);
+    const run = await simulateVersion(repo, TOKEN, version.id, [{ label: "case", input: {} }], USER);
+    expect(run.result.paths[0]!.path).toEqual(["start", "complete"]);
+    expect(repo.simulationRuns).toHaveLength(1);
   });
 });
 
