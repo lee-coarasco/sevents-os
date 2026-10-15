@@ -17,6 +17,11 @@ import {
   createSupabaseAuthorityRepository,
   type AuthorityRepository,
 } from "./modules/authority/repository.js";
+import { catalogueRoutes } from "./modules/catalogue/routes.js";
+import {
+  createSupabaseCatalogueRepository,
+  type CatalogueRepository,
+} from "./modules/catalogue/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -32,6 +37,8 @@ export interface BuildAppOptions {
   getTenancyRepository?: () => TenancyRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getAuthorityRepository?: () => AuthorityRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getCatalogueRepository?: () => CatalogueRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -69,6 +76,15 @@ function defaultAuthorityRepository(): AuthorityRepository {
   return cachedAuthorityRepository;
 }
 
+let cachedCatalogueRepository: CatalogueRepository | null = null;
+
+function defaultCatalogueRepository(): CatalogueRepository {
+  if (!cachedCatalogueRepository) {
+    cachedCatalogueRepository = createSupabaseCatalogueRepository(createServiceClient(), createUserScopedClient);
+  }
+  return cachedCatalogueRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -90,6 +106,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(authorityRoutes, {
     getRepository: getAuthorityRepository,
+  });
+
+  app.register(catalogueRoutes, {
+    getRepository: options.getCatalogueRepository ?? defaultCatalogueRepository,
+    requirePermission: guard,
   });
 
   return app;

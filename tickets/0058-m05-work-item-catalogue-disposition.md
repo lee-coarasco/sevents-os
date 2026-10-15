@@ -1,7 +1,7 @@
 ---
 id: 58
 title: "M05 — Work-Item Catalogue & Disposition"
-status: in-progress
+status: testing
 roles: [backend-engineer]
 priority: 1
 created: 2026-10-15
@@ -133,14 +133,18 @@ taxonomy), §8.2 (FR-WI-001 through FR-WI-013, the M05-relevant subset).
   role until an explicit admin grant exists.
 
 ## Acceptance
-- [ ] Migration applies cleanly (reviewed by eye; no live Supabase in this
+- [x] Migration applies cleanly (reviewed by eye; no live Supabase in this
       sandbox — same recurring caveat as every Phase 1 ticket).
-- [ ] `backend/src/modules/catalogue/` built per the layout above.
-- [ ] CLI import script works against a fixture-sized sample (unit test,
+- [x] `backend/src/modules/catalogue/` built per the layout above.
+- [x] CLI import script works against a fixture-sized sample (unit test,
       not the full 1,308 rows, since no live Supabase project is
-      reachable in this sandbox).
-- [ ] `npm test` passes, `npm run build` clean, `scripts/tickets.py check`
-      clean.
+      reachable in this sandbox). Also manually ran the parser/merge
+      logic (not the live-Supabase write path) against the real,
+      regenerated `source-catalogue.json` + `disposition-workbook.csv`:
+      all 1,308 rows merge with **zero** issues, confirming the real
+      data is import-ready once a live Supabase project is reachable.
+- [x] `npm test` passes (88/88), `npm run build` clean,
+      `scripts/tickets.py check` clean.
 
 ## Progress
 - 2026-10-15 13:ish UTC: Filed and started. Phase 1 (0053-0056) confirmed
@@ -155,3 +159,36 @@ taxonomy), §8.2 (FR-WI-001 through FR-WI-013, the M05-relevant subset).
   data), and the existing M01-M03 backend module conventions
   (`identity`/`tenancy`/`authority`) to match file layout, RLS pattern and
   test style exactly.
+- 2026-10-15 ~13:30 UTC: Built and committed. Migration
+  `supabase/migrations/20261015000004_m05_work_item_catalogue.sql`:
+  `source_catalogue_imports`, `source_work_items`, `work_item_definitions`,
+  `work_item_definition_versions` + two new permissions
+  (`catalogue.workitem.import`, `catalogue.workitem.manage`), granted only
+  to `role.platform_administrator` (same deny-by-default precedent as
+  ticket 0056). Backend `backend/src/modules/catalogue/`: `types.ts`,
+  `csv.ts` (tiny dependency-free CSV parser, unit tested), `importParser.ts`
+  (pure raw+disposition merge by S.No., unit tested including
+  missing-row and invalid-disposition cases), `repository.ts` (port +
+  Supabase adapter — import always via service client since the two raw
+  tables have no authenticated write policy, same as `role_definitions`;
+  reads/updates via the user-scoped client like every other module),
+  `service.ts` (`importCatalogue`, `listWorkItems`, `getWorkItem`,
+  `updateWorkItem` — the last bumps `current_version` and appends a
+  `work_item_definition_versions` row per FR-WI-007), `routes.ts` (`GET
+  /catalogue/work-items`, `GET /catalogue/work-items/:id`, `PATCH
+  /catalogue/work-items/:id`, all gated on `catalogue.workitem.manage`
+  via the shared authority guard). CLI
+  `backend/src/scripts/import-catalogue.ts` (`npm run import:catalogue`)
+  reads `docs/catalogue/source-catalogue.json` +
+  `disposition-workbook.csv` from disk and calls the service with the
+  service-role client — deliberately no HTTP import route (see "What to
+  build" above for why). 29 new tests (`csv.test.ts`,
+  `importParser.test.ts`, `service.test.ts` against
+  `FakeCatalogueRepository`, `routes.test.ts`); `npm test` 88/88, `npm
+  run build` clean. Manually regenerated `docs/catalogue/source-catalogue.json`
+  (`python3 scripts/xlsx_to_json.py`) and ran the merge logic against the
+  real 1,308-row file + the committed disposition workbook: 1,308/1,308
+  merge with 0 issues — the real data is ready to import once a live
+  Supabase project is reachable (same recurring gap as every ticket so
+  far: no Supabase adapter has run against a real project in this
+  sandbox). Set to `status: testing`. Ticket 0059 (M06) can now start.

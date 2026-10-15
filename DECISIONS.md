@@ -142,3 +142,23 @@ approved (agent-autonomous or you).
   reopen the exact gap this ticket exists to close.
 - Approved by: agent (consistent with an existing precedent, no new
   product decision).
+
+## 2026-10-15 13:30 UTC - M05 catalogue import is a service-role CLI script, not an HTTP endpoint
+- Decision: Ticket 0058 (M05, Work-Item Catalogue & Disposition) does not
+  expose a `POST /catalogue/import` HTTP route. The 1,308-row bulk import
+  is a CLI script (`backend/src/scripts/import-catalogue.ts`, `npm run
+  import:catalogue`) that reads `docs/catalogue/source-catalogue.json`
+  and `docs/catalogue/disposition-workbook.csv` from disk and writes via
+  the service-role Supabase client. `source_work_items` and
+  `work_item_definitions` have no authenticated INSERT policy — only
+  this script and migrations can create rows; authenticated users can
+  only UPDATE an existing `work_item_definitions` row's normalized
+  fields (disposition/priority/risk/etc.), gated on
+  `catalogue.workitem.manage`.
+- Why: there's no file-upload UI yet (Phase 2 is backend-only), and
+  1,308 rows of raw+normalized fields as one JSON HTTP body has no real
+  caller in this phase. Same "admin operation via service-role, not
+  self-service API" precedent as ticket 0055's tenant creation and
+  ticket 0056's first role assignment.
+- Approved by: agent (ticket 0058, internal API design — CLAUDE.md
+  "Internal API design, DB schema details" is explicitly agent-decidable).

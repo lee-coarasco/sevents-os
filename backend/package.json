@@ -11,7 +11,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "import:catalogue": "tsx src/scripts/import-catalogue.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
