@@ -209,3 +209,86 @@ export interface ConfigurationSimulationRun {
   started_at: string;
   finished_at: string;
 }
+
+/** Ticket 0062 (M06c): runtime/instance engine. */
+
+export const INSTANCE_STATUSES = ["running", "paused", "completed", "cancelled"] as const;
+export type InstanceStatus = (typeof INSTANCE_STATUSES)[number];
+
+export const STEP_INSTANCE_STATUSES = ["pending", "active", "waiting", "completed", "skipped", "failed"] as const;
+export type StepInstanceStatus = (typeof STEP_INSTANCE_STATUSES)[number];
+
+/** Node types that hand off to a human/queue rather than resolving synchronously inside the executor. */
+export const HUMAN_HANDOFF_NODE_TYPES = ["create_task", "assign_role_user", "request_approval"] as const;
+export type HumanHandoffNodeType = (typeof HUMAN_HANDOFF_NODE_TYPES)[number];
+
+export const WORKFLOW_EVENT_TYPES = [
+  "started",
+  "step_activated",
+  "step_completed",
+  "step_skipped",
+  "step_failed",
+  "paused",
+  "resumed",
+  "cancelled",
+  "completed",
+  "escalated",
+  "timer_fired",
+  "notification_sent",
+  "service_called",
+  "gate_blocked",
+  "gate_exception",
+] as const;
+export type WorkflowEventType = (typeof WORKFLOW_EVENT_TYPES)[number];
+
+export interface WorkflowInstance {
+  id: string;
+  tenant_id: string;
+  workflow_definition_id: string;
+  /** Pinned at creation (BRD §6.3); never updated afterwards even if a newer version publishes later. */
+  workflow_version_id: string;
+  status: InstanceStatus;
+  started_by: string | null;
+  started_at: string;
+  ended_at: string | null;
+  context: Record<string, unknown>;
+}
+
+export interface WorkflowStepInstance {
+  id: string;
+  tenant_id: string;
+  workflow_instance_id: string;
+  node_id: string;
+  status: StepInstanceStatus;
+  /**
+   * Who/what this step is waiting on. A user id for assign_role_user,
+   * a role id for create_task/request_approval, null once no human
+   * hand-off is pending (e.g. a resolved evaluate_condition step).
+   * M07 (Tasks/My Work) will poll
+   * `workflow_step_instances where status = 'waiting' and node_type in
+   * ('create_task', 'assign_role_user', 'request_approval')` (joined
+   * against workflow_nodes for node_type) to build its work queues; M08
+   * (Approvals) will act on the `request_approval` subset the same way.
+   * This table is the seam — no parallel task/approval table exists here.
+   */
+  assigned_to: string | null;
+  started_at: string;
+  completed_at: string | null;
+  output: Record<string, unknown>;
+}
+
+export interface WorkflowEvent {
+  id: string;
+  tenant_id: string;
+  workflow_instance_id: string;
+  step_instance_id: string | null;
+  event_type: WorkflowEventType;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+/** Caller-supplied exception to the FR-WI-010 complete-node gate: who authorized skipping an outstanding evidence/approval step, and why. */
+export interface GateException {
+  authorizedBy: string;
+  reason: string;
+}

@@ -9,7 +9,7 @@ import type {
   WorkflowVersionGraph,
 } from "./types.js";
 
-function evaluateExpression(expression: ConditionExpression, input: Record<string, unknown>): boolean {
+export function evaluateExpression(expression: ConditionExpression, input: Record<string, unknown>): boolean {
   const actual = input[expression.field];
   switch (expression.operator) {
     case "eq":
@@ -29,7 +29,7 @@ function evaluateExpression(expression: ConditionExpression, input: Record<strin
   }
 }
 
-function pickNextTransition(
+export function pickNextTransition(
   outgoing: WorkflowTransition[],
   conditionsById: Map<string, WorkflowCondition>,
   input: Record<string, unknown>,
