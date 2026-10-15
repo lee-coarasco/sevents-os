@@ -6,6 +6,7 @@ import type {
   CreateInstanceInput,
   CreateMigrationInput,
   CreateStepInstanceInput,
+  CreateTaskCommentInput,
   InsertConfigurationChangeInput,
   InsertEventInput,
   InsertMigrationInstanceResultInput,
@@ -40,6 +41,7 @@ import type {
   WorkflowTransition,
   WorkflowVersion,
   WorkflowVersionGraph,
+  TaskComment,
 } from "../modules/workflow/types.js";
 
 let idCounter = 0;
@@ -77,6 +79,9 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   events: WorkflowEvent[] = [];
   migrationsById = new Map<string, WorkflowMigration>();
   migrationResults: WorkflowMigrationInstanceResult[] = [];
+  taskComments: TaskComment[] = [];
+  /** fileObjectId -> workflow_step_instance_id, standing in for file_objects.workflow_step_instance_id (that table lives in modules/tenancy, out of scope for this fake). */
+  evidenceLinks = new Map<string, string>();
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
     const definition: WorkflowDefinition = {
@@ -379,6 +384,12 @@ export class FakeWorkflowRepository implements WorkflowRepository {
       started_at: new Date(0).toISOString(),
       completed_at: null,
       output: {},
+      owner_id: null,
+      reviewer_id: null,
+      due_at: null,
+      priority: "normal",
+      blocked_reason: null,
+      blocked_at: null,
     };
     this.stepInstancesById.set(step.id, step);
     return step;
@@ -401,9 +412,36 @@ export class FakeWorkflowRepository implements WorkflowRepository {
       assigned_to: input.assignedTo !== undefined ? input.assignedTo : existing.assigned_to,
       completed_at: input.completedAt !== undefined ? input.completedAt : existing.completed_at,
       output: input.output ?? existing.output,
+      owner_id: input.ownerId !== undefined ? input.ownerId : existing.owner_id,
+      reviewer_id: input.reviewerId !== undefined ? input.reviewerId : existing.reviewer_id,
+      due_at: input.dueAt !== undefined ? input.dueAt : existing.due_at,
+      priority: input.priority ?? existing.priority,
+      blocked_reason: input.blockedReason !== undefined ? input.blockedReason : existing.blocked_reason,
+      blocked_at: input.blockedAt !== undefined ? input.blockedAt : existing.blocked_at,
     };
     this.stepInstancesById.set(id, updated);
     return updated;
+  }
+
+  async addTaskComment(_accessToken: string, input: CreateTaskCommentInput): Promise<TaskComment> {
+    const comment: TaskComment = {
+      id: nextId("task-comment"),
+      tenant_id: TENANT_ID,
+      workflow_step_instance_id: input.workflowStepInstanceId,
+      author_id: input.authorId,
+      body: input.body,
+      created_at: new Date(0).toISOString(),
+    };
+    this.taskComments.push(comment);
+    return comment;
+  }
+
+  async listTaskComments(_accessToken: string, workflowStepInstanceId: string): Promise<TaskComment[]> {
+    return this.taskComments.filter((c) => c.workflow_step_instance_id === workflowStepInstanceId);
+  }
+
+  async attachEvidence(_accessToken: string, fileObjectId: string, workflowStepInstanceId: string): Promise<void> {
+    this.evidenceLinks.set(fileObjectId, workflowStepInstanceId);
   }
 
   async insertEvent(_accessToken: string, input: InsertEventInput): Promise<WorkflowEvent> {

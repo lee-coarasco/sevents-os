@@ -239,8 +239,16 @@ export const WORKFLOW_EVENT_TYPES = [
   "gate_blocked",
   "gate_exception",
   "migrated",
+  "task_blocked",
+  "task_unblocked",
+  "comment_added",
+  "evidence_attached",
 ] as const;
 export type WorkflowEventType = (typeof WORKFLOW_EVENT_TYPES)[number];
+
+/** Ticket 0070 (M07a): a generic four-value UI priority, not a BRD-specified business rule. */
+export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
 export interface WorkflowInstance {
   id: string;
@@ -276,6 +284,24 @@ export interface WorkflowStepInstance {
   started_at: string;
   completed_at: string | null;
   output: Record<string, unknown>;
+  /** Ticket 0070 (M07a, BRD FR-TASK-002): who the task is ultimately accountable to — distinct from assigned_to, which may change on reassignment. */
+  owner_id: string | null;
+  /** Distinct from assigned_to; used by request_approval steps where the approver is the reviewer. */
+  reviewer_id: string | null;
+  due_at: string | null;
+  priority: TaskPriority;
+  /** Non-null only while the step is explicitly marked blocked (FR-TASK-004: a reason is mandatory). */
+  blocked_reason: string | null;
+  blocked_at: string | null;
+}
+
+export interface TaskComment {
+  id: string;
+  tenant_id: string;
+  workflow_step_instance_id: string;
+  author_id: string | null;
+  body: string;
+  created_at: string;
 }
 
 export interface WorkflowEvent {

@@ -1034,6 +1034,100 @@ export async function getWorkflowInstance(
 }
 
 // ---------------------------------------------------------------------------
+// Task metadata, blocking, comments & evidence (ticket 0070, M07a)
+// ---------------------------------------------------------------------------
+
+export class MissingBlockReasonError extends Error {}
+
+function requireOpenStep(step: WorkflowStepInstance): void {
+  if (step.status === "completed" || step.status === "skipped" || step.status === "failed") {
+    throw new StepInstanceNotActionableError(`step instance ${step.id} is ${step.status}, not waiting/active`);
+  }
+}
+
+/** FR-TASK-004: blocked requires a reason. Legal only while the step is still open (waiting/active). */
+export async function setTaskBlocked(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  reason: string,
+): Promise<WorkflowStepInstance> {
+  if (!reason.trim()) throw new MissingBlockReasonError("a blocked task requires a non-empty reason");
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  requireOpenStep(step);
+  const blockedAt = new Date().toISOString();
+  const updated = await repository.updateStepInstance(accessToken, stepInstanceId, {
+    blockedReason: reason,
+    blockedAt,
+  });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "task_blocked",
+    payload: { reason },
+  });
+  return updated;
+}
+
+export async function clearTaskBlocked(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+): Promise<WorkflowStepInstance> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  requireOpenStep(step);
+  const updated = await repository.updateStepInstance(accessToken, stepInstanceId, {
+    blockedReason: null,
+    blockedAt: null,
+  });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "task_unblocked",
+    payload: {},
+  });
+  return updated;
+}
+
+export async function addTaskComment(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  authorId: string | null,
+  body: string,
+) {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  const comment = await repository.addTaskComment(accessToken, {
+    workflowStepInstanceId: stepInstanceId,
+    authorId,
+    body,
+  });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "comment_added",
+    payload: { commentId: comment.id },
+  });
+  return comment;
+}
+
+export async function attachTaskEvidence(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  fileObjectId: string,
+): Promise<void> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  await repository.attachEvidence(accessToken, fileObjectId, stepInstanceId);
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "evidence_attached",
+    payload: { fileObjectId },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Migration of active instances to a newer version (ticket 0063, M06d)
 // ---------------------------------------------------------------------------
 

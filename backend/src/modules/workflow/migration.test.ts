@@ -21,6 +21,12 @@ function step(id: string, nodeId: string, status: WorkflowStepInstance["status"]
     started_at: new Date(0).toISOString(),
     completed_at: null,
     output: {},
+    owner_id: null,
+    reviewer_id: null,
+    due_at: null,
+    priority: "normal",
+    blocked_reason: null,
+    blocked_at: null,
   };
 }
 

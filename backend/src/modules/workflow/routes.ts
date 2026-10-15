@@ -15,6 +15,7 @@ import {
   MigrationNotFoundError,
   MigrationNotPreviewedError,
   MigrationVersionMismatchError,
+  MissingBlockReasonError,
   NoStartNodeError,
   RollbackTargetNotPublishedError,
   StepInstanceNotActionableError,
@@ -27,9 +28,12 @@ import {
   addConditionToVersion,
   addNodeToVersion,
   addTransitionToVersion,
+  addTaskComment,
   approveMigration,
+  attachTaskEvidence,
   cancelInstance,
   cancelMigration,
+  clearTaskBlocked,
   completeStepInstance,
   createDraftVersion,
   createMigration,
@@ -48,6 +52,7 @@ import {
   recordApproval,
   resumeInstance,
   rollbackToVersion,
+  setTaskBlocked,
   simulateVersion,
   startWorkflowInstance,
   submitForApproval,
@@ -96,8 +101,9 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof UnregisteredServiceError ||
     error instanceof MigrationVersionMismatchError ||
     error instanceof MigrationNotPreviewedError ||
+    error instanceof MigrationAlreadyFinalError ||
     error instanceof MigrationNotApprovedError ||
-    error instanceof MigrationAlreadyFinalError
+    error instanceof MissingBlockReasonError
   ) {
     reply.code(400);
     return { error: error.message };
@@ -451,6 +457,84 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
       try {
         const result = await completeStepInstance(options.getRepository(), token, request.params.stepId, request.body ?? {});
         return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Task metadata, blocking, comments & evidence (ticket 0070, M07a)
+  // ---------------------------------------------------------------------
+
+  app.post<{ Params: { stepId: string }; Body: { reason: string } }>(
+    "/workflow/steps/:stepId/block",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const stepInstance = await setTaskBlocked(
+          options.getRepository(),
+          token,
+          request.params.stepId,
+          request.body?.reason ?? "",
+        );
+        return { stepInstance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { stepId: string } }>(
+    "/workflow/steps/:stepId/unblock",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const stepInstance = await clearTaskBlocked(options.getRepository(), token, request.params.stepId);
+        return { stepInstance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { stepId: string }; Body: { body: string } }>(
+    "/workflow/steps/:stepId/comments",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const { body } = request.body ?? ({} as never);
+      if (!body) {
+        reply.code(400);
+        return { error: "body is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const comment = await addTaskComment(options.getRepository(), token, request.params.stepId, callerUserId, body);
+        reply.code(201);
+        return { comment };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { stepId: string }; Body: { fileObjectId: string } }>(
+    "/workflow/steps/:stepId/evidence",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const { fileObjectId } = request.body ?? ({} as never);
+      if (!fileObjectId) {
+        reply.code(400);
+        return { error: "fileObjectId is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        await attachTaskEvidence(options.getRepository(), token, request.params.stepId, fileObjectId);
+        reply.code(201);
+        return { ok: true };
       } catch (error) {
         return handleServiceError(error, reply);
       }

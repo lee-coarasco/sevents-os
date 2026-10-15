@@ -19,6 +19,8 @@ import type {
   SimulationResultPayload,
   SimulationTestCase,
   StepInstanceStatus,
+  TaskComment,
+  TaskPriority,
   ValidationFinding,
   ValidationResult,
   VersionStatus,
@@ -143,6 +145,18 @@ export interface UpdateStepInstanceInput {
   assignedTo?: string | null;
   completedAt?: string | null;
   output?: Record<string, unknown>;
+  ownerId?: string | null;
+  reviewerId?: string | null;
+  dueAt?: string | null;
+  priority?: TaskPriority;
+  blockedReason?: string | null;
+  blockedAt?: string | null;
+}
+
+export interface CreateTaskCommentInput {
+  workflowStepInstanceId: string;
+  authorId: string | null;
+  body: string;
 }
 
 export interface InsertEventInput {
@@ -244,6 +258,12 @@ export interface WorkflowRepository {
   getStepInstance(accessToken: string, id: string): Promise<WorkflowStepInstance | null>;
   listStepInstances(accessToken: string, instanceId: string): Promise<WorkflowStepInstance[]>;
   updateStepInstance(accessToken: string, id: string, input: UpdateStepInstanceInput): Promise<WorkflowStepInstance>;
+
+  /** Ticket 0070 (M07a): append-only, no update/delete — same construction as auth_audit_log. */
+  addTaskComment(accessToken: string, input: CreateTaskCommentInput): Promise<TaskComment>;
+  listTaskComments(accessToken: string, workflowStepInstanceId: string): Promise<TaskComment[]>;
+  /** Reuses ticket 0055's file_objects — sets its workflow_step_instance_id FK, no second attachment table. */
+  attachEvidence(accessToken: string, fileObjectId: string, workflowStepInstanceId: string): Promise<void>;
 
   insertEvent(accessToken: string, input: InsertEventInput): Promise<WorkflowEvent>;
   listEvents(accessToken: string, instanceId: string): Promise<WorkflowEvent[]>;
@@ -648,9 +668,50 @@ export function createSupabaseWorkflowRepository(
       if (input.assignedTo !== undefined) update.assigned_to = input.assignedTo;
       if (input.completedAt !== undefined) update.completed_at = input.completedAt;
       if (input.output !== undefined) update.output = input.output;
+      if (input.ownerId !== undefined) update.owner_id = input.ownerId;
+      if (input.reviewerId !== undefined) update.reviewer_id = input.reviewerId;
+      if (input.dueAt !== undefined) update.due_at = input.dueAt;
+      if (input.priority !== undefined) update.priority = input.priority;
+      if (input.blockedReason !== undefined) update.blocked_reason = input.blockedReason;
+      if (input.blockedAt !== undefined) update.blocked_at = input.blockedAt;
       const { data, error } = await client.from("workflow_step_instances").update(update).eq("id", id).select("*").single();
       if (error || !data) throw new Error(`updateStepInstance: ${error?.message ?? "no row returned"}`);
       return data as WorkflowStepInstance;
+    },
+
+    async addTaskComment(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("task_comments")
+        .insert({
+          workflow_step_instance_id: input.workflowStepInstanceId,
+          author_id: input.authorId,
+          body: input.body,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`addTaskComment: ${error?.message ?? "no row returned"}`);
+      return data as TaskComment;
+    },
+
+    async listTaskComments(accessToken, workflowStepInstanceId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("task_comments")
+        .select("*")
+        .eq("workflow_step_instance_id", workflowStepInstanceId)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(`listTaskComments: ${error.message}`);
+      return (data as TaskComment[]) ?? [];
+    },
+
+    async attachEvidence(accessToken, fileObjectId, workflowStepInstanceId) {
+      const client = userScopedClientFactory(accessToken);
+      const { error } = await client
+        .from("file_objects")
+        .update({ workflow_step_instance_id: workflowStepInstanceId })
+        .eq("id", fileObjectId);
+      if (error) throw new Error(`attachEvidence: ${error.message}`);
     },
 
     async insertEvent(accessToken, input) {
