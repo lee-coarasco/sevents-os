@@ -103,7 +103,7 @@ let cachedWorkflowRepository: WorkflowRepository | null = null;
 
 function defaultWorkflowRepository(): WorkflowRepository {
   if (!cachedWorkflowRepository) {
-    cachedWorkflowRepository = createSupabaseWorkflowRepository(createUserScopedClient);
+    cachedWorkflowRepository = createSupabaseWorkflowRepository(createServiceClient(), createUserScopedClient);
   }
   return cachedWorkflowRepository;
 }

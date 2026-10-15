@@ -243,6 +243,8 @@ export const WORKFLOW_EVENT_TYPES = [
   "task_unblocked",
   "comment_added",
   "evidence_attached",
+  "task_reassigned",
+  "task_delegated",
 ] as const;
 export type WorkflowEventType = (typeof WORKFLOW_EVENT_TYPES)[number];
 

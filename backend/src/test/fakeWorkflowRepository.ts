@@ -84,11 +84,18 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   taskComments: TaskComment[] = [];
   /** fileObjectId -> workflow_step_instance_id, standing in for file_objects.workflow_step_instance_id (that table lives in modules/tenancy, out of scope for this fake). */
   evidenceLinks = new Map<string, string>();
-  /** accessToken -> caller user id, standing in for the Supabase auth.getUser() call listMyWorkQueue resolves against in the real repository. */
+  /** accessToken -> caller user id, standing in for the Supabase auth.getUser() call listMyWorkQueue/resolveCallerUserId resolve against in the real repository. */
   sessions = new Map<string, string>();
+  /** userId -> tenant id, standing in for the service-role app_users lookup getUserTenantId does in the real repository (same shape as FakeAuthorityRepository's userTenants). */
+  userTenants = new Map<string, string>();
 
-  addSession(accessToken: string, userId: string) {
+  addSession(accessToken: string, userId: string, tenantId?: string) {
     this.sessions.set(accessToken, userId);
+    if (tenantId) this.userTenants.set(userId, tenantId);
+  }
+
+  setUserTenant(userId: string, tenantId: string) {
+    this.userTenants.set(userId, tenantId);
   }
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
@@ -585,5 +592,13 @@ export class FakeWorkflowRepository implements WorkflowRepository {
 
   async listTaskQueue(_accessToken: string, filters: TaskQueueFilters): Promise<TaskQueueEntry[]> {
     return this.resolveTaskQueue(filters);
+  }
+
+  async resolveCallerUserId(accessToken: string): Promise<string | null> {
+    return this.sessions.get(accessToken) ?? null;
+  }
+
+  async getUserTenantId(userId: string): Promise<string | null> {
+    return this.userTenants.get(userId) ?? null;
   }
 }

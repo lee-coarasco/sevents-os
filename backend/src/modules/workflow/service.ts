@@ -1129,6 +1129,83 @@ export async function attachTaskEvidence(
 }
 
 // ---------------------------------------------------------------------------
+// Task reassignment & delegation, audited (ticket 0072, M07c)
+// ---------------------------------------------------------------------------
+
+export class CrossTenantError extends Error {
+  constructor(message = "the new assignee is not in this step instance's tenant") {
+    super(message);
+  }
+}
+
+/**
+ * Shared by reassignTask/delegateTask: the target must be a real caller
+ * in the same tenant as the step instance — same "resolve then compare"
+ * shape as modules/authority's assignRole/CrossTenantError, just backed
+ * by workflow's own getUserTenantId instead of authority's.
+ */
+async function requireSameTenantTarget(
+  repository: WorkflowRepository,
+  targetUserId: string,
+  step: WorkflowStepInstance,
+): Promise<void> {
+  const targetTenantId = await repository.getUserTenantId(targetUserId);
+  if (!targetTenantId || targetTenantId !== step.tenant_id) {
+    throw new CrossTenantError();
+  }
+}
+
+/** FR-TASK-005: reassignment is audited. Legal only while the step is still open (waiting/active), same guard as blocking. */
+export async function reassignTask(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  newAssigneeUserId: string,
+  reason: string | null,
+): Promise<WorkflowStepInstance> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  requireOpenStep(step);
+  await requireSameTenantTarget(repository, newAssigneeUserId, step);
+  const from = step.assigned_to;
+  const updated = await repository.updateStepInstance(accessToken, stepInstanceId, { assignedTo: newAssigneeUserId });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "task_reassigned",
+    payload: { from, to: newAssigneeUserId, reason },
+  });
+  return updated;
+}
+
+/**
+ * Scope decision (see DECISIONS.md): a task "delegation" is a
+ * reassignment that records `task_delegated` instead of
+ * `task_reassigned`, not a second temporal Delegation entity like
+ * ticket 0056's authority delegations — there is no auto-expiring
+ * delegation window for tasks yet.
+ */
+export async function delegateTask(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  delegateUserId: string,
+  reason: string | null,
+): Promise<WorkflowStepInstance> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  requireOpenStep(step);
+  await requireSameTenantTarget(repository, delegateUserId, step);
+  const from = step.assigned_to;
+  const updated = await repository.updateStepInstance(accessToken, stepInstanceId, { assignedTo: delegateUserId });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "task_delegated",
+    payload: { from, to: delegateUserId, reason, delegated: true },
+  });
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
 // My Work / Team Work queue views (ticket 0071, M07b)
 // ---------------------------------------------------------------------------
 

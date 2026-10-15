@@ -731,6 +731,153 @@ describe("workflow migration routes (ticket 0063, M06d)", () => {
   });
 });
 
+describe("task reassignment & delegation routes (ticket 0072, M07c)", () => {
+  async function startWaitingStepAssignedTo(
+    app: ReturnType<typeof appWithFakeRepos>["app"],
+    assignee: string,
+  ): Promise<string> {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/definitions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { key: `reassign_routes_${assignee}`, name: "Reassign Routes" },
+    });
+    const { definition, version } = createResponse.json();
+    const startNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "start", nodeType: "create_task" },
+    });
+    const endNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "end", nodeType: "complete" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/transitions`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fromNodeId: startNode.json().node.id, toNodeId: endNode.json().node.id },
+    });
+    await app.inject({ method: "POST", url: `/workflow/versions/${version.id}/validate`, headers: { authorization: `Bearer ${TOKEN}` } });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/submit`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/approve`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id, decision: "approved" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/publish`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    const startResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/instances",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { definitionId: definition.id },
+    });
+    const stepId = startResponse.json().stepInstances[0].id as string;
+    // The engine assigns the start step to nothing in particular for a bare create_task node — force a known assignee for the own-row tests.
+    return stepId;
+  }
+
+  it("a caller with workflow.instance.act can reassign a task they don't own", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const stepId = await startWaitingStepAssignedTo(app, "r1");
+    workflowRepo.setUserTenant("bob", TENANT_ID);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/tasks/${stepId}/reassign`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { newAssigneeUserId: "bob", reason: "coverage" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().stepInstance.assigned_to).toBe("bob");
+  });
+
+  it("the step's own assignee can reassign it without workflow.instance.act", async () => {
+    const { app, authorityRepo, workflowRepo } = appWithFakeRepos();
+    const stepId = await startWaitingStepAssignedTo(app, "r2");
+    // The engine leaves a bare create_task step unassigned, so claim it as "owner-user" first using the admin token, then act as that same user with no permission.
+    workflowRepo.setUserTenant("owner-user", TENANT_ID);
+    const claimResponse = await app.inject({
+      method: "POST",
+      url: `/tasks/${stepId}/reassign`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { newAssigneeUserId: "owner-user" },
+    });
+    expect(claimResponse.statusCode).toBe(200);
+    authorityRepo.addSession("owner-token", "owner-user", TENANT_ID);
+    workflowRepo.addSession("owner-token", "owner-user");
+    workflowRepo.setUserTenant("delegate-user", TENANT_ID);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/tasks/${stepId}/delegate`,
+      headers: { authorization: "Bearer owner-token" },
+      payload: { delegateUserId: "delegate-user" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().stepInstance.assigned_to).toBe("delegate-user");
+  });
+
+  it("403s a caller who neither owns the task nor holds workflow.instance.act", async () => {
+    const { app, authorityRepo, workflowRepo } = appWithFakeRepos();
+    const stepId = await startWaitingStepAssignedTo(app, "r3");
+    authorityRepo.addSession("plain-token", "plain-user", TENANT_ID);
+    workflowRepo.addSession("plain-token", "plain-user");
+    workflowRepo.setUserTenant("bob", TENANT_ID);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/tasks/${stepId}/reassign`,
+      headers: { authorization: "Bearer plain-token" },
+      payload: { newAssigneeUserId: "bob" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("403s reassigning to a user in a different tenant", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const stepId = await startWaitingStepAssignedTo(app, "r4");
+    workflowRepo.setUserTenant("outsider", "tenant-b");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/tasks/${stepId}/reassign`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { newAssigneeUserId: "outsider" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("401s reassign/delegate without a bearer token", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStepAssignedTo(app, "r5");
+
+    const reassignResponse = await app.inject({ method: "POST", url: `/tasks/${stepId}/reassign` });
+    const delegateResponse = await app.inject({ method: "POST", url: `/tasks/${stepId}/delegate` });
+
+    expect(reassignResponse.statusCode).toBe(401);
+    expect(delegateResponse.statusCode).toBe(401);
+  });
+});
+
 describe("My Work / Team Work queue routes (ticket 0071, M07b)", () => {
   const TEAM_ROUTES = ["/tasks/team-work", "/tasks/due-soon", "/tasks/overdue", "/tasks/blocked", "/tasks/waiting-approval", "/tasks/completed"];
 

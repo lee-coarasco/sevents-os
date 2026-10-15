@@ -1,4 +1,4 @@
-import type { FastifyInstance, preHandlerHookHandler } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { WorkflowRepository } from "./repository.js";
 import {
@@ -40,6 +40,8 @@ import {
   createDraftVersion,
   createMigration,
   createWorkflowDefinition,
+  CrossTenantError,
+  delegateTask,
   dueSoonQueue,
   executeMigration,
   getVersionGraph,
@@ -54,6 +56,7 @@ import {
   pauseInstance,
   previewMigration,
   publishVersion,
+  reassignTask,
   recordApproval,
   resumeInstance,
   rollbackToVersion,
@@ -115,7 +118,51 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     reply.code(400);
     return { error: error.message };
   }
+  if (error instanceof CrossTenantError) {
+    reply.code(403);
+    return { error: error.message };
+  }
   throw error;
+}
+
+/**
+ * Ticket 0072 (M07c): reassign/delegate allow a step's own assignee
+ * without the admin-wide `workflow.instance.act` permission (same
+ * "is this your own row" shape used throughout the codebase). Falls
+ * through to the ordinary permission-gated preHandler for everyone
+ * else, including when the step doesn't exist (the route handler's own
+ * requireStepInstance call turns that into a 404 for whoever does hold
+ * the permission).
+ */
+function requireActOrOwnTask(
+  getRepository: () => WorkflowRepository,
+  requirePermission: (permissionKey: string) => preHandlerHookHandler,
+): preHandlerHookHandler {
+  return async (request, reply) => {
+    const { stepInstanceId } = request.params as { stepInstanceId: string };
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return reply.send({ error: "missing bearer token" });
+    }
+    const repo = getRepository();
+    const step = await repo.getStepInstance(token, stepInstanceId);
+    if (step) {
+      const callerUserId = await repo.resolveCallerUserId(token);
+      if (callerUserId && step.assigned_to === callerUserId) {
+        (request as AuthenticatedRequest).authUserId = callerUserId;
+        return;
+      }
+    }
+    // requirePermission's real implementation (modules/authority/guard.ts) is a plain
+    // 2-arg async function; the preHandlerHookHandler type just describes Fastify's
+    // callback-style hook shape, which it's never actually called as here.
+    const permissionCheck = requirePermission("workflow.instance.act") as unknown as (
+      req: FastifyRequest,
+      rep: FastifyReply,
+    ) => Promise<unknown>;
+    return permissionCheck(request, reply);
+  };
 }
 
 export async function workflowRoutes(app: FastifyInstance, options: WorkflowRouteOptions) {
@@ -542,6 +589,60 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
         await attachTaskEvidence(options.getRepository(), token, request.params.stepId, fileObjectId);
         reply.code(201);
         return { ok: true };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Task reassignment & delegation, audited (ticket 0072, M07c)
+  // ---------------------------------------------------------------------
+
+  app.post<{ Params: { stepInstanceId: string }; Body: { newAssigneeUserId: string; reason?: string | null } }>(
+    "/tasks/:stepInstanceId/reassign",
+    { preHandler: requireActOrOwnTask(options.getRepository, options.requirePermission) },
+    async (request, reply) => {
+      const { newAssigneeUserId } = request.body ?? ({} as never);
+      if (!newAssigneeUserId) {
+        reply.code(400);
+        return { error: "newAssigneeUserId is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const stepInstance = await reassignTask(
+          options.getRepository(),
+          token,
+          request.params.stepInstanceId,
+          newAssigneeUserId,
+          request.body?.reason ?? null,
+        );
+        return { stepInstance };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { stepInstanceId: string }; Body: { delegateUserId: string; reason?: string | null } }>(
+    "/tasks/:stepInstanceId/delegate",
+    { preHandler: requireActOrOwnTask(options.getRepository, options.requirePermission) },
+    async (request, reply) => {
+      const { delegateUserId } = request.body ?? ({} as never);
+      if (!delegateUserId) {
+        reply.code(400);
+        return { error: "delegateUserId is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const stepInstance = await delegateTask(
+          options.getRepository(),
+          token,
+          request.params.stepInstanceId,
+          delegateUserId,
+          request.body?.reason ?? null,
+        );
+        return { stepInstance };
       } catch (error) {
         return handleServiceError(error, reply);
       }

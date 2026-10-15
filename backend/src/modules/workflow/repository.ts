@@ -274,6 +274,10 @@ export interface WorkflowRepository {
    * the route needs no permission beyond a valid session.
    */
   listMyWorkQueue(accessToken: string): Promise<TaskQueueEntry[]>;
+  /** Ticket 0072 (M07c): resolves the caller's own id from the access token, same construction as listMyWorkQueue — lets the reassign/delegate routes allow a step's own assignee without the admin-wide permission. */
+  resolveCallerUserId(accessToken: string): Promise<string | null>;
+  /** Ticket 0072 (M07c): same "where does this user belong" lookup as modules/authority's getUserTenantId — a reassignment/delegation target must be in the same tenant as the step instance. */
+  getUserTenantId(userId: string): Promise<string | null>;
   /**
    * The other six BRD queue views (Team Work/Due Soon/Overdue/Blocked/
    * Waiting Approval/Completed) — different filter combinations over
@@ -376,6 +380,7 @@ async function fetchTaskQueue(client: SupabaseClient, filters: TaskQueueFilters)
  * via FakeWorkflowRepository instead.
  */
 export function createSupabaseWorkflowRepository(
+  serviceClient: SupabaseClient,
   userScopedClientFactory: (accessToken: string) => SupabaseClient,
 ): WorkflowRepository {
   return {
@@ -804,6 +809,19 @@ export function createSupabaseWorkflowRepository(
     async listTaskQueue(accessToken, filters) {
       const client = userScopedClientFactory(accessToken);
       return fetchTaskQueue(client, filters);
+    },
+
+    async resolveCallerUserId(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data: authData, error } = await client.auth.getUser();
+      if (error || !authData?.user) return null;
+      return authData.user.id;
+    },
+
+    async getUserTenantId(userId) {
+      const { data, error } = await serviceClient.from("app_users").select("tenant_id").eq("id", userId).maybeSingle();
+      if (error) throw new Error(`getUserTenantId: ${error.message}`);
+      return (data?.tenant_id as string | undefined) ?? null;
     },
 
     async insertEvent(accessToken, input) {

@@ -242,3 +242,20 @@ approved (agent-autonomous or you).
   scoping detail, explicitly agent-decidable per CLAUDE.md; recorded
   here per the ticket's own instruction to document the default
   explicitly rather than let it pass silently).
+
+## 2026-10-15 22:50 UTC - M07c task "delegation" is a reassignment with a different event type, not a second temporal entity
+- Decision: Ticket 0072's `delegateTask` is mechanically identical to
+  `reassignTask` (same open-step guard, same cross-tenant target
+  check, same `assigned_to` update) and differs only in writing a
+  `task_delegated` workflow_events row instead of `task_reassigned`.
+  No new `task_delegations` table with its own `valid_from`/`valid_to`
+  window (unlike ticket 0056's authority `delegations` table) was
+  built.
+- Why: BRD §8.3 FR-TASK-005 only requires reassignment/delegation to
+  be audited — it doesn't ask for delegations to auto-expire and
+  revert the way authority delegations do. Building a time-bound
+  entity speculatively, with no requirement driving its expiry
+  semantics, would be inventing scope the BRD doesn't ask for.
+- Approved by: agent (ticket 0072 explicitly called this out as a
+  scope decision to record, same weight as the M06 tenant_id/nullable
+  calls).

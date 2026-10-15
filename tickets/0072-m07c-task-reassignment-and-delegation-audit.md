@@ -1,7 +1,7 @@
 ---
 id: 72
 title: "M07c — Task reassignment and delegation, audited"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 7
 created: 2026-10-15
@@ -53,18 +53,42 @@ audited."
 - Queue views — ticket 0071 (M07b), already built.
 
 ## Acceptance
-- [ ] Reassigning a task updates `assigned_to` and writes a
+- [x] Reassigning a task updates `assigned_to` and writes a
       `task_reassigned` `workflow_events` row with `from`/`to`/`reason`.
-- [ ] Delegating a task writes `task_delegated` instead, same shape.
-- [ ] Both actions are rejected once the step is
+- [x] Delegating a task writes `task_delegated` instead, same shape.
+- [x] Both actions are rejected once the step is
       `completed`/`skipped`/`failed`.
-- [ ] A step's own assignee can reassign/delegate it without
+- [x] A step's own assignee can reassign/delegate it without
       `workflow.instance.act`; a caller who is neither the assignee nor
       a `workflow.instance.act` holder gets 403.
-- [ ] Cross-tenant reassignment (new assignee in a different tenant) is
+- [x] Cross-tenant reassignment (new assignee in a different tenant) is
       rejected.
-- [ ] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
+- [x] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
 
 ## Progress
 - 2026-10-15: Split out of ticket 0065 (M07) by the architect session
   that re-read BRD §8.3. Third of three M07 sub-tickets.
+- 2026-10-15 22:50 UTC: Built. `reassignTask`/`delegateTask` in
+  `service.ts` share one `requireSameTenantTarget` helper (new
+  `WorkflowRepository.getUserTenantId`, service-role-backed like
+  `modules/authority`'s `getUserTenantId` — `createSupabaseWorkflowRepository`
+  now takes a `serviceClient` first arg, `app.ts` updated) and the
+  existing `requireOpenStep` guard from ticket 0070; they differ only
+  in the `workflow_events` type they write (`task_reassigned` vs.
+  `task_delegated` — see DECISIONS.md for why delegation isn't a
+  second temporal entity). Routes `POST /tasks/:stepInstanceId/{reassign,delegate}`
+  use a new `requireActOrOwnTask` preHandler (routes.ts): looks up the
+  step, and if `assigned_to` already equals the caller's own id
+  (resolved via new `WorkflowRepository.resolveCallerUserId`, same
+  `auth.getUser()` trick as ticket 0071's My Work), allows it with no
+  permission; otherwise falls through to the ordinary
+  `workflow.instance.act` permission gate. New `queue.test.ts`-sibling
+  `reassignment.test.ts` (6 cases: reassign+event, delegate+event,
+  reject-on-completed for both, cross-tenant rejection for both) plus a
+  `routes.test.ts` block covering the own-row bypass, the
+  permission-holder path, the neither-owner-nor-permission 403, the
+  cross-tenant 403, and 401-without-token. `npm run build`/`lint`/
+  `npm test`: 251/251 across 23 files. `scripts/tickets.py check`
+  clean. Status set to `testing` — all three M07 sub-tickets (0070,
+  0071, 0072) are now built. Next: M08 (Approvals & Delegation, ticket
+  0066), the next module in the BRD build order.
