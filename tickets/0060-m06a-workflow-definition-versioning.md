@@ -1,7 +1,7 @@
 ---
 id: 60
 title: "M06a — Workflow Definition Data Model, CRUD & Versioning"
-status: in-progress
+status: testing
 roles: [backend-engineer]
 priority: 2
 created: 2026-10-15
@@ -139,30 +139,62 @@ Those three depend on this one existing.
   follow-up) ends up doing it, don't scope-creep it into this one.
 
 ## Acceptance
-- [ ] Migration creates all 8 tables above, tenant-scoped NOT NULL
+- [x] Migration creates all 8 tables above, tenant-scoped NOT NULL
       tenant_id, RLS enabled on every one.
-- [ ] `workflow.definition.manage` and `workflow.definition.publish`
+- [x] `workflow.definition.manage` and `workflow.definition.publish`
       permissions exist, deny-by-default, granted to
       `role.platform_administrator`.
-- [ ] Service layer: create definition → add nodes/transitions/
+- [x] Service layer: create definition → add nodes/transitions/
       conditions on a draft version → submit for approval → approve →
       publish, all unit-tested against a fake repository.
-- [ ] `node_type` outside the BRD §5.4.3 supported set is rejected
+- [x] `node_type` outside the BRD §5.4.3 supported set is rejected
       (test asserts this).
-- [ ] Publishing a new version never mutates or deletes a previously
+- [x] Publishing a new version never mutates or deletes a previously
       published version's row (test asserts the old version row is
       unchanged after a second publish).
-- [ ] `rollbackToVersion` creates a new version row pointing back via
+- [x] `rollbackToVersion` creates a new version row pointing back via
       `rollback_of_version`, never rewrites the rolled-back-to version's
       original row (test asserts this) and writes a
       `configuration_rollback_events` row.
-- [ ] Every mutating operation writes a `configuration_changes` row
+- [x] Every mutating operation writes a `configuration_changes` row
       (test asserts this for at least create/publish/rollback).
-- [ ] Routes gated on the two new permissions (401/403 tests, same
+- [x] Routes gated on the two new permissions (401/403 tests, same
       pattern as every prior module).
-- [ ] `npm test` and `npm run build` pass; `scripts/tickets.py check`
+- [x] `npm test` and `npm run build` pass; `scripts/tickets.py check`
       clean.
 
 ## Progress
 - 2026-10-15: Filed as the first of four M06 sub-tickets (ticket 0059
   split per its own instruction — see ticket 0059's Progress note).
+- 2026-10-15 15:15 UTC: Built M06a. Migration
+  `supabase/migrations/20261015000005_m06a_workflow_definitions.sql`
+  adds `workflow_definitions`, `workflow_versions`, `workflow_nodes`,
+  `workflow_transitions`, `workflow_conditions`, `configuration_changes`,
+  `configuration_approvals`, `published_configurations`,
+  `configuration_rollback_events`, all NOT NULL tenant_id + RLS, plus the
+  two new permissions seeded to `role.platform_administrator`. Backend:
+  `backend/src/modules/workflow/` — repository (interface +
+  not-yet-live Supabase adapter, same honest gap as every prior ticket),
+  service (`createWorkflowDefinition`, `createDraftVersion` with
+  optional graph cloning, `addNodeToVersion`/`addTransitionToVersion`/
+  `addConditionToVersion` gated on the target version being `draft`,
+  `submitForApproval`/`recordApproval` driving `workflow_definitions.status`
+  through draft→under_review→approved(/back to draft on reject),
+  `publishVersion`, `rollbackToVersion`), `routes.ts` (REST endpoints,
+  `submit` gated on `workflow.definition.manage`, `approve`/`publish`/
+  `rollback` gated on `workflow.definition.publish`). `npm test`:
+  108/108 (all prior + 29 new workflow tests), `npm run build` clean,
+  `scripts/tickets.py check` clean (had to `npm install` first — backend
+  `node_modules` wasn't present in this session's checkout).
+  **Design decision recorded here (DB schema detail, agent-decidable):**
+  `workflow_definitions.current_version` only moves on publish/rollback,
+  never on draft creation — it is "the version number new/existing
+  instances pin to," not "the latest version that exists." A new draft
+  flips `status` back to `draft` (there is now an unpublished draft in
+  progress) while `current_version` keeps pointing at whichever version
+  is still actually published, so ticket 0062's future runtime engine
+  has a stable, unambiguous column to read.
+  Explicitly deferred to 0061/0062/0063 per this ticket's own scope: no
+  structural validation (a node can reference a nonexistent role/
+  condition today), no runtime instance creation, no migration-of-active-
+  instances tooling.
