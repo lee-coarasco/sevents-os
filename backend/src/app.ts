@@ -6,6 +6,11 @@ import {
   createSupabaseIdentityRepository,
   type IdentityRepository,
 } from "./modules/identity/repository.js";
+import { tenancyRoutes } from "./modules/tenancy/routes.js";
+import {
+  createSupabaseTenancyRepository,
+  type TenancyRepository,
+} from "./modules/tenancy/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -17,6 +22,8 @@ export interface BuildAppOptions {
   getSupabaseClient?: () => SupabaseClient;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getIdentityRepository?: () => IdentityRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getTenancyRepository?: () => TenancyRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -33,6 +40,15 @@ function defaultIdentityRepository(): IdentityRepository {
   return cachedIdentityRepository;
 }
 
+let cachedTenancyRepository: TenancyRepository | null = null;
+
+function defaultTenancyRepository(): TenancyRepository {
+  if (!cachedTenancyRepository) {
+    cachedTenancyRepository = createSupabaseTenancyRepository(createUserScopedClient);
+  }
+  return cachedTenancyRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
 
@@ -42,6 +58,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(identityRoutes, {
     getRepository: options.getIdentityRepository ?? defaultIdentityRepository,
+  });
+
+  app.register(tenancyRoutes, {
+    getRepository: options.getTenancyRepository ?? defaultTenancyRepository,
   });
 
   return app;

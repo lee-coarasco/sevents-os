@@ -5,6 +5,8 @@
 -- identity events. No tenant_id yet — M02 (ticket 0055) adds it via an
 -- additive migration once Tenant/Company exist.
 
+create extension if not exists pgcrypto;
+
 create table public.app_users (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
