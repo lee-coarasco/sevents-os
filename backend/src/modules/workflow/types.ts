@@ -245,6 +245,9 @@ export const WORKFLOW_EVENT_TYPES = [
   "evidence_attached",
   "task_reassigned",
   "task_delegated",
+  "approval_decision_recorded",
+  "approval_chain_resolved",
+  "approval_revoked",
 ] as const;
 export type WorkflowEventType = (typeof WORKFLOW_EVENT_TYPES)[number];
 
@@ -384,6 +387,76 @@ export interface WorkflowMigration {
   executed_at: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+/** Ticket 0066 (M08): BRD FR-APP-001's two supported chain shapes for a request_approval node. */
+export const APPROVAL_CHAIN_MODES = ["sequential", "parallel"] as const;
+export type ApprovalChainMode = (typeof APPROVAL_CHAIN_MODES)[number];
+
+export const APPROVAL_CHAIN_DECISIONS = ["approved", "rejected", "returned_for_correction"] as const;
+export type ApprovalChainDecision = (typeof APPROVAL_CHAIN_DECISIONS)[number];
+
+/**
+ * Ticket 0066 (M08): a request_approval node's `config` (the generic
+ * jsonb column on workflow_nodes, ticket 0060) normalized into a
+ * multi-approver chain. approverUserIds is an explicit list of user
+ * ids — unlike the single-approver legacy shape (`config.roleId`/
+ * `config.userId`, ticket 0062's resolveAssignee), there is no "any
+ * user holding role X" resolution mechanism in this codebase yet, so
+ * a chain's approvers must be named explicitly. requiredApprovals only
+ * applies to `parallel` mode and defaults to approverUserIds.length
+ * (unanimous) when omitted.
+ */
+export interface ApprovalChainConfig {
+  mode: ApprovalChainMode;
+  approverUserIds: string[];
+  requiredApprovals?: number;
+  /** Opt-in per node — ticket 0056's checkSegregationOfDuties is "generic, unexercised" until a caller turns it on explicitly; this is that caller, and it must never default to true. */
+  enforceSegregationOfDuties?: boolean;
+  /** Optional authority-limit gate: checks the tenant's approval_limits for this role/department against context[amountField]/context[currencyField]. Omitted entirely (not a default) when a node has no value-band policy to check. */
+  approvalLimit?: {
+    roleId?: string;
+    departmentId?: string;
+    amountField: string;
+    currencyField: string;
+  };
+}
+
+/** One approver's decision within a request_approval step's chain (table approval_decisions). */
+export interface ApprovalDecisionRecord {
+  id: string;
+  tenant_id: string;
+  workflow_step_instance_id: string;
+  sequence_order: number | null;
+  approver_id: string;
+  decision: ApprovalChainDecision;
+  reason: string | null;
+  decided_by: string;
+  decided_at: string;
+}
+
+/** FR-APP-006's compensating-process record (table approval_revocations) — the original ApprovalDecisionRecord is never edited or deleted. */
+export interface ApprovalRevocation {
+  id: string;
+  tenant_id: string;
+  approval_decision_id: string;
+  revoked_by: string;
+  reason: string;
+  created_at: string;
+}
+
+/** FR-APP-002: everything an approver needs to see before deciding. riskFlags is always [] — no risk-scoring engine exists yet (TBD—Business Owner Decision), never fabricated. */
+export interface ApprovalDetail {
+  stepInstance: WorkflowStepInstance;
+  chainConfig: ApprovalChainConfig | null;
+  decisions: ApprovalDecisionRecord[];
+  revocations: ApprovalRevocation[];
+  requestContext: Record<string, unknown>;
+  comments: TaskComment[];
+  evidenceFileObjectIds: string[];
+  auditHistory: WorkflowEvent[];
+  authorityCheck: { configured: boolean; withinLimit: boolean | null };
+  riskFlags: never[];
 }
 
 export interface WorkflowMigrationInstanceResult {

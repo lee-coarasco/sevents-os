@@ -7,6 +7,8 @@ import type {
   CreateMigrationInput,
   CreateStepInstanceInput,
   CreateTaskCommentInput,
+  InsertApprovalDecisionInput,
+  InsertApprovalRevocationInput,
   InsertConfigurationChangeInput,
   InsertEventInput,
   InsertMigrationInstanceResultInput,
@@ -22,6 +24,8 @@ import type {
   WorkflowRepository,
 } from "../modules/workflow/repository.js";
 import type {
+  ApprovalDecisionRecord,
+  ApprovalRevocation,
   ConfigurationApproval,
   ConfigurationChange,
   ConfigurationRollbackEvent,
@@ -88,6 +92,8 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   sessions = new Map<string, string>();
   /** userId -> tenant id, standing in for the service-role app_users lookup getUserTenantId does in the real repository (same shape as FakeAuthorityRepository's userTenants). */
   userTenants = new Map<string, string>();
+  approvalDecisions: ApprovalDecisionRecord[] = [];
+  approvalRevocations: ApprovalRevocation[] = [];
 
   addSession(accessToken: string, userId: string, tenantId?: string) {
     this.sessions.set(accessToken, userId);
@@ -600,5 +606,46 @@ export class FakeWorkflowRepository implements WorkflowRepository {
 
   async getUserTenantId(userId: string): Promise<string | null> {
     return this.userTenants.get(userId) ?? null;
+  }
+
+  async insertApprovalDecision(_accessToken: string, input: InsertApprovalDecisionInput): Promise<ApprovalDecisionRecord> {
+    const decision: ApprovalDecisionRecord = {
+      id: nextId("approval-decision"),
+      tenant_id: TENANT_ID,
+      workflow_step_instance_id: input.workflowStepInstanceId,
+      sequence_order: input.sequenceOrder,
+      approver_id: input.approverId,
+      decision: input.decision,
+      reason: input.reason,
+      decided_by: input.decidedBy,
+      decided_at: new Date(0).toISOString(),
+    };
+    this.approvalDecisions.push(decision);
+    return decision;
+  }
+
+  async listApprovalDecisions(_accessToken: string, workflowStepInstanceId: string): Promise<ApprovalDecisionRecord[]> {
+    return this.approvalDecisions.filter((d) => d.workflow_step_instance_id === workflowStepInstanceId);
+  }
+
+  async getApprovalDecision(_accessToken: string, id: string): Promise<ApprovalDecisionRecord | null> {
+    return this.approvalDecisions.find((d) => d.id === id) ?? null;
+  }
+
+  async insertApprovalRevocation(_accessToken: string, input: InsertApprovalRevocationInput): Promise<ApprovalRevocation> {
+    const revocation: ApprovalRevocation = {
+      id: nextId("approval-revocation"),
+      tenant_id: TENANT_ID,
+      approval_decision_id: input.approvalDecisionId,
+      revoked_by: input.revokedBy,
+      reason: input.reason,
+      created_at: new Date(0).toISOString(),
+    };
+    this.approvalRevocations.push(revocation);
+    return revocation;
+  }
+
+  async listApprovalRevocations(_accessToken: string, approvalDecisionId: string): Promise<ApprovalRevocation[]> {
+    return this.approvalRevocations.filter((r) => r.approval_decision_id === approvalDecisionId);
   }
 }

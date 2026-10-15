@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  ApprovalChainDecision,
   ApprovalDecision,
+  ApprovalDecisionRecord,
+  ApprovalRevocation,
   ChangeType,
   ConditionExpression,
   ConfigurationApproval,
@@ -184,6 +187,22 @@ export interface UpdateMigrationInput {
   executedAt?: string | null;
 }
 
+/** Ticket 0066 (M08). */
+export interface InsertApprovalDecisionInput {
+  workflowStepInstanceId: string;
+  sequenceOrder: number | null;
+  approverId: string;
+  decision: ApprovalChainDecision;
+  reason: string | null;
+  decidedBy: string;
+}
+
+export interface InsertApprovalRevocationInput {
+  approvalDecisionId: string;
+  revokedBy: string;
+  reason: string;
+}
+
 export interface InsertMigrationInstanceResultInput {
   migrationId: string;
   workflowInstanceId: string;
@@ -310,6 +329,14 @@ export interface WorkflowRepository {
     input: InsertMigrationInstanceResultInput,
   ): Promise<WorkflowMigrationInstanceResult>;
   listMigrationInstanceResults(accessToken: string, migrationId: string): Promise<WorkflowMigrationInstanceResult[]>;
+
+  /** Ticket 0066 (M08): one row per approver decision within a request_approval step's chain — append-only, like workflow_events. */
+  insertApprovalDecision(accessToken: string, input: InsertApprovalDecisionInput): Promise<ApprovalDecisionRecord>;
+  listApprovalDecisions(accessToken: string, workflowStepInstanceId: string): Promise<ApprovalDecisionRecord[]>;
+  getApprovalDecision(accessToken: string, id: string): Promise<ApprovalDecisionRecord | null>;
+  /** FR-APP-006's compensating record — never an update/delete on approval_decisions itself. */
+  insertApprovalRevocation(accessToken: string, input: InsertApprovalRevocationInput): Promise<ApprovalRevocation>;
+  listApprovalRevocations(accessToken: string, approvalDecisionId: string): Promise<ApprovalRevocation[]>;
 }
 
 const OPEN_STEP_STATUSES: StepInstanceStatus[] = ["waiting", "active"];
@@ -940,6 +967,68 @@ export function createSupabaseWorkflowRepository(
         .order("created_at", { ascending: true });
       if (error) throw new Error(`listMigrationInstanceResults: ${error.message}`);
       return (data as WorkflowMigrationInstanceResult[]) ?? [];
+    },
+
+    async insertApprovalDecision(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("approval_decisions")
+        .insert({
+          workflow_step_instance_id: input.workflowStepInstanceId,
+          sequence_order: input.sequenceOrder,
+          approver_id: input.approverId,
+          decision: input.decision,
+          reason: input.reason,
+          decided_by: input.decidedBy,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertApprovalDecision: ${error?.message ?? "no row returned"}`);
+      return data as ApprovalDecisionRecord;
+    },
+
+    async listApprovalDecisions(accessToken, workflowStepInstanceId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("approval_decisions")
+        .select("*")
+        .eq("workflow_step_instance_id", workflowStepInstanceId)
+        .order("decided_at", { ascending: true });
+      if (error) throw new Error(`listApprovalDecisions: ${error.message}`);
+      return (data as ApprovalDecisionRecord[]) ?? [];
+    },
+
+    async getApprovalDecision(accessToken, id) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("approval_decisions").select("*").eq("id", id).maybeSingle();
+      if (error) throw new Error(`getApprovalDecision: ${error.message}`);
+      return (data as ApprovalDecisionRecord | null) ?? null;
+    },
+
+    async insertApprovalRevocation(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("approval_revocations")
+        .insert({
+          approval_decision_id: input.approvalDecisionId,
+          revoked_by: input.revokedBy,
+          reason: input.reason,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertApprovalRevocation: ${error?.message ?? "no row returned"}`);
+      return data as ApprovalRevocation;
+    },
+
+    async listApprovalRevocations(accessToken, approvalDecisionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("approval_revocations")
+        .select("*")
+        .eq("approval_decision_id", approvalDecisionId)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(`listApprovalRevocations: ${error.message}`);
+      return (data as ApprovalRevocation[]) ?? [];
     },
   };
 }

@@ -115,13 +115,33 @@ export class FakeAuthorityRepository implements AuthorityRepository {
 
   async createApprovalLimit(accessToken: string, input: CreateApprovalLimitInput) {
     const { tenantId } = this.contextOf(accessToken);
+    const nowIso = new Date().toISOString();
+    const roleId = input.role_id ?? null;
+    const departmentId = input.department_id ?? null;
+
+    // Ticket 0066 (M08), FR-APP-005: supersede the previous active row
+    // for this scope rather than editing it in place.
+    for (const existing of this.approvalLimits.values()) {
+      if (
+        existing.tenant_id === tenantId &&
+        existing.currency === input.currency &&
+        existing.role_id === roleId &&
+        existing.department_id === departmentId &&
+        existing.valid_to === null
+      ) {
+        existing.valid_to = nowIso;
+      }
+    }
+
     const limit: ApprovalLimit = {
       id: nextId("approval-limit"),
       tenant_id: tenantId,
-      role_id: input.role_id ?? null,
-      department_id: input.department_id ?? null,
+      role_id: roleId,
+      department_id: departmentId,
       currency: input.currency,
       max_value: input.max_value,
+      valid_from: nowIso,
+      valid_to: null,
     };
     this.approvalLimits.set(limit.id, limit);
     return limit;
@@ -133,7 +153,9 @@ export class FakeAuthorityRepository implements AuthorityRepository {
         limit.tenant_id === tenantId &&
         limit.currency === filter.currency &&
         limit.role_id === filter.roleId &&
-        limit.department_id === filter.departmentId
+        limit.department_id === filter.departmentId &&
+        limit.valid_from <= filter.atIso &&
+        (limit.valid_to === null || limit.valid_to > filter.atIso)
       ) {
         return limit;
       }

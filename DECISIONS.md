@@ -259,3 +259,44 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket 0072 explicitly called this out as a
   scope decision to record, same weight as the M06 tenant_id/nullable
   calls).
+
+## 2026-10-15 21:17 UTC - M08 approval chains: explicit approverUserIds (not role-resolved), any rejection short-circuits the whole chain, revocation never rewinds already-advanced workflow progress
+- Decision: Ticket 0066 (M08 — Approvals & Delegation) built FR-APP-
+  001..006 as a layer on top of ticket 0062's `request_approval`
+  step/`workflow_step_instances` seam, with three scope calls: (1) a
+  chain's approvers (`config.approverUserIds` on the `request_approval`
+  node) are an explicit list of user ids, not role ids resolved to
+  "whoever holds that role" — no such resolution mechanism exists
+  anywhere in this codebase yet, so inventing one here would be scope
+  creep beyond what FR-APP-001 asks for; (2) a rejection or
+  return-for-correction from any single approver immediately resolves
+  the whole chain (sequential or parallel) rather than waiting out the
+  remaining approvers' decisions; (3) revoking a decision
+  (FR-APP-006's compensating process) on a step that's already
+  completed and whose workflow instance has already advanced past it
+  only corrects the audit trail — it does not rewind the instance's
+  subsequent progress. Revoking a decision on a still-open step does
+  functionally re-open that approver's turn (the revoked decision is
+  excluded when recomputing the chain's outcome), since that's a
+  natural, low-risk consequence of "this decision no longer counts,"
+  not a rewind of anything that already happened downstream.
+- Why: (1) matches ticket 0056's own unresolved state — role-based
+  task assignment (`assigned_to` holding a role id) already exists
+  for the single-approver case but nothing anywhere resolves "which
+  real users hold this role," so a multi-approver chain needing exact
+  "has everyone decided yet" bookkeeping cannot rely on a mechanism
+  that doesn't exist. (2) BRD §8.3 doesn't specify what happens when
+  one approver in a chain rejects while others are still pending;
+  short-circuiting is the conservative default (never silently let a
+  request advance past a rejection) and symmetric with how ticket
+  0062's FR-WI-010 gate already treats a blocked evidence/approval
+  step as blocking by default. (3) Reversing already-advanced workflow
+  execution (undoing whatever domain action a subsequent step already
+  took) is a different, much larger problem than "record that this
+  approval is no longer valid" — building that speculatively here
+  would be the same kind of unrequested-machinery risk ticket 0072
+  flagged for task delegation.
+- Approved by: agent (ticket 0066 — internal API design/DB schema
+  details, explicitly agent-decidable per CLAUDE.md; recorded here at
+  the same weight as the M06/M07 scope calls per this project's own
+  precedent for real scope decisions, not just implementation detail).

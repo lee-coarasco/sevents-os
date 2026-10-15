@@ -1,3 +1,6 @@
+import type { AuthorityRepository } from "../authority/repository.js";
+import { checkSegregationOfDuties, isWithinApprovalLimit } from "../authority/service.js";
+import { normalizeApprovalChainConfig, pendingApproverIds, resolveChainOutcome } from "./approvals.js";
 import { computeImpactSummary, isOpenStepInstance } from "./migration.js";
 import type {
   AddConditionInput,
@@ -18,6 +21,9 @@ import {
 import { pickNextTransition, simulateGraph } from "./simulation.js";
 import { NODE_TYPES } from "./types.js";
 import type {
+  ApprovalChainDecision,
+  ApprovalDecisionRecord,
+  ApprovalDetail,
   ConfigurationSimulationRun,
   ConfigurationValidationRun,
   DefinitionFilters,
@@ -57,6 +63,15 @@ export class MigrationVersionMismatchError extends Error {}
 export class MigrationNotPreviewedError extends Error {}
 export class MigrationNotApprovedError extends Error {}
 export class MigrationAlreadyFinalError extends Error {}
+export class NotAnApprovalStepError extends Error {}
+export class NotAnEligibleApproverError extends Error {}
+export class MissingApprovalReasonError extends Error {}
+export class ApprovalLimitFieldsMissingError extends Error {}
+export class ApprovalLimitExceededError extends Error {}
+export class SegregationOfDutiesViolationError extends Error {}
+export class ApprovalDecisionNotFoundError extends Error {}
+export class ApprovalDecisionAlreadyRevokedError extends Error {}
+export class MissingRevocationReasonError extends Error {}
 export { IncompleteGateError, UnregisteredServiceError };
 
 export interface CreateWorkflowDefinitionInput {
@@ -1471,4 +1486,241 @@ export async function executeMigration(
     executedAt: new Date().toISOString(),
   });
   return { migration: updatedMigration, results };
+}
+
+// ---------------------------------------------------------------------------
+// Approvals & delegation (ticket 0066, M08)
+// ---------------------------------------------------------------------------
+
+async function requireApprovalNode(
+  repository: WorkflowRepository,
+  accessToken: string,
+  step: WorkflowStepInstance,
+  instance: WorkflowInstance,
+): Promise<WorkflowNode> {
+  const graph = await repository.getVersionGraph(accessToken, instance.workflow_version_id);
+  const node = graph.nodes.find((n) => n.id === step.node_id);
+  if (!node || node.node_type !== "request_approval") {
+    throw new NotAnApprovalStepError(`step instance ${step.id} is not a request_approval step`);
+  }
+  return node;
+}
+
+/**
+ * Decisions still in force for a step's chain — a revoked decision
+ * (FR-APP-006) is kept in `approval_decisions` forever but excluded
+ * here, so a revoked vote stops counting toward the chain's outcome
+ * and (for a sequential chain) frees up that approver's turn again.
+ */
+async function activeApprovalDecisions(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+): Promise<ApprovalDecisionRecord[]> {
+  const decisions = await repository.listApprovalDecisions(accessToken, stepInstanceId);
+  const revocationLists = await Promise.all(
+    decisions.map((d) => repository.listApprovalRevocations(accessToken, d.id)),
+  );
+  return decisions.filter((_, i) => revocationLists[i]!.length === 0);
+}
+
+/**
+ * FR-APP-002: everything an approver needs before deciding — the
+ * request (instance context), evidence (file ids surfaced via this
+ * step's evidence_attached events, ticket 0070's attachEvidence),
+ * policy/authority status, and audit history. riskFlags is always
+ * empty: no risk-scoring engine exists in this codebase (TBD—Business
+ * Owner Decision), never fabricated here.
+ */
+export async function getApprovalDetail(
+  repository: WorkflowRepository,
+  authorityRepo: AuthorityRepository,
+  accessToken: string,
+  stepInstanceId: string,
+): Promise<ApprovalDetail> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  const instance = await requireInstance(repository, accessToken, step.workflow_instance_id);
+  const node = await requireApprovalNode(repository, accessToken, step, instance);
+  const chainConfig = normalizeApprovalChainConfig(node);
+
+  const [decisions, comments, events] = await Promise.all([
+    repository.listApprovalDecisions(accessToken, stepInstanceId),
+    repository.listTaskComments(accessToken, stepInstanceId),
+    repository.listEvents(accessToken, instance.id),
+  ]);
+  const revocationLists = await Promise.all(decisions.map((d) => repository.listApprovalRevocations(accessToken, d.id)));
+  const revocations = revocationLists.flat();
+
+  const auditHistory = events.filter((e) => e.step_instance_id === stepInstanceId || e.step_instance_id === null);
+  const evidenceFileObjectIds = events
+    .filter((e) => e.step_instance_id === stepInstanceId && e.event_type === "evidence_attached")
+    .map((e) => e.payload.fileObjectId)
+    .filter((id): id is string => typeof id === "string");
+
+  let authorityCheck: ApprovalDetail["authorityCheck"] = { configured: false, withinLimit: null };
+  if (chainConfig?.approvalLimit) {
+    const { amountField, currencyField, roleId, departmentId } = chainConfig.approvalLimit;
+    const amount = instance.context[amountField];
+    const currency = instance.context[currencyField];
+    authorityCheck =
+      typeof amount === "number" && typeof currency === "string"
+        ? {
+            configured: true,
+            withinLimit: await isWithinApprovalLimit(
+              authorityRepo,
+              step.tenant_id,
+              { roleId: roleId ?? null, departmentId: departmentId ?? null, currency, atIso: new Date().toISOString() },
+              amount,
+            ),
+          }
+        : { configured: true, withinLimit: null };
+  }
+
+  return {
+    stepInstance: step,
+    chainConfig,
+    decisions,
+    revocations,
+    requestContext: instance.context,
+    comments,
+    evidenceFileObjectIds,
+    auditHistory,
+    authorityCheck,
+    riskFlags: [],
+  };
+}
+
+/**
+ * FR-APP-001/003/004: records one approver's decision, checks it
+ * against current authority/conflicts when the node asks for that, and
+ * — once the chain resolves (immediately on any rejection/return, or
+ * once enough approvals land) — completes the step via the same
+ * `completeStepInstance` entrypoint any other step type uses, so the
+ * ordinary FR-WI-009/010 fan-out and complete-node gate apply unchanged.
+ */
+export async function decideApprovalStep(
+  repository: WorkflowRepository,
+  authorityRepo: AuthorityRepository,
+  accessToken: string,
+  stepInstanceId: string,
+  approverId: string,
+  decision: ApprovalChainDecision,
+  reason: string | null,
+): Promise<{ stepInstance: WorkflowStepInstance; chainResolved: boolean }> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  requireOpenStep(step);
+  const instance = await requireInstance(repository, accessToken, step.workflow_instance_id);
+  const node = await requireApprovalNode(repository, accessToken, step, instance);
+
+  if (decision !== "approved" && !reason?.trim()) {
+    throw new MissingApprovalReasonError("rejection/return-for-correction requires a non-empty reason");
+  }
+
+  const chainConfig = normalizeApprovalChainConfig(node) ?? {
+    mode: "sequential" as const,
+    approverUserIds: [step.assigned_to ?? approverId],
+    requiredApprovals: 1,
+  };
+  const existingDecisions = await activeApprovalDecisions(repository, accessToken, stepInstanceId);
+  const eligible = pendingApproverIds(chainConfig, existingDecisions).includes(approverId);
+  if (!eligible) {
+    throw new NotAnEligibleApproverError(`${approverId} is not an eligible approver for step instance ${stepInstanceId}`);
+  }
+
+  if (chainConfig.enforceSegregationOfDuties && !checkSegregationOfDuties({ enforced: true }, instance.started_by ?? "", approverId)) {
+    throw new SegregationOfDutiesViolationError("the requester cannot also approve this request");
+  }
+
+  if (chainConfig.approvalLimit) {
+    const { amountField, currencyField, roleId, departmentId } = chainConfig.approvalLimit;
+    const amount = instance.context[amountField];
+    const currency = instance.context[currencyField];
+    if (typeof amount !== "number" || typeof currency !== "string") {
+      throw new ApprovalLimitFieldsMissingError(
+        `instance context is missing "${amountField}"/"${currencyField}" required by this node's approvalLimit check`,
+      );
+    }
+    const withinLimit = await isWithinApprovalLimit(
+      authorityRepo,
+      step.tenant_id,
+      { roleId: roleId ?? null, departmentId: departmentId ?? null, currency, atIso: new Date().toISOString() },
+      amount,
+    );
+    if (!withinLimit) throw new ApprovalLimitExceededError(`${approverId} has no approval limit covering ${amount} ${currency}`);
+  }
+
+  const sequenceOrder = chainConfig.mode === "sequential" ? chainConfig.approverUserIds.indexOf(approverId) : null;
+  const decisionRecord = await repository.insertApprovalDecision(accessToken, {
+    workflowStepInstanceId: stepInstanceId,
+    sequenceOrder,
+    approverId,
+    decision,
+    reason,
+    decidedBy: approverId,
+  });
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: step.id,
+    eventType: "approval_decision_recorded",
+    payload: { approverId, decision, reason, decisionId: decisionRecord.id },
+  });
+
+  const allDecisions = [...existingDecisions, decisionRecord];
+  const resolution = resolveChainOutcome(chainConfig, allDecisions);
+
+  if (!resolution.resolved) {
+    const next = pendingApproverIds(chainConfig, allDecisions)[0] ?? null;
+    const updated = await repository.updateStepInstance(accessToken, stepInstanceId, { assignedTo: next });
+    return { stepInstance: updated, chainResolved: false };
+  }
+
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: step.id,
+    eventType: "approval_chain_resolved",
+    payload: { decision: resolution.decision, decisionIds: allDecisions.map((d) => d.id) },
+  });
+  const { stepInstances } = await completeStepInstance(repository, accessToken, stepInstanceId, {
+    output: { decision: resolution.decision, approvalDecisionIds: allDecisions.map((d) => d.id) },
+  });
+  const completedStep = stepInstances.find((s) => s.id === stepInstanceId)!;
+  return { stepInstance: completedStep, chainResolved: true };
+}
+
+/**
+ * FR-APP-006: the only sanctioned way to undo an approval decision.
+ * Never deletes or edits the original `approval_decisions` row — just
+ * appends a revocation record. If the step is still open, the revoked
+ * decision stops counting (activeApprovalDecisions excludes it), so a
+ * sequential chain re-opens that approver's turn; if the step already
+ * completed and the workflow has advanced past it, this only restores
+ * the audit record to "revoked" — rewinding already-advanced workflow
+ * progress is explicitly out of scope for this ticket (see
+ * DECISIONS.md), same as ticket 0072 declined to build a full temporal
+ * Delegation entity speculatively.
+ */
+export async function revokeApprovalDecision(
+  repository: WorkflowRepository,
+  accessToken: string,
+  approvalDecisionId: string,
+  revokedBy: string,
+  reason: string,
+): Promise<ApprovalDecisionRecord> {
+  if (!reason.trim()) throw new MissingRevocationReasonError("a revocation requires a non-empty reason");
+  const decisionRecord = await repository.getApprovalDecision(accessToken, approvalDecisionId);
+  if (!decisionRecord) throw new ApprovalDecisionNotFoundError(`approval decision ${approvalDecisionId} not found`);
+  const existingRevocations = await repository.listApprovalRevocations(accessToken, approvalDecisionId);
+  if (existingRevocations.length > 0) {
+    throw new ApprovalDecisionAlreadyRevokedError(`approval decision ${approvalDecisionId} is already revoked`);
+  }
+
+  const step = await requireStepInstance(repository, accessToken, decisionRecord.workflow_step_instance_id);
+  await repository.insertApprovalRevocation(accessToken, { approvalDecisionId, revokedBy, reason });
+  await repository.insertEvent(accessToken, {
+    instanceId: step.workflow_instance_id,
+    stepInstanceId: step.id,
+    eventType: "approval_revoked",
+    payload: { approvalDecisionId, revokedBy, reason },
+  });
+  return decisionRecord;
 }

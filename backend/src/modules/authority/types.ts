@@ -33,6 +33,12 @@ export interface Delegation {
   reason: string | null;
 }
 
+/**
+ * Ticket 0066 (M08): FR-APP-005 "thresholds are configurable and
+ * versioned" — valid_from/valid_to turn an update into a new row that
+ * supersedes the old one (which gets its valid_to closed), never an
+ * in-place edit. History is never overwritten.
+ */
 export interface ApprovalLimit {
   id: string;
   tenant_id: string;
@@ -40,6 +46,8 @@ export interface ApprovalLimit {
   department_id: string | null;
   currency: string;
   max_value: number;
+  valid_from: string;
+  valid_to: string | null;
 }
 
 /**

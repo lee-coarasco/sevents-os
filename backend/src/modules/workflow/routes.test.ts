@@ -942,3 +942,108 @@ describe("My Work / Team Work queue routes (ticket 0071, M07b)", () => {
     expect(response.statusCode).toBe(200);
   });
 });
+
+describe("approvals & delegation (ticket 0066, M08)", () => {
+  async function chainStep(workflowRepo: FakeWorkflowRepository, config: Record<string, unknown>) {
+    const instance = await workflowRepo.createInstance(TOKEN, { definitionId: "def-1", versionId: "version-1", startedBy: "requester", context: {} });
+    const node = await workflowRepo.addNode(TOKEN, { versionId: "version-1", nodeKey: "approve", nodeType: "request_approval", config });
+    return workflowRepo.createStepInstance(TOKEN, { instanceId: instance.id, nodeId: node.id, status: "waiting", assignedTo: "alice" });
+  }
+
+  it("a configured approver can decide without workflow.instance.act", async () => {
+    const { app, workflowRepo, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("alice-token", "alice", TENANT_ID);
+    workflowRepo.addSession("alice-token", "alice");
+    const step = await chainStep(workflowRepo, { approverUserIds: ["alice"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/approvals/${step.id}/decide`,
+      headers: { authorization: "Bearer alice-token" },
+      payload: { decision: "approved" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().chainResolved).toBe(true);
+    expect(response.json().stepInstance.status).toBe("completed");
+  });
+
+  it("a caller who is neither the configured approver nor a workflow.instance.act holder gets 403", async () => {
+    const { app, workflowRepo, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("mallory-token", "mallory", TENANT_ID);
+    const step = await chainStep(workflowRepo, { approverUserIds: ["alice"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/approvals/${step.id}/decide`,
+      headers: { authorization: "Bearer mallory-token" },
+      payload: { decision: "approved" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("rejecting without a reason 400s", async () => {
+    const { app, workflowRepo, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("alice-token", "alice", TENANT_ID);
+    workflowRepo.addSession("alice-token", "alice");
+    const step = await chainStep(workflowRepo, { approverUserIds: ["alice"] });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/approvals/${step.id}/decide`,
+      headers: { authorization: "Bearer alice-token" },
+      payload: { decision: "rejected" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("GET /approvals/:stepInstanceId returns the chain config, decisions and empty riskFlags", async () => {
+    const { app, workflowRepo, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("alice-token", "alice", TENANT_ID);
+    workflowRepo.addSession("alice-token", "alice");
+    const step = await chainStep(workflowRepo, { approverUserIds: ["alice", "bob"] });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/approvals/${step.id}`,
+      headers: { authorization: "Bearer alice-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().detail.chainConfig.approverUserIds).toEqual(["alice", "bob"]);
+    expect(response.json().detail.riskFlags).toEqual([]);
+  });
+
+  it("revoking requires workflow.approval.revoke even for the approver who decided", async () => {
+    const { app, workflowRepo, authorityRepo } = appWithFakeRepos();
+    authorityRepo.addSession("alice-token", "alice", TENANT_ID);
+    workflowRepo.addSession("alice-token", "alice");
+    const step = await chainStep(workflowRepo, { approverUserIds: ["alice"] });
+    await app.inject({
+      method: "POST",
+      url: `/approvals/${step.id}/decide`,
+      headers: { authorization: "Bearer alice-token" },
+      payload: { decision: "approved" },
+    });
+    const [decision] = await workflowRepo.listApprovalDecisions(TOKEN, step.id);
+
+    const deniedResponse = await app.inject({
+      method: "POST",
+      url: `/approvals/decisions/${decision!.id}/revoke`,
+      headers: { authorization: "Bearer alice-token" },
+      payload: { reason: "mistake" },
+    });
+    expect(deniedResponse.statusCode).toBe(403);
+
+    authorityRepo.grantPermission("role.platform_administrator", "workflow.approval.revoke");
+    const allowedResponse = await app.inject({
+      method: "POST",
+      url: `/approvals/decisions/${decision!.id}/revoke`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { reason: "mistake" },
+    });
+    expect(allowedResponse.statusCode).toBe(200);
+  });
+});

@@ -138,7 +138,7 @@ describe("isWithinApprovalLimit", () => {
     const allowed = await isWithinApprovalLimit(
       repo,
       "tenant-a",
-      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED" },
+      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED", atIso: new Date().toISOString() },
       1,
     );
 
@@ -157,13 +157,13 @@ describe("isWithinApprovalLimit", () => {
     const withinLimit = await isWithinApprovalLimit(
       repo,
       "tenant-a",
-      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED" },
+      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED", atIso: new Date().toISOString() },
       5000,
     );
     const overLimit = await isWithinApprovalLimit(
       repo,
       "tenant-a",
-      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED" },
+      { roleId: "role.quantity_surveyor", departmentId: null, currency: "AED", atIso: new Date().toISOString() },
       5000.01,
     );
 

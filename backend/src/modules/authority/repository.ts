@@ -43,6 +43,8 @@ export interface ApprovalLimitFilter {
   roleId: string | null;
   departmentId: string | null;
   currency: string;
+  /** Ticket 0066 (M08): effective-dated lookup, same idiom as listActiveRoleIds — "the limit in force at this instant," not just "the latest row." */
+  atIso: string;
 }
 
 /**
@@ -162,9 +164,26 @@ export function createSupabaseAuthorityRepository(
 
     async createApprovalLimit(accessToken, input) {
       const client = userScopedClientFactory(accessToken);
+      const nowIso = new Date().toISOString();
+
+      // Ticket 0066 (M08), FR-APP-005: a new limit for the same scope
+      // supersedes the previous one by closing its valid_to — never an
+      // in-place edit of the old row.
+      let closeQuery = client
+        .from("approval_limits")
+        .update({ valid_to: nowIso })
+        .eq("currency", input.currency)
+        .is("valid_to", null);
+      closeQuery = input.role_id ? closeQuery.eq("role_id", input.role_id) : closeQuery.is("role_id", null);
+      closeQuery = input.department_id
+        ? closeQuery.eq("department_id", input.department_id)
+        : closeQuery.is("department_id", null);
+      const { error: closeError } = await closeQuery;
+      if (closeError) throw new Error(`createApprovalLimit (superseding previous row): ${closeError.message}`);
+
       const { data, error } = await client
         .from("approval_limits")
-        .insert({ role_id: null, department_id: null, ...input })
+        .insert({ role_id: null, department_id: null, valid_from: nowIso, ...input })
         .select("*")
         .single();
       if (error || !data) {
@@ -178,7 +197,9 @@ export function createSupabaseAuthorityRepository(
         .from("approval_limits")
         .select("*")
         .eq("tenant_id", tenantId)
-        .eq("currency", filter.currency);
+        .eq("currency", filter.currency)
+        .lte("valid_from", filter.atIso)
+        .or(`valid_to.is.null,valid_to.gt.${filter.atIso}`);
       query = filter.roleId ? query.eq("role_id", filter.roleId) : query.is("role_id", null);
       query = filter.departmentId
         ? query.eq("department_id", filter.departmentId)

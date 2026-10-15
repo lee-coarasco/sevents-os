@@ -1,7 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerHookHandler } from "fastify";
+import type { AuthorityRepository } from "../authority/repository.js";
 import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { WorkflowRepository } from "./repository.js";
 import {
+  ApprovalDecisionAlreadyRevokedError,
+  ApprovalDecisionNotFoundError,
+  ApprovalLimitExceededError,
+  ApprovalLimitFieldsMissingError,
   DefinitionNotApprovedError,
   DefinitionNotDraftError,
   DefinitionNotUnderReviewError,
@@ -15,9 +20,14 @@ import {
   MigrationNotFoundError,
   MigrationNotPreviewedError,
   MigrationVersionMismatchError,
+  MissingApprovalReasonError,
   MissingBlockReasonError,
+  MissingRevocationReasonError,
   NoStartNodeError,
+  NotAnApprovalStepError,
+  NotAnEligibleApproverError,
   RollbackTargetNotPublishedError,
+  SegregationOfDutiesViolationError,
   StepInstanceNotActionableError,
   StepInstanceNotFoundError,
   UnregisteredServiceError,
@@ -41,9 +51,11 @@ import {
   createMigration,
   createWorkflowDefinition,
   CrossTenantError,
+  decideApprovalStep,
   delegateTask,
   dueSoonQueue,
   executeMigration,
+  getApprovalDetail,
   getVersionGraph,
   getWorkflowDefinition,
   getWorkflowInstance,
@@ -58,6 +70,7 @@ import {
   publishVersion,
   reassignTask,
   recordApproval,
+  revokeApprovalDecision,
   resumeInstance,
   rollbackToVersion,
   setTaskBlocked,
@@ -69,12 +82,15 @@ import {
   waitingApprovalQueue,
 } from "./service.js";
 import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions } from "./service.js";
-import type { ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
+import { normalizeApprovalChainConfig } from "./approvals.js";
+import type { ApprovalChainDecision, ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
 
 export interface WorkflowRouteOptions {
   getRepository: () => WorkflowRepository;
   /** workflow.definition.manage for authoring, workflow.definition.publish for approve/publish/rollback. */
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
+  /** Ticket 0066 (M08): approval decisions check against modules/authority's approval_limits/segregation-of-duties, so these routes need an AuthorityRepository alongside their own WorkflowRepository. */
+  getAuthorityRepository: () => AuthorityRepository;
 }
 
 function bearerToken(header: string | undefined): string | null {
@@ -91,7 +107,12 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     reply.code(404);
     return { error: error.message };
   }
-  if (error instanceof InstanceNotFoundError || error instanceof StepInstanceNotFoundError || error instanceof MigrationNotFoundError) {
+  if (
+    error instanceof InstanceNotFoundError ||
+    error instanceof StepInstanceNotFoundError ||
+    error instanceof MigrationNotFoundError ||
+    error instanceof ApprovalDecisionNotFoundError
+  ) {
     reply.code(404);
     return { error: error.message };
   }
@@ -113,12 +134,22 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof MigrationNotPreviewedError ||
     error instanceof MigrationAlreadyFinalError ||
     error instanceof MigrationNotApprovedError ||
-    error instanceof MissingBlockReasonError
+    error instanceof MissingBlockReasonError ||
+    error instanceof NotAnApprovalStepError ||
+    error instanceof MissingApprovalReasonError ||
+    error instanceof ApprovalLimitFieldsMissingError ||
+    error instanceof MissingRevocationReasonError ||
+    error instanceof ApprovalDecisionAlreadyRevokedError
   ) {
     reply.code(400);
     return { error: error.message };
   }
-  if (error instanceof CrossTenantError) {
+  if (
+    error instanceof CrossTenantError ||
+    error instanceof NotAnEligibleApproverError ||
+    error instanceof SegregationOfDutiesViolationError ||
+    error instanceof ApprovalLimitExceededError
+  ) {
     reply.code(403);
     return { error: error.message };
   }
@@ -157,6 +188,55 @@ function requireActOrOwnTask(
     // requirePermission's real implementation (modules/authority/guard.ts) is a plain
     // 2-arg async function; the preHandlerHookHandler type just describes Fastify's
     // callback-style hook shape, which it's never actually called as here.
+    const permissionCheck = requirePermission("workflow.instance.act") as unknown as (
+      req: FastifyRequest,
+      rep: FastifyReply,
+    ) => Promise<unknown>;
+    return permissionCheck(request, reply);
+  };
+}
+
+/**
+ * Ticket 0066 (M08): decide/revoke-adjacent routes allow a step's
+ * current assignee (legacy single-approver shape) or anyone named in
+ * the node's `approverUserIds` chain config (FR-APP-001's multi-
+ * approver case — `assigned_to` only ever points at one of them) to
+ * act without the admin-wide `workflow.instance.act` permission.
+ * `decideApprovalStep` itself still enforces the precise "is it your
+ * turn" eligibility (sequential ordering, already-decided) — this gate
+ * is intentionally coarser, same division of labour as
+ * requireActOrOwnTask/the service layer it wraps.
+ */
+function requireApproverOrAct(
+  getRepository: () => WorkflowRepository,
+  requirePermission: (permissionKey: string) => preHandlerHookHandler,
+): preHandlerHookHandler {
+  return async (request, reply) => {
+    const { stepInstanceId } = request.params as { stepInstanceId: string };
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return reply.send({ error: "missing bearer token" });
+    }
+    const repo = getRepository();
+    const step = await repo.getStepInstance(token, stepInstanceId);
+    if (step) {
+      const callerUserId = await repo.resolveCallerUserId(token);
+      if (callerUserId) {
+        if (step.assigned_to === callerUserId) {
+          (request as AuthenticatedRequest).authUserId = callerUserId;
+          return;
+        }
+        const instance = await repo.getInstance(token, step.workflow_instance_id);
+        const graph = instance ? await repo.getVersionGraph(token, instance.workflow_version_id) : null;
+        const node = graph?.nodes.find((n) => n.id === step.node_id) ?? null;
+        const chainConfig = node ? normalizeApprovalChainConfig(node) : null;
+        if (chainConfig?.approverUserIds.includes(callerUserId)) {
+          (request as AuthenticatedRequest).authUserId = callerUserId;
+          return;
+        }
+      }
+    }
     const permissionCheck = requirePermission("workflow.instance.act") as unknown as (
       req: FastifyRequest,
       rep: FastifyReply,
@@ -858,6 +938,81 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
       try {
         const result = await executeMigration(options.getRepository(), token, request.params.id, callerUserId);
         return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Approvals & delegation (ticket 0066, M08)
+  // ---------------------------------------------------------------------
+
+  app.get<{ Params: { stepInstanceId: string } }>(
+    "/approvals/:stepInstanceId",
+    { preHandler: requireApproverOrAct(options.getRepository, options.requirePermission) },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const detail = await getApprovalDetail(
+          options.getRepository(),
+          options.getAuthorityRepository(),
+          token,
+          request.params.stepInstanceId,
+        );
+        return { detail };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { stepInstanceId: string }; Body: { decision: ApprovalChainDecision; reason?: string | null } }>(
+    "/approvals/:stepInstanceId/decide",
+    { preHandler: requireApproverOrAct(options.getRepository, options.requirePermission) },
+    async (request, reply) => {
+      const { decision } = request.body ?? ({} as never);
+      if (!decision) {
+        reply.code(400);
+        return { error: "decision is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      if (!callerUserId) {
+        reply.code(401);
+        return { error: "missing bearer token" };
+      }
+      try {
+        const result = await decideApprovalStep(
+          options.getRepository(),
+          options.getAuthorityRepository(),
+          token,
+          request.params.stepInstanceId,
+          callerUserId,
+          decision,
+          request.body?.reason ?? null,
+        );
+        return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { decisionId: string }; Body: { reason: string } }>(
+    "/approvals/decisions/:decisionId/revoke",
+    { preHandler: options.requirePermission("workflow.approval.revoke") },
+    async (request, reply) => {
+      const { reason } = request.body ?? ({} as never);
+      if (!reason) {
+        reply.code(400);
+        return { error: "reason is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const decision = await revokeApprovalDecision(options.getRepository(), token, request.params.decisionId, callerUserId ?? "", reason);
+        return { decision };
       } catch (error) {
         return handleServiceError(error, reply);
       }
