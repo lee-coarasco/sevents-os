@@ -90,6 +90,9 @@ itself. See those files before assuming what a subagent can/can't do.
 - **2026-10-15** — Pilot flow: material request → procurement review → quotation comparison → approval → purchase order → delivery/GRN → site issue (Phase 3). PRD confirmed.
 - **2026-10-15** — Phase build order: Phase 1 → Phase 2 → Phase 3 → Phase 4+. Do not skip phases.
 
+## PRD sync rule
+The AppYard dashboard reads `PRD.md` at the **repo root**. The detailed PRD lives at `docs/PRD.md`. Whenever you update `docs/PRD.md`, also update the root `PRD.md` in the same commit so the dashboard stays in sync.
+
 ## Workflow files are human-only
 The scheduled agent must NEVER create or edit anything under `.github/workflows/`:
 its GitHub token has no `workflows` permission, so the push is rejected and the
