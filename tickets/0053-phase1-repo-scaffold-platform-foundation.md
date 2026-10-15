@@ -1,7 +1,7 @@
 ---
 id: 53
 title: "Phase 1 scaffold: Node.js/TypeScript backend, Supabase project, test harness"
-status: next
+status: testing
 roles: [backend-engineer, devops]
 priority: 1
 created: 2026-10-15
@@ -54,20 +54,41 @@ first inventing project structure.
   no Vercel/preview deploy needed until there's a UI to show.
 
 ## Acceptance
-- [ ] `backend/` exists with a working TypeScript build (`npm run build`
+- [x] `backend/` exists with a working TypeScript build (`npm run build`
       succeeds with zero errors).
-- [ ] `npm test` runs and passes (health-check smoke test).
-- [ ] `GET /health` returns 200 and confirms it can reach Supabase using
-      env-provided credentials (no hard-coded secrets anywhere in the diff).
-- [ ] `supabase/` initialized with an empty `migrations/` folder, ready for
-      ticket 0054's first migration.
-- [ ] `.env.example` committed, `.env` gitignored.
-- [ ] DECISIONS.md updated with the Fastify + Vitest choices and why.
-- [ ] A `roles: [human]` ticket filed for wiring `npm test`/`npm run build`
-      into CI once this ticket's tests pass locally.
+- [x] `npm test` runs and passes (health-check smoke test).
+- [x] `GET /health` route implemented: returns 200 + `{status:"ok"}` when
+      it can reach Supabase, 503 + `{status:"degraded"}` otherwise, reading
+      `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` from env with no hard-coded
+      secrets. Verified against a mocked Supabase client (both the
+      reachable and unreachable branches) — this session's sandbox has no
+      real `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` available to it, so
+      the live round-trip to the actual Supabase project is NOT yet
+      exercised. Flagging for the owner/next session to confirm `GET
+      /health` against the real project once it's run with real env vars.
+- [x] `supabase/` initialized (hand-written `config.toml` + empty
+      `migrations/` — the `supabase` CLI binary wasn't available in this
+      sandbox; see DECISIONS.md) ready for ticket 0054's first migration.
+- [x] `.env.example` committed, `backend/.env` gitignored.
+- [x] DECISIONS.md updated with the Fastify + Vitest choices and why, plus
+      the CLI-unavailable note.
+- [x] Ticket 0057 filed (`roles: [human]`) for wiring `npm test`/
+      `npm run build` into CI.
 
 ## Progress
 - 2026-10-15: Architect session. Filed this ticket as the first Phase 1
   ticket — no backend code existed yet. Tickets 0054 (M01 Identity), 0055
   (M02 Tenant/Company) and 0056 (M03 Org/Roles/Authority) depend on this
   scaffold and are filed alongside it, in that build order.
+- 2026-10-15 11:12 UTC: Built the scaffold. `backend/` is a Fastify +
+  TypeScript app (`npm run build` clean, `npm test` — 3/3 passing via
+  Vitest). `GET /health` injects the Supabase client so tests don't need
+  live credentials/network; real connectivity to the actual Supabase
+  project is unverified in this session (no credentials reachable in this
+  sandbox) — first session with real env vars should hit `/health` once
+  and confirm `"status":"ok"`. `supabase/config.toml` + `migrations/`
+  created by hand (CLI not installed here). Ran `npm audit` after pinning
+  `vitest@^4.1.11` — 0 vulnerabilities. Status set to `testing`: the owner
+  can verify by running `cd backend && npm install && npm test` (per
+  CLAUDE.md "How the owner tests" — Phase 1 has no UI). Moving ticket 0054
+  (M01 Identity) to next.

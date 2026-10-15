@@ -55,3 +55,31 @@ approved (agent-autonomous or you).
   infrastructure. Node.js/TypeScript is the owner's preference and aligns
   with the existing AppYard dashboard stack.
 - Approved by: owner (2026-10-15).
+
+## 2026-10-15 11:10 UTC - Backend framework: Fastify; test runner: Vitest
+- Decision: Use Fastify for the Node.js/TypeScript backend (ticket 0053,
+  Phase 1 scaffold). Use Vitest as the test runner.
+- Why: Fastify has first-class TypeScript types and a low-overhead plugin
+  model that fits a config-first API surface where most endpoints are
+  thin wrappers over Supabase calls plus permission checks; NestJS's
+  heavier DI/module ceremony (the BRD §5.1 suggestion, written before the
+  Supabase decision) isn't needed on top of Supabase already owning
+  auth/DB/storage. Vitest is fast, has native ESM/TS support with no
+  extra config, and its `vi`-based mocking is enough for the service-role
+  Supabase client we inject into routes for testing. Both are
+  CLAUDE.md-delegated choices ("Node.js framework choice", "Which testing
+  framework/library to use" — no approval needed).
+- Approved by: agent (ticket 0053, falls under explicit agent-decidable
+  items in CLAUDE.md).
+
+## 2026-10-15 11:10 UTC - Supabase CLI not installed; config.toml hand-written
+- Decision: The `supabase` CLI binary isn't available in this session's
+  sandbox. Rather than block the Phase 1 scaffold on installing it,
+  `supabase/config.toml` and `supabase/migrations/` were created by hand
+  to match the CLI's own `supabase init` output, so the real CLI can be
+  installed and pointed at this project later without redoing structure.
+- Why: ticket 0053 (and every migration-writing ticket after it) needs
+  `supabase/migrations/` to exist now; waiting on CLI installation would
+  block the whole Phase 1 chain for no schema benefit.
+- Approved by: agent (internal tooling decision, no business-rule or
+  cost impact).
