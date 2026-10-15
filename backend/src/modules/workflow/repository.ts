@@ -10,16 +10,22 @@ import type {
   ConfigurationValidationRun,
   DefinitionFilters,
   DefinitionStatus,
+  InstanceStatus,
   NodeType,
   PublishedConfiguration,
   SimulationResultPayload,
   SimulationTestCase,
+  StepInstanceStatus,
   ValidationFinding,
   ValidationResult,
   VersionStatus,
   WorkflowCondition,
   WorkflowDefinition,
+  WorkflowEvent,
+  WorkflowEventType,
+  WorkflowInstance,
   WorkflowNode,
+  WorkflowStepInstance,
   WorkflowTransition,
   WorkflowVersion,
   WorkflowVersionGraph,
@@ -107,6 +113,40 @@ export interface InsertSimulationRunInput {
   result: SimulationResultPayload;
 }
 
+export interface CreateInstanceInput {
+  definitionId: string;
+  versionId: string;
+  startedBy: string | null;
+  context: Record<string, unknown>;
+}
+
+export interface UpdateInstanceInput {
+  status?: InstanceStatus;
+  endedAt?: string | null;
+  context?: Record<string, unknown>;
+}
+
+export interface CreateStepInstanceInput {
+  instanceId: string;
+  nodeId: string;
+  status: StepInstanceStatus;
+  assignedTo: string | null;
+}
+
+export interface UpdateStepInstanceInput {
+  status?: StepInstanceStatus;
+  assignedTo?: string | null;
+  completedAt?: string | null;
+  output?: Record<string, unknown>;
+}
+
+export interface InsertEventInput {
+  instanceId: string;
+  stepInstanceId: string | null;
+  eventType: WorkflowEventType;
+  payload: Record<string, unknown>;
+}
+
 /**
  * Same convention as modules/catalogue and modules/authority: every
  * method takes the caller's own access token and goes through the
@@ -159,6 +199,24 @@ export interface WorkflowRepository {
   insertValidationRun(accessToken: string, input: InsertValidationRunInput): Promise<ConfigurationValidationRun>;
   getLatestValidationRun(accessToken: string, versionId: string): Promise<ConfigurationValidationRun | null>;
   insertSimulationRun(accessToken: string, input: InsertSimulationRunInput): Promise<ConfigurationSimulationRun>;
+
+  /**
+   * Instance/step-instance/event CRUD (ticket 0062, M06c). Note
+   * updateInstance intentionally has no way to change
+   * workflow_version_id — it is set once by createInstance and pinned
+   * for the instance's whole lifecycle (BRD §6.3).
+   */
+  createInstance(accessToken: string, input: CreateInstanceInput): Promise<WorkflowInstance>;
+  getInstance(accessToken: string, id: string): Promise<WorkflowInstance | null>;
+  updateInstance(accessToken: string, id: string, input: UpdateInstanceInput): Promise<WorkflowInstance>;
+
+  createStepInstance(accessToken: string, input: CreateStepInstanceInput): Promise<WorkflowStepInstance>;
+  getStepInstance(accessToken: string, id: string): Promise<WorkflowStepInstance | null>;
+  listStepInstances(accessToken: string, instanceId: string): Promise<WorkflowStepInstance[]>;
+  updateStepInstance(accessToken: string, id: string, input: UpdateStepInstanceInput): Promise<WorkflowStepInstance>;
+
+  insertEvent(accessToken: string, input: InsertEventInput): Promise<WorkflowEvent>;
+  listEvents(accessToken: string, instanceId: string): Promise<WorkflowEvent[]>;
 }
 
 /**
@@ -463,6 +521,114 @@ export function createSupabaseWorkflowRepository(
         .single();
       if (error || !data) throw new Error(`insertSimulationRun: ${error?.message ?? "no row returned"}`);
       return data as ConfigurationSimulationRun;
+    },
+
+    async createInstance(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_instances")
+        .insert({
+          workflow_definition_id: input.definitionId,
+          workflow_version_id: input.versionId,
+          status: "running",
+          started_by: input.startedBy,
+          context: input.context,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createInstance: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowInstance;
+    },
+
+    async getInstance(accessToken, id) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("workflow_instances").select("*").eq("id", id).maybeSingle();
+      if (error) throw new Error(`getInstance: ${error.message}`);
+      return (data as WorkflowInstance | null) ?? null;
+    },
+
+    async updateInstance(accessToken, id, input) {
+      const client = userScopedClientFactory(accessToken);
+      const update: Record<string, unknown> = {};
+      if (input.status !== undefined) update.status = input.status;
+      if (input.endedAt !== undefined) update.ended_at = input.endedAt;
+      if (input.context !== undefined) update.context = input.context;
+      const { data, error } = await client.from("workflow_instances").update(update).eq("id", id).select("*").single();
+      if (error || !data) throw new Error(`updateInstance: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowInstance;
+    },
+
+    async createStepInstance(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_step_instances")
+        .insert({
+          workflow_instance_id: input.instanceId,
+          node_id: input.nodeId,
+          status: input.status,
+          assigned_to: input.assignedTo,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createStepInstance: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowStepInstance;
+    },
+
+    async getStepInstance(accessToken, id) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("workflow_step_instances").select("*").eq("id", id).maybeSingle();
+      if (error) throw new Error(`getStepInstance: ${error.message}`);
+      return (data as WorkflowStepInstance | null) ?? null;
+    },
+
+    async listStepInstances(accessToken, instanceId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_step_instances")
+        .select("*")
+        .eq("workflow_instance_id", instanceId)
+        .order("started_at", { ascending: true });
+      if (error) throw new Error(`listStepInstances: ${error.message}`);
+      return (data as WorkflowStepInstance[]) ?? [];
+    },
+
+    async updateStepInstance(accessToken, id, input) {
+      const client = userScopedClientFactory(accessToken);
+      const update: Record<string, unknown> = {};
+      if (input.status !== undefined) update.status = input.status;
+      if (input.assignedTo !== undefined) update.assigned_to = input.assignedTo;
+      if (input.completedAt !== undefined) update.completed_at = input.completedAt;
+      if (input.output !== undefined) update.output = input.output;
+      const { data, error } = await client.from("workflow_step_instances").update(update).eq("id", id).select("*").single();
+      if (error || !data) throw new Error(`updateStepInstance: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowStepInstance;
+    },
+
+    async insertEvent(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_events")
+        .insert({
+          workflow_instance_id: input.instanceId,
+          step_instance_id: input.stepInstanceId,
+          event_type: input.eventType,
+          payload: input.payload,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertEvent: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowEvent;
+    },
+
+    async listEvents(accessToken, instanceId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_events")
+        .select("*")
+        .eq("workflow_instance_id", instanceId)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(`listEvents: ${error.message}`);
+      return (data as WorkflowEvent[]) ?? [];
     },
   };
 }

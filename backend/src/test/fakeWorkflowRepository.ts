@@ -3,13 +3,18 @@ import type {
   AddNodeInput,
   AddTransitionInput,
   CreateDefinitionInput,
+  CreateInstanceInput,
+  CreateStepInstanceInput,
   InsertConfigurationChangeInput,
+  InsertEventInput,
   InsertPublishedConfigurationInput,
   InsertRollbackEventInput,
   InsertSimulationRunInput,
   InsertValidationRunInput,
   InsertVersionInput,
   RecordApprovalInput,
+  UpdateInstanceInput,
+  UpdateStepInstanceInput,
   WorkflowRepository,
 } from "../modules/workflow/repository.js";
 import type {
@@ -23,7 +28,10 @@ import type {
   PublishedConfiguration,
   WorkflowCondition,
   WorkflowDefinition,
+  WorkflowEvent,
+  WorkflowInstance,
   WorkflowNode,
+  WorkflowStepInstance,
   WorkflowTransition,
   WorkflowVersion,
   WorkflowVersionGraph,
@@ -59,6 +67,9 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   simulationRuns: ConfigurationSimulationRun[] = [];
   /** Stand-in for M03's role_definitions — seed with whatever role ids a test needs to resolve. */
   knownRoleIds = new Set<string>();
+  instancesById = new Map<string, WorkflowInstance>();
+  stepInstancesById = new Map<string, WorkflowStepInstance>();
+  events: WorkflowEvent[] = [];
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
     const definition: WorkflowDefinition = {
@@ -315,5 +326,94 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     };
     this.simulationRuns.push(row);
     return row;
+  }
+
+  async createInstance(_accessToken: string, input: CreateInstanceInput): Promise<WorkflowInstance> {
+    const instance: WorkflowInstance = {
+      id: nextId("workflow-instance"),
+      tenant_id: TENANT_ID,
+      workflow_definition_id: input.definitionId,
+      workflow_version_id: input.versionId,
+      status: "running",
+      started_by: input.startedBy,
+      started_at: new Date(0).toISOString(),
+      ended_at: null,
+      context: input.context,
+    };
+    this.instancesById.set(instance.id, instance);
+    return instance;
+  }
+
+  async getInstance(_accessToken: string, id: string): Promise<WorkflowInstance | null> {
+    return this.instancesById.get(id) ?? null;
+  }
+
+  async updateInstance(_accessToken: string, id: string, input: UpdateInstanceInput): Promise<WorkflowInstance> {
+    const existing = this.instancesById.get(id);
+    if (!existing) throw new Error(`updateInstance: ${id} not found`);
+    const updated: WorkflowInstance = {
+      ...existing,
+      status: input.status ?? existing.status,
+      ended_at: input.endedAt !== undefined ? input.endedAt : existing.ended_at,
+      context: input.context ?? existing.context,
+    };
+    this.instancesById.set(id, updated);
+    return updated;
+  }
+
+  async createStepInstance(_accessToken: string, input: CreateStepInstanceInput): Promise<WorkflowStepInstance> {
+    const step: WorkflowStepInstance = {
+      id: nextId("workflow-step-instance"),
+      tenant_id: TENANT_ID,
+      workflow_instance_id: input.instanceId,
+      node_id: input.nodeId,
+      status: input.status,
+      assigned_to: input.assignedTo,
+      started_at: new Date(0).toISOString(),
+      completed_at: null,
+      output: {},
+    };
+    this.stepInstancesById.set(step.id, step);
+    return step;
+  }
+
+  async getStepInstance(_accessToken: string, id: string): Promise<WorkflowStepInstance | null> {
+    return this.stepInstancesById.get(id) ?? null;
+  }
+
+  async listStepInstances(_accessToken: string, instanceId: string): Promise<WorkflowStepInstance[]> {
+    return [...this.stepInstancesById.values()].filter((s) => s.workflow_instance_id === instanceId);
+  }
+
+  async updateStepInstance(_accessToken: string, id: string, input: UpdateStepInstanceInput): Promise<WorkflowStepInstance> {
+    const existing = this.stepInstancesById.get(id);
+    if (!existing) throw new Error(`updateStepInstance: ${id} not found`);
+    const updated: WorkflowStepInstance = {
+      ...existing,
+      status: input.status ?? existing.status,
+      assigned_to: input.assignedTo !== undefined ? input.assignedTo : existing.assigned_to,
+      completed_at: input.completedAt !== undefined ? input.completedAt : existing.completed_at,
+      output: input.output ?? existing.output,
+    };
+    this.stepInstancesById.set(id, updated);
+    return updated;
+  }
+
+  async insertEvent(_accessToken: string, input: InsertEventInput): Promise<WorkflowEvent> {
+    const event: WorkflowEvent = {
+      id: nextId("workflow-event"),
+      tenant_id: TENANT_ID,
+      workflow_instance_id: input.instanceId,
+      step_instance_id: input.stepInstanceId,
+      event_type: input.eventType,
+      payload: input.payload,
+      created_at: new Date(0).toISOString(),
+    };
+    this.events.push(event);
+    return event;
+  }
+
+  async listEvents(_accessToken: string, instanceId: string): Promise<WorkflowEvent[]> {
+    return this.events.filter((e) => e.workflow_instance_id === instanceId);
   }
 }
