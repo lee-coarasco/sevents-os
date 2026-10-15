@@ -11,6 +11,9 @@ import type {
   DefinitionFilters,
   DefinitionStatus,
   InstanceStatus,
+  MigrationImpactSummary,
+  MigrationInstanceOutcome,
+  MigrationStatus,
   NodeType,
   PublishedConfiguration,
   SimulationResultPayload,
@@ -24,6 +27,8 @@ import type {
   WorkflowEvent,
   WorkflowEventType,
   WorkflowInstance,
+  WorkflowMigration,
+  WorkflowMigrationInstanceResult,
   WorkflowNode,
   WorkflowStepInstance,
   WorkflowTransition,
@@ -147,6 +152,31 @@ export interface InsertEventInput {
   payload: Record<string, unknown>;
 }
 
+export interface CreateMigrationInput {
+  definitionId: string;
+  fromVersionId: string;
+  toVersionId: string;
+  createdBy: string | null;
+}
+
+export interface UpdateMigrationInput {
+  status?: MigrationStatus;
+  impactSummary?: MigrationImpactSummary;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  executedBy?: string | null;
+  executedAt?: string | null;
+}
+
+export interface InsertMigrationInstanceResultInput {
+  migrationId: string;
+  workflowInstanceId: string;
+  oldStepInstanceId: string | null;
+  newStepInstanceId: string | null;
+  outcome: MigrationInstanceOutcome;
+  detail: string | null;
+}
+
 /**
  * Same convention as modules/catalogue and modules/authority: every
  * method takes the caller's own access token and goes through the
@@ -217,6 +247,25 @@ export interface WorkflowRepository {
 
   insertEvent(accessToken: string, input: InsertEventInput): Promise<WorkflowEvent>;
   listEvents(accessToken: string, instanceId: string): Promise<WorkflowEvent[]>;
+
+  /** Running (not paused/completed/cancelled) instances currently pinned to this version — the migration preview's candidate set. */
+  listRunningInstancesForVersion(accessToken: string, versionId: string): Promise<WorkflowInstance[]>;
+  /**
+   * The one place `workflow_version_id` is allowed to change after
+   * creation — an explicit, audited migration (ticket 0063), never the
+   * ordinary runtime path (see updateInstance/types.ts's pinning
+   * comment).
+   */
+  migrateInstanceVersion(accessToken: string, instanceId: string, toVersionId: string): Promise<WorkflowInstance>;
+
+  createMigration(accessToken: string, input: CreateMigrationInput): Promise<WorkflowMigration>;
+  getMigration(accessToken: string, id: string): Promise<WorkflowMigration | null>;
+  updateMigration(accessToken: string, id: string, input: UpdateMigrationInput): Promise<WorkflowMigration>;
+  insertMigrationInstanceResult(
+    accessToken: string,
+    input: InsertMigrationInstanceResultInput,
+  ): Promise<WorkflowMigrationInstanceResult>;
+  listMigrationInstanceResults(accessToken: string, migrationId: string): Promise<WorkflowMigrationInstanceResult[]>;
 }
 
 /**
@@ -629,6 +678,97 @@ export function createSupabaseWorkflowRepository(
         .order("created_at", { ascending: true });
       if (error) throw new Error(`listEvents: ${error.message}`);
       return (data as WorkflowEvent[]) ?? [];
+    },
+
+    async listRunningInstancesForVersion(accessToken, versionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_instances")
+        .select("*")
+        .eq("workflow_version_id", versionId)
+        .eq("status", "running");
+      if (error) throw new Error(`listRunningInstancesForVersion: ${error.message}`);
+      return (data as WorkflowInstance[]) ?? [];
+    },
+
+    async migrateInstanceVersion(accessToken, instanceId, toVersionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_instances")
+        .update({ workflow_version_id: toVersionId })
+        .eq("id", instanceId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`migrateInstanceVersion: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowInstance;
+    },
+
+    async createMigration(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_migrations")
+        .insert({
+          workflow_definition_id: input.definitionId,
+          from_version_id: input.fromVersionId,
+          to_version_id: input.toVersionId,
+          status: "draft",
+          impact_summary: {},
+          created_by: input.createdBy,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createMigration: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowMigration;
+    },
+
+    async getMigration(accessToken, id) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("workflow_migrations").select("*").eq("id", id).maybeSingle();
+      if (error) throw new Error(`getMigration: ${error.message}`);
+      return (data as WorkflowMigration | null) ?? null;
+    },
+
+    async updateMigration(accessToken, id, input) {
+      const client = userScopedClientFactory(accessToken);
+      const update: Record<string, unknown> = {};
+      if (input.status !== undefined) update.status = input.status;
+      if (input.impactSummary !== undefined) update.impact_summary = input.impactSummary;
+      if (input.approvedBy !== undefined) update.approved_by = input.approvedBy;
+      if (input.approvedAt !== undefined) update.approved_at = input.approvedAt;
+      if (input.executedBy !== undefined) update.executed_by = input.executedBy;
+      if (input.executedAt !== undefined) update.executed_at = input.executedAt;
+      const { data, error } = await client.from("workflow_migrations").update(update).eq("id", id).select("*").single();
+      if (error || !data) throw new Error(`updateMigration: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowMigration;
+    },
+
+    async insertMigrationInstanceResult(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_migration_instance_results")
+        .insert({
+          migration_id: input.migrationId,
+          workflow_instance_id: input.workflowInstanceId,
+          old_step_instance_id: input.oldStepInstanceId,
+          new_step_instance_id: input.newStepInstanceId,
+          outcome: input.outcome,
+          detail: input.detail,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`insertMigrationInstanceResult: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowMigrationInstanceResult;
+    },
+
+    async listMigrationInstanceResults(accessToken, migrationId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_migration_instance_results")
+        .select("*")
+        .eq("migration_id", migrationId)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(`listMigrationInstanceResults: ${error.message}`);
+      return (data as WorkflowMigrationInstanceResult[]) ?? [];
     },
   };
 }

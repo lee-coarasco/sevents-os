@@ -1,7 +1,7 @@
 ---
 id: 63
 title: "M06d — Workflow Migration for Active Instances"
-status: next
+status: in-progress
 roles: [backend-engineer]
 priority: 5
 created: 2026-10-15

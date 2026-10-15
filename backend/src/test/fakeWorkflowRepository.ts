@@ -4,9 +4,11 @@ import type {
   AddTransitionInput,
   CreateDefinitionInput,
   CreateInstanceInput,
+  CreateMigrationInput,
   CreateStepInstanceInput,
   InsertConfigurationChangeInput,
   InsertEventInput,
+  InsertMigrationInstanceResultInput,
   InsertPublishedConfigurationInput,
   InsertRollbackEventInput,
   InsertSimulationRunInput,
@@ -14,6 +16,7 @@ import type {
   InsertVersionInput,
   RecordApprovalInput,
   UpdateInstanceInput,
+  UpdateMigrationInput,
   UpdateStepInstanceInput,
   WorkflowRepository,
 } from "../modules/workflow/repository.js";
@@ -30,6 +33,8 @@ import type {
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowInstance,
+  WorkflowMigration,
+  WorkflowMigrationInstanceResult,
   WorkflowNode,
   WorkflowStepInstance,
   WorkflowTransition,
@@ -70,6 +75,8 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   instancesById = new Map<string, WorkflowInstance>();
   stepInstancesById = new Map<string, WorkflowStepInstance>();
   events: WorkflowEvent[] = [];
+  migrationsById = new Map<string, WorkflowMigration>();
+  migrationResults: WorkflowMigrationInstanceResult[] = [];
 
   async createDefinition(_accessToken: string, input: CreateDefinitionInput) {
     const definition: WorkflowDefinition = {
@@ -415,5 +422,80 @@ export class FakeWorkflowRepository implements WorkflowRepository {
 
   async listEvents(_accessToken: string, instanceId: string): Promise<WorkflowEvent[]> {
     return this.events.filter((e) => e.workflow_instance_id === instanceId);
+  }
+
+  async listRunningInstancesForVersion(_accessToken: string, versionId: string): Promise<WorkflowInstance[]> {
+    return [...this.instancesById.values()].filter((i) => i.workflow_version_id === versionId && i.status === "running");
+  }
+
+  async migrateInstanceVersion(_accessToken: string, instanceId: string, toVersionId: string): Promise<WorkflowInstance> {
+    const existing = this.instancesById.get(instanceId);
+    if (!existing) throw new Error(`migrateInstanceVersion: ${instanceId} not found`);
+    const updated: WorkflowInstance = { ...existing, workflow_version_id: toVersionId };
+    this.instancesById.set(instanceId, updated);
+    return updated;
+  }
+
+  async createMigration(_accessToken: string, input: CreateMigrationInput): Promise<WorkflowMigration> {
+    const migration: WorkflowMigration = {
+      id: nextId("workflow-migration"),
+      tenant_id: TENANT_ID,
+      workflow_definition_id: input.definitionId,
+      from_version_id: input.fromVersionId,
+      to_version_id: input.toVersionId,
+      status: "draft",
+      impact_summary: null,
+      approved_by: null,
+      approved_at: null,
+      executed_by: null,
+      executed_at: null,
+      created_by: input.createdBy,
+      created_at: new Date(0).toISOString(),
+    };
+    this.migrationsById.set(migration.id, migration);
+    return migration;
+  }
+
+  async getMigration(_accessToken: string, id: string): Promise<WorkflowMigration | null> {
+    return this.migrationsById.get(id) ?? null;
+  }
+
+  async updateMigration(_accessToken: string, id: string, input: UpdateMigrationInput): Promise<WorkflowMigration> {
+    const existing = this.migrationsById.get(id);
+    if (!existing) throw new Error(`updateMigration: ${id} not found`);
+    const updated: WorkflowMigration = {
+      ...existing,
+      status: input.status ?? existing.status,
+      impact_summary: input.impactSummary !== undefined ? input.impactSummary : existing.impact_summary,
+      approved_by: input.approvedBy !== undefined ? input.approvedBy : existing.approved_by,
+      approved_at: input.approvedAt !== undefined ? input.approvedAt : existing.approved_at,
+      executed_by: input.executedBy !== undefined ? input.executedBy : existing.executed_by,
+      executed_at: input.executedAt !== undefined ? input.executedAt : existing.executed_at,
+    };
+    this.migrationsById.set(id, updated);
+    return updated;
+  }
+
+  async insertMigrationInstanceResult(
+    _accessToken: string,
+    input: InsertMigrationInstanceResultInput,
+  ): Promise<WorkflowMigrationInstanceResult> {
+    const row: WorkflowMigrationInstanceResult = {
+      id: nextId("migration-result"),
+      tenant_id: TENANT_ID,
+      migration_id: input.migrationId,
+      workflow_instance_id: input.workflowInstanceId,
+      old_step_instance_id: input.oldStepInstanceId,
+      new_step_instance_id: input.newStepInstanceId,
+      outcome: input.outcome,
+      detail: input.detail,
+      created_at: new Date(0).toISOString(),
+    };
+    this.migrationResults.push(row);
+    return row;
+  }
+
+  async listMigrationInstanceResults(_accessToken: string, migrationId: string): Promise<WorkflowMigrationInstanceResult[]> {
+    return this.migrationResults.filter((r) => r.migration_id === migrationId);
   }
 }

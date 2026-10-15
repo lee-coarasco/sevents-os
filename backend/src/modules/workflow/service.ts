@@ -1,3 +1,4 @@
+import { computeImpactSummary, isOpenStepInstance } from "./migration.js";
 import type {
   AddConditionInput,
   AddNodeInput,
@@ -25,6 +26,8 @@ import type {
   WorkflowCondition,
   WorkflowDefinition,
   WorkflowInstance,
+  WorkflowMigration,
+  WorkflowMigrationInstanceResult,
   WorkflowNode,
   WorkflowStepInstance,
   WorkflowTransition,
@@ -48,6 +51,11 @@ export class StepInstanceNotFoundError extends Error {}
 export class InstanceNotRunningError extends Error {}
 export class InstanceNotPausedError extends Error {}
 export class StepInstanceNotActionableError extends Error {}
+export class MigrationNotFoundError extends Error {}
+export class MigrationVersionMismatchError extends Error {}
+export class MigrationNotPreviewedError extends Error {}
+export class MigrationNotApprovedError extends Error {}
+export class MigrationAlreadyFinalError extends Error {}
 export { IncompleteGateError, UnregisteredServiceError };
 
 export interface CreateWorkflowDefinitionInput {
@@ -1023,4 +1031,219 @@ export async function getWorkflowInstance(
   const instance = await requireInstance(repository, accessToken, instanceId);
   const stepInstances = await repository.listStepInstances(accessToken, instanceId);
   return { instance, stepInstances };
+}
+
+// ---------------------------------------------------------------------------
+// Migration of active instances to a newer version (ticket 0063, M06d)
+// ---------------------------------------------------------------------------
+
+async function requireMigration(repository: WorkflowRepository, accessToken: string, id: string): Promise<WorkflowMigration> {
+  const migration = await repository.getMigration(accessToken, id);
+  if (!migration) throw new MigrationNotFoundError(`workflow migration ${id} not found`);
+  return migration;
+}
+
+/** Opens a draft migration between two versions of the same definition. Nothing is read/written about running instances yet — see previewMigration. */
+export async function createMigration(
+  repository: WorkflowRepository,
+  accessToken: string,
+  fromVersionId: string,
+  toVersionId: string,
+  createdBy: string | null,
+): Promise<WorkflowMigration> {
+  if (fromVersionId === toVersionId) {
+    throw new MigrationVersionMismatchError("from and to version must be different versions");
+  }
+  const fromVersion = await requireVersion(repository, accessToken, fromVersionId);
+  const toVersion = await requireVersion(repository, accessToken, toVersionId);
+  if (fromVersion.workflow_definition_id !== toVersion.workflow_definition_id) {
+    throw new MigrationVersionMismatchError(`versions ${fromVersionId} and ${toVersionId} belong to different definitions`);
+  }
+  return repository.createMigration(accessToken, {
+    definitionId: fromVersion.workflow_definition_id,
+    fromVersionId,
+    toVersionId,
+    createdBy,
+  });
+}
+
+export async function getWorkflowMigration(repository: WorkflowRepository, accessToken: string, id: string): Promise<WorkflowMigration> {
+  return requireMigration(repository, accessToken, id);
+}
+
+export async function listMigrationInstanceResults(
+  repository: WorkflowRepository,
+  accessToken: string,
+  migrationId: string,
+): Promise<WorkflowMigrationInstanceResult[]> {
+  await requireMigration(repository, accessToken, migrationId);
+  return repository.listMigrationInstanceResults(accessToken, migrationId);
+}
+
+/**
+ * BRD §8.2 "preview with impact summary": read-only — computes, but
+ * never writes to, any workflow_instance/workflow_step_instance row.
+ * Re-running this (e.g. after fixing a draft's target version) just
+ * overwrites the stored impact_summary and resets status back to
+ * "previewed"; a migration can be previewed repeatedly before approval.
+ */
+export async function previewMigration(
+  repository: WorkflowRepository,
+  accessToken: string,
+  migrationId: string,
+): Promise<WorkflowMigration> {
+  const migration = await requireMigration(repository, accessToken, migrationId);
+  if (migration.status === "executed" || migration.status === "cancelled") {
+    throw new MigrationAlreadyFinalError(`migration ${migrationId} is ${migration.status} and can no longer be previewed`);
+  }
+
+  const [fromGraph, toGraph] = await Promise.all([
+    repository.getVersionGraph(accessToken, migration.from_version_id),
+    repository.getVersionGraph(accessToken, migration.to_version_id),
+  ]);
+  const instances = await repository.listRunningInstancesForVersion(accessToken, migration.from_version_id);
+  const instanceOpenSteps = await Promise.all(
+    instances.map(async (instance) => ({
+      workflowInstanceId: instance.id,
+      openSteps: (await repository.listStepInstances(accessToken, instance.id)).filter(isOpenStepInstance),
+    })),
+  );
+
+  const impactSummary = computeImpactSummary(migration.from_version_id, migration.to_version_id, fromGraph, toGraph, instanceOpenSteps);
+  return repository.updateMigration(accessToken, migrationId, { status: "previewed", impactSummary });
+}
+
+/** Approving records who signed off and when; it never moves a single instance — see executeMigration. */
+export async function approveMigration(
+  repository: WorkflowRepository,
+  accessToken: string,
+  migrationId: string,
+  approvedBy: string | null,
+): Promise<WorkflowMigration> {
+  const migration = await requireMigration(repository, accessToken, migrationId);
+  if (migration.status !== "previewed") {
+    throw new MigrationNotPreviewedError(`migration ${migrationId} is ${migration.status}, not previewed`);
+  }
+  return repository.updateMigration(accessToken, migrationId, { status: "approved", approvedBy, approvedAt: new Date().toISOString() });
+}
+
+export async function cancelMigration(repository: WorkflowRepository, accessToken: string, migrationId: string): Promise<WorkflowMigration> {
+  const migration = await requireMigration(repository, accessToken, migrationId);
+  if (migration.status === "executed" || migration.status === "cancelled") {
+    throw new MigrationAlreadyFinalError(`migration ${migrationId} is already ${migration.status}`);
+  }
+  return repository.updateMigration(accessToken, migrationId, { status: "cancelled" });
+}
+
+/**
+ * Moves only the instances the stored impact_summary marked
+ * auto-mappable; everything else is left on its original version,
+ * recorded as a "skipped" result. Cannot run without a prior
+ * approveMigration call (status must be "approved").
+ */
+export async function executeMigration(
+  repository: WorkflowRepository,
+  accessToken: string,
+  migrationId: string,
+  executedBy: string | null,
+): Promise<{ migration: WorkflowMigration; results: WorkflowMigrationInstanceResult[] }> {
+  const migration = await requireMigration(repository, accessToken, migrationId);
+  if (migration.status !== "approved") {
+    throw new MigrationNotApprovedError(`migration ${migrationId} is ${migration.status}, not approved`);
+  }
+  const impactSummary = migration.impact_summary;
+  if (!impactSummary) {
+    throw new MigrationNotPreviewedError(`migration ${migrationId} has no stored impact summary — call previewMigration first`);
+  }
+
+  const results: WorkflowMigrationInstanceResult[] = [];
+
+  for (const entry of impactSummary.entries) {
+    if (!entry.autoMappable) {
+      for (const oldStepInstanceId of entry.openStepInstanceIds) {
+        results.push(
+          await repository.insertMigrationInstanceResult(accessToken, {
+            migrationId,
+            workflowInstanceId: entry.workflowInstanceId,
+            oldStepInstanceId,
+            newStepInstanceId: null,
+            outcome: "skipped",
+            detail: "no safe 1:1 node_key mapping into the target version",
+          }),
+        );
+      }
+      continue;
+    }
+
+    try {
+      await repository.migrateInstanceVersion(accessToken, entry.workflowInstanceId, migration.to_version_id);
+      for (const oldStepInstanceId of entry.openStepInstanceIds) {
+        const oldStep = await repository.getStepInstance(accessToken, oldStepInstanceId);
+        const newNodeId = oldStep ? entry.nodeIdMap[oldStep.node_id] : undefined;
+        if (!oldStep || !newNodeId) {
+          results.push(
+            await repository.insertMigrationInstanceResult(accessToken, {
+              migrationId,
+              workflowInstanceId: entry.workflowInstanceId,
+              oldStepInstanceId,
+              newStepInstanceId: null,
+              outcome: "failed",
+              detail: !oldStep ? "step instance no longer exists" : "node mapping missing at execute time",
+            }),
+          );
+          continue;
+        }
+
+        const newStep = await repository.createStepInstance(accessToken, {
+          instanceId: entry.workflowInstanceId,
+          nodeId: newNodeId,
+          status: oldStep.status,
+          assignedTo: oldStep.assigned_to,
+        });
+        await repository.updateStepInstance(accessToken, oldStepInstanceId, {
+          status: "skipped",
+          output: { ...oldStep.output, migratedTo: newStep.id, migrationId },
+        });
+        await repository.insertEvent(accessToken, {
+          instanceId: entry.workflowInstanceId,
+          stepInstanceId: newStep.id,
+          eventType: "migrated",
+          payload: {
+            migrationId,
+            fromVersionId: migration.from_version_id,
+            toVersionId: migration.to_version_id,
+            oldStepInstanceId,
+          },
+        });
+        results.push(
+          await repository.insertMigrationInstanceResult(accessToken, {
+            migrationId,
+            workflowInstanceId: entry.workflowInstanceId,
+            oldStepInstanceId,
+            newStepInstanceId: newStep.id,
+            outcome: "migrated",
+            detail: null,
+          }),
+        );
+      }
+    } catch (error) {
+      results.push(
+        await repository.insertMigrationInstanceResult(accessToken, {
+          migrationId,
+          workflowInstanceId: entry.workflowInstanceId,
+          oldStepInstanceId: null,
+          newStepInstanceId: null,
+          outcome: "failed",
+          detail: error instanceof Error ? error.message : "unknown error",
+        }),
+      );
+    }
+  }
+
+  const updatedMigration = await repository.updateMigration(accessToken, migrationId, {
+    status: "executed",
+    executedBy,
+    executedAt: new Date().toISOString(),
+  });
+  return { migration: updatedMigration, results };
 }

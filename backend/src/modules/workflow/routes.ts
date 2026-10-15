@@ -10,6 +10,11 @@ import {
   InstanceNotPausedError,
   InstanceNotRunningError,
   InvalidNodeTypeError,
+  MigrationAlreadyFinalError,
+  MigrationNotApprovedError,
+  MigrationNotFoundError,
+  MigrationNotPreviewedError,
+  MigrationVersionMismatchError,
   NoStartNodeError,
   RollbackTargetNotPublishedError,
   StepInstanceNotActionableError,
@@ -22,16 +27,23 @@ import {
   addConditionToVersion,
   addNodeToVersion,
   addTransitionToVersion,
+  approveMigration,
   cancelInstance,
+  cancelMigration,
   completeStepInstance,
   createDraftVersion,
+  createMigration,
   createWorkflowDefinition,
+  executeMigration,
   getVersionGraph,
   getWorkflowDefinition,
   getWorkflowInstance,
+  getWorkflowMigration,
+  listMigrationInstanceResults,
   listVersions,
   listWorkflowDefinitions,
   pauseInstance,
+  previewMigration,
   publishVersion,
   recordApproval,
   resumeInstance,
@@ -64,7 +76,7 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     reply.code(404);
     return { error: error.message };
   }
-  if (error instanceof InstanceNotFoundError || error instanceof StepInstanceNotFoundError) {
+  if (error instanceof InstanceNotFoundError || error instanceof StepInstanceNotFoundError || error instanceof MigrationNotFoundError) {
     reply.code(404);
     return { error: error.message };
   }
@@ -81,7 +93,11 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof InstanceNotPausedError ||
     error instanceof StepInstanceNotActionableError ||
     error instanceof IncompleteGateError ||
-    error instanceof UnregisteredServiceError
+    error instanceof UnregisteredServiceError ||
+    error instanceof MigrationVersionMismatchError ||
+    error instanceof MigrationNotPreviewedError ||
+    error instanceof MigrationNotApprovedError ||
+    error instanceof MigrationAlreadyFinalError
   ) {
     reply.code(400);
     return { error: error.message };
@@ -434,6 +450,117 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
       const token = bearerToken(request.headers.authorization) as string;
       try {
         const result = await completeStepInstance(options.getRepository(), token, request.params.stepId, request.body ?? {});
+        return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Migration of active instances to a newer version (ticket 0063, M06d)
+  // ---------------------------------------------------------------------
+
+  app.post<{ Body: { fromVersionId: string; toVersionId: string } }>(
+    "/workflow/migrations",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const migration = await createMigration(
+          options.getRepository(),
+          token,
+          request.body.fromVersionId,
+          request.body.toVersionId,
+          callerUserId,
+        );
+        return { migration };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/workflow/migrations/:id",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const migration = await getWorkflowMigration(options.getRepository(), token, request.params.id);
+        return { migration };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/workflow/migrations/:id/results",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const results = await listMigrationInstanceResults(options.getRepository(), token, request.params.id);
+        return { results };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/migrations/:id/preview",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const migration = await previewMigration(options.getRepository(), token, request.params.id);
+        return { migration };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/migrations/:id/cancel",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const migration = await cancelMigration(options.getRepository(), token, request.params.id);
+        return { migration };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/migrations/:id/approve",
+    { preHandler: options.requirePermission("workflow.definition.publish") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const migration = await approveMigration(options.getRepository(), token, request.params.id, callerUserId);
+        return { migration };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/workflow/migrations/:id/execute",
+    { preHandler: options.requirePermission("workflow.definition.publish") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const result = await executeMigration(options.getRepository(), token, request.params.id, callerUserId);
         return result;
       } catch (error) {
         return handleServiceError(error, reply);

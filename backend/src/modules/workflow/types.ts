@@ -238,6 +238,7 @@ export const WORKFLOW_EVENT_TYPES = [
   "service_called",
   "gate_blocked",
   "gate_exception",
+  "migrated",
 ] as const;
 export type WorkflowEventType = (typeof WORKFLOW_EVENT_TYPES)[number];
 
@@ -291,4 +292,61 @@ export interface WorkflowEvent {
 export interface GateException {
   authorizedBy: string;
   reason: string;
+}
+
+/** Ticket 0063 (M06d): explicit, audited migration of running instances from one published version to another. */
+
+export const MIGRATION_STATUSES = ["draft", "previewed", "approved", "executed", "cancelled"] as const;
+export type MigrationStatus = (typeof MIGRATION_STATUSES)[number];
+
+export const MIGRATION_INSTANCE_OUTCOMES = ["migrated", "skipped", "failed"] as const;
+export type MigrationInstanceOutcome = (typeof MIGRATION_INSTANCE_OUTCOMES)[number];
+
+/** One running instance's currently-open steps and whether each maps 1:1 by node_key into the target version. */
+export interface MigrationImpactEntry {
+  workflowInstanceId: string;
+  openStepInstanceIds: string[];
+  /** True only when every open step instance's node_key has a counterpart in the target version AND there is at least one open step. */
+  autoMappable: boolean;
+  /** Old node_id -> new node_id, for the subset of open steps that do map. */
+  nodeIdMap: Record<string, string>;
+  /** node_keys (or node ids if the key can't be resolved) with no counterpart in the target version. */
+  unmappedNodeKeys: string[];
+}
+
+export interface MigrationImpactSummary {
+  fromVersionId: string;
+  toVersionId: string;
+  totalRunningInstances: number;
+  autoMappableCount: number;
+  manualMappingCount: number;
+  entries: MigrationImpactEntry[];
+}
+
+export interface WorkflowMigration {
+  id: string;
+  tenant_id: string;
+  workflow_definition_id: string;
+  from_version_id: string;
+  to_version_id: string;
+  status: MigrationStatus;
+  impact_summary: MigrationImpactSummary | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  executed_by: string | null;
+  executed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface WorkflowMigrationInstanceResult {
+  id: string;
+  tenant_id: string;
+  migration_id: string;
+  workflow_instance_id: string;
+  old_step_instance_id: string | null;
+  new_step_instance_id: string | null;
+  outcome: MigrationInstanceOutcome;
+  detail: string | null;
+  created_at: string;
 }
