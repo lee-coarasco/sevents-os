@@ -11,6 +11,12 @@ import {
   createSupabaseTenancyRepository,
   type TenancyRepository,
 } from "./modules/tenancy/repository.js";
+import { authorityRoutes } from "./modules/authority/routes.js";
+import { requirePermission } from "./modules/authority/guard.js";
+import {
+  createSupabaseAuthorityRepository,
+  type AuthorityRepository,
+} from "./modules/authority/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -24,6 +30,8 @@ export interface BuildAppOptions {
   getIdentityRepository?: () => IdentityRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getTenancyRepository?: () => TenancyRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getAuthorityRepository?: () => AuthorityRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -49,8 +57,22 @@ function defaultTenancyRepository(): TenancyRepository {
   return cachedTenancyRepository;
 }
 
+let cachedAuthorityRepository: AuthorityRepository | null = null;
+
+function defaultAuthorityRepository(): AuthorityRepository {
+  if (!cachedAuthorityRepository) {
+    cachedAuthorityRepository = createSupabaseAuthorityRepository(
+      createServiceClient(),
+      createUserScopedClient,
+    );
+  }
+  return cachedAuthorityRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
+  const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
+  const guard = (permissionKey: string) => requirePermission(getAuthorityRepository, permissionKey);
 
   app.register(healthRoute, {
     getSupabaseClient: options.getSupabaseClient ?? createServiceClient,
@@ -58,10 +80,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(identityRoutes, {
     getRepository: options.getIdentityRepository ?? defaultIdentityRepository,
+    requirePermission: guard,
   });
 
   app.register(tenancyRoutes, {
     getRepository: options.getTenancyRepository ?? defaultTenancyRepository,
+    requirePermission: guard,
+  });
+
+  app.register(authorityRoutes, {
+    getRepository: getAuthorityRepository,
   });
 
   return app;

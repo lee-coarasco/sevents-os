@@ -114,3 +114,13 @@ Everything built from here on carries `tenant_id` (BRD §6.1).
   build` clean. Status: `testing`. Next: ticket 0056 (M03 Org/Roles/
   Authority) — closes the loop on deferred authorization checks in both
   this ticket and 0054, completing Phase 1's module set.
+- 2026-10-15 12:05 UTC: Ticket 0056 (M03) closed this ticket's deferred
+  authorization gap — `POST /tenancy/companies`, `POST /tenancy/branches`
+  and `POST /tenancy/projects` now require `tenancy.company.manage`/
+  `tenancy.branch.manage`/`tenancy.project.manage` via the new authority
+  module, instead of only checking for a bearer token. Also fixed
+  forward a latent bug in this ticket's migration: `tenant_id` on
+  companies/branches/projects/file_objects was NOT NULL with no default
+  while the repository never supplied it on insert — added
+  `default public.current_tenant_id()` to all four in ticket 0056's
+  migration (additive, non-destructive `alter column`).

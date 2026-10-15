@@ -1,13 +1,52 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
+import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
 import { FakeTenancyRepository } from "../../test/fakeTenancyRepository.js";
+
+function grantManageAll(authorityRepo: FakeAuthorityRepository) {
+  authorityRepo.grantPermission("role.platform_administrator", "tenancy.company.manage");
+  authorityRepo.grantPermission("role.platform_administrator", "tenancy.branch.manage");
+  authorityRepo.grantPermission("role.platform_administrator", "tenancy.project.manage");
+}
 
 function appWithFakeRepo() {
   const repo = new FakeTenancyRepository();
   repo.addSession("token-a", "tenant-a");
   repo.addSession("token-b", "tenant-b");
-  const app = buildApp({ getTenancyRepository: () => repo });
-  return { app, repo };
+
+  // ticket 0056: company/branch/project creation is gated on
+  // tenancy.*.manage — both tenants' admin callers hold it here so
+  // the pre-existing tenant-isolation assertions below still exercise
+  // the same create/list flow they did before the permission check
+  // existed.
+  const authorityRepo = new FakeAuthorityRepository();
+  authorityRepo.addSession("token-a", "user-a", "tenant-a");
+  authorityRepo.addSession("token-b", "user-b", "tenant-b");
+  grantManageAll(authorityRepo);
+  authorityRepo.roleAssignments.set("seed-a", {
+    id: "seed-a",
+    tenant_id: "tenant-a",
+    user_id: "user-a",
+    role_id: "role.platform_administrator",
+    department_id: null,
+    valid_from: "2000-01-01T00:00:00.000Z",
+    valid_to: null,
+  });
+  authorityRepo.roleAssignments.set("seed-b", {
+    id: "seed-b",
+    tenant_id: "tenant-b",
+    user_id: "user-b",
+    role_id: "role.platform_administrator",
+    department_id: null,
+    valid_from: "2000-01-01T00:00:00.000Z",
+    valid_to: null,
+  });
+
+  const app = buildApp({
+    getTenancyRepository: () => repo,
+    getAuthorityRepository: () => authorityRepo,
+  });
+  return { app, repo, authorityRepo };
 }
 
 describe("tenancy routes", () => {
@@ -27,6 +66,20 @@ describe("tenancy routes", () => {
     });
     expect(response.statusCode).toBe(201);
     expect(response.json().company.tenant_id).toBe("tenant-a");
+  });
+
+  it("403s creating a company without tenancy.company.manage", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+    authorityRepo.addSession("token-no-permission", "plain-user", "tenant-a");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/tenancy/companies",
+      headers: { authorization: "Bearer token-no-permission" },
+      payload: { legalName: "Should not be created" },
+    });
+
+    expect(response.statusCode).toBe(403);
   });
 
   it("a tenant's company list never includes another tenant's company", async () => {

@@ -121,3 +121,11 @@ this ticket's schema limited to what identity alone needs.
   npm test`; live-Supabase verification of the adapter itself is the one
   open item, same as ticket 0053's `/health` gap. Moving ticket 0055 (M02
   Tenant/Company) to next.
+- 2026-10-15 12:05 UTC: Ticket 0056 (M03) closed the "any role/permission
+  check beyond is this your own row" gap this ticket deliberately left
+  open — `POST /identity/invite` and `POST /identity/deactivate` now
+  require `identity.user.invite`/`identity.user.deactivate` via the new
+  authority module. The "privileged roles require MFA" `TODO` in
+  `service.ts` is still open (0056 didn't touch MFA policy — it's a
+  separate decision about which roles count as privileged, not just
+  that roles now exist).

@@ -1,4 +1,5 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, preHandlerHookHandler } from "fastify";
+import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { IdentityRepository } from "./repository.js";
 import {
   UnauthorizedError,
@@ -14,6 +15,14 @@ import {
 
 export interface IdentityRouteOptions {
   getRepository: () => IdentityRepository;
+  /**
+   * Ticket 0056 (M03) closes the "any role/permission check beyond is
+   * this your own row" gap ticket 0054 deliberately left open — invite
+   * and deactivate are admin operations, not self-service, so they're
+   * gated on a permission from the authority module rather than a
+   * bare "has a bearer token" check.
+   */
+  requirePermission: (permissionKey: string) => preHandlerHookHandler;
 }
 
 function bearerToken(header: string | undefined): string | null {
@@ -25,13 +34,15 @@ function bearerToken(header: string | undefined): string | null {
 export async function identityRoutes(app: FastifyInstance, options: IdentityRouteOptions) {
   app.post<{ Body: { email: string; displayName?: string } }>(
     "/identity/invite",
+    { preHandler: options.requirePermission("identity.user.invite") },
     async (request, reply) => {
       const { email, displayName } = request.body ?? ({} as { email: string });
       if (!email) {
         reply.code(400);
         return { error: "email is required" };
       }
-      const user = await inviteUser(options.getRepository(), email, displayName, null);
+      const invitedBy = (request as AuthenticatedRequest).authUserId ?? null;
+      const user = await inviteUser(options.getRepository(), email, displayName, invitedBy);
       reply.code(201);
       return { user };
     },
@@ -93,6 +104,7 @@ export async function identityRoutes(app: FastifyInstance, options: IdentityRout
 
   app.post<{ Body: { userId: string } }>(
     "/identity/deactivate",
+    { preHandler: options.requirePermission("identity.user.deactivate") },
     async (request, reply) => {
       const { userId } = request.body ?? ({} as { userId: string });
       if (!userId) {

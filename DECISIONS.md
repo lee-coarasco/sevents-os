@@ -83,3 +83,62 @@ approved (agent-autonomous or you).
   block the whole Phase 1 chain for no schema benefit.
 - Approved by: agent (internal tooling decision, no business-rule or
   cost impact).
+
+## 2026-10-15 12:05 UTC - RoleDefinition/Permission catalogue is platform-wide, not per-tenant
+- Decision: `role_definitions`, `permissions` and the `role_permissions`
+  join table (ticket 0056, M03) use a *nullable* `tenant_id` rather than
+  the NOT NULL tenant_id every other tenant-owned table in this project
+  uses. A NULL row is a platform-wide catalogue entry visible to every
+  tenant (RLS policy: `tenant_id is null or tenant_id = current_tenant_id()`);
+  a non-NULL row is reserved for a future tenant-specific custom
+  role/permission. The 44 canonical roles from
+  `docs/canonical-role-map.md` and the minimal permission catalogue are
+  seeded once, as global rows.
+- Why: ticket 0056's acceptance text says "all tenant-scoped with RLS,"
+  but there is no mechanism yet to seed a fresh copy of the 44-role
+  catalogue every time a new tenant is created (no tenant-creation API
+  exists — ticket 0055 made tenant creation a service-role bootstrap
+  step, not self-service). Making these three tables NOT NULL tenant_id
+  would mean either duplicating the canonical catalogue by hand per
+  tenant (contradicts BRD §6.3: canonical role records are a shared
+  taxonomy, not per-company) or leaving them empty for every tenant
+  except whichever one got the migration-time seed. RLS still checks
+  tenant_id on every one of them, so the "tenant-scoped" intent (no
+  tenant can see another tenant's private data through these tables) is
+  preserved; it's the catalogue's *shared* rows, not isolation, that
+  changed.
+- Approved by: agent (ticket 0056, DB schema detail — CLAUDE.md
+  "Internal API design, DB schema details, additive/non-destructive
+  migrations" is explicitly agent-decidable). Recorded here because it
+  deviates from the ticket's own acceptance wording; flagged in ticket
+  0056's Progress for the next session/owner review.
+
+## 2026-10-15 12:05 UTC - Fixed forward: tenant_id default missing on M02 tables
+- Decision: Added `alter column tenant_id set default public.current_tenant_id()`
+  for `companies`, `branches`, `projects` and `file_objects` in ticket
+  0056's migration (additive, same migration that introduces
+  `current_tenant_id()`-defaulted columns on its own new tables).
+- Why: ticket 0055's migration declared `tenant_id` NOT NULL with no
+  default on those four tables, but `modules/tenancy/repository.ts`
+  never supplies `tenant_id` on insert (relying on RLS's `with check`
+  alone, which does not fill in a NOT NULL column). A real insert
+  against live Supabase would have failed with a not-null violation —
+  never caught because no session so far has had reachable Supabase
+  credentials. Fixing forward while already establishing the same
+  default pattern for ticket 0056's own tables, rather than opening a
+  separate ticket for a one-line four-table default fix.
+- Approved by: agent (non-destructive additive migration, explicitly
+  agent-decidable per CLAUDE.md).
+
+## 2026-10-15 12:05 UTC - First Platform Administrator role_assignment is a service-role bootstrap step
+- Decision: `POST /identity/invite` now requires `identity.user.invite`
+  (ticket 0056). The very first such permission grant — assigning
+  `role.platform_administrator` to the first real user — is done by a
+  service-role/DB operation, not through the API, since by definition
+  nobody holds `authority.role_assignment.manage` before that happens.
+- Why: same bootstrapping precedent ticket 0055 already set for tenant
+  creation ("admin operation, not self-service"). Avoids inventing an
+  unauthenticated-by-design "first invite" API carve-out, which would
+  reopen the exact gap this ticket exists to close.
+- Approved by: agent (consistent with an existing precedent, no new
+  product decision).
