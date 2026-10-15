@@ -5,19 +5,47 @@ UAE-first, country-agnostic construction ERP with workflow automation and contro
 
 Full requirements: `docs/BRD.md` — read this every session before doing anything.
 Implementation plan: `docs/IMPLEMENTATION-PLAN.md`
-Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — import and classify into tickets)
+Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — imported and classified, see `tickets/` and `docs/catalogue/disposition-workbook.csv`)
 
 ## Status
-`PHASE_0` — Discovery and configuration design. **No application code yet.**
+`PHASE_1` — Secure platform foundation. **Phase 0 complete. Start writing code.**
 
-The architect's job this phase:
-1. Read `docs/BRD.md` (sections 1–4) and `docs/IMPLEMENTATION-PLAN.md` (Phase 0).
-2. Produce `docs/PRD.md` covering the pilot scope only (Phase 3 vertical slice: material request → PO → GRN → site issue, or whatever the business owner confirms).
-3. Import and classify work items from `docs/work-item-catalogue.xlsx` into `tickets/` — one ticket per actionable item, following the disposition categories in the Implementation Plan section 2.
-4. Produce `docs/canonical-role-map.md` mapping source roles to canonical system roles.
-5. Record all open questions and unknown SLAs in `DECISIONS.md` / `NEEDS_APPROVAL.md`.
+### Phase 0 deliverables (all done ✓)
+- `docs/PRD.md` — pilot PRD for Phase 3 vertical slice (material request → PO → GRN → site issue). **Approved by owner 2026-10-15. Pilot flow confirmed.**
+- `docs/canonical-role-map.md` — all 44 raw catalogue roles mapped to canonical role IDs.
+- `docs/catalogue/disposition-workbook.csv` — all 1,308 rows classified (Configure workflow 995, Configure approval/decision 215, Periodic review/monitor 60, Track obligation/document 21, Defer 17).
+- `tickets/0001`–`0051` — full catalogue classified into 51 ticket files.
 
-**Do NOT write application code until the PRD is approved and status changes to `BUILDING`.**
+### Build order (follow this exactly — do not jump phases)
+1. ✓ **Phase 0** — Discovery and configuration design. Done.
+2. → **Phase 1** — Secure platform foundation. **Start here now.**
+3. **Phase 2** — Configuration studio and workflow runtime.
+4. **Phase 3** — Material request → PO → GRN → site issue pilot flow.
+5. **Phase 4+** — Core construction operations, knowledge assistant, controlled AI agents.
+
+**Do NOT skip to Phase 3 features.** Phase 1 (auth, tenancy, roles, audit) and Phase 2 (workflow engine) must be built first, or every Phase 3 feature has no platform underneath it and must be rewritten.
+
+---
+
+## Tech stack (owner-approved 2026-10-15)
+
+**Approved. Do not re-litigate. Do not write to NEEDS_APPROVAL.md for these choices — they are final.**
+
+| Layer | Choice | Notes |
+|---|---|---|
+| **Database** | Supabase (PostgreSQL) | Row-level security for tenant isolation; Supabase client SDK in backend |
+| **Auth** | Supabase Auth | JWT-based; role claims in JWT for permission checks |
+| **File storage** | Supabase Storage | Documents, evidence attachments, engineering files |
+| **Realtime** | Supabase Realtime | Task/approval queue updates |
+| **Backend API** | Node.js (TypeScript) | REST + tRPC or REST only — architect decides |
+| **Frontend** | TBD — architect proposes in Phase 1 ticket | React-based preferred but not locked |
+| **Hosting** | TBD — architect proposes | Vercel / Railway / Fly.io all acceptable |
+
+Supabase project credentials will be provided as GitHub Actions secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`) — do not hard-code them. Use `SUPABASE_SERVICE_ROLE_KEY` only in backend/server contexts, never in client-side code.
+
+**What is decided:** Supabase for DB + Auth + Storage + Realtime. Node.js + TypeScript for the backend. These are not up for debate.
+
+**What is still TBD:** Frontend framework (architect proposes), hosting target (architect proposes), specific Node.js framework (Express / Fastify / Hono — architect decides). Write to NEEDS_APPROVAL.md only if a genuinely new paid service is needed.
 
 ---
 
@@ -36,19 +64,18 @@ itself. See those files before assuming what a subagent can/can't do.
 ## What the agent may decide on its own (no approval needed)
 - Ticket classification, disposition and ordering
 - Folder/module structure, naming conventions, code style
-- Which testing framework/library to use (once BUILDING)
+- Which testing framework/library to use
 - Internal API design, DB schema details, additive/non-destructive migrations
 - UI component structure and styling approach
 - Which open-source libraries to pull in (MIT/Apache/BSD licence only)
 - Writing tests, fixing bugs it introduced, refactoring its own code
 - Day-to-day task breakdown and ordering within an approved milestone
 - Preview deploys (do not affect the live app)
+- Node.js framework choice (Express / Fastify / Hono)
+- Frontend component library choice
 
 ## What requires YOUR approval (ask the owner and STOP that work)
-- The overall PRD / feature scope before any code is written
-- Tech stack choice (language, framework, database, hosting target)
 - UAE VAT / tax treatment — do NOT activate tax posting without finance owner sign-off
-- Authentication/authorization strategy
 - Payment or banking integrations
 - Third-party paid services or anything with a monthly cost
 - Any decision that would be expensive or risky to reverse
@@ -56,8 +83,10 @@ itself. See those files before assuming what a subagent can/can't do.
 - **Destructive database changes** — the backend-engineer subagent will never do these itself
 - Anything explicitly marked "ask first" in DECISIONS.md by you
 
-Standing approvals (work the owner has pre-approved, with its limits) go here
-as they are given, with the date.
+### Standing approvals (owner pre-approved, with date)
+- **2026-10-15** — Tech stack: Supabase (DB + Auth + Storage + Realtime) + Node.js/TypeScript backend. Final.
+- **2026-10-15** — Pilot flow: material request → procurement review → quotation comparison → approval → purchase order → delivery/GRN → site issue (Phase 3). PRD confirmed.
+- **2026-10-15** — Phase build order: Phase 1 → Phase 2 → Phase 3 → Phase 4+. Do not skip phases.
 
 ## Workflow files are human-only
 The scheduled agent must NEVER create or edit anything under `.github/workflows/`:
@@ -88,12 +117,13 @@ whole session's commits are lost. Needed workflow changes go into a ticket with
    rather than skipping silently.
 
 ## How the owner tests
-No builds in Phase 0 — all output is documentation and ticket files.
-Daily log: `New build needed: NO`
+Phase 1: no user-facing UI yet — owner tests by running the repo's test suite locally or reviewing migration files and API contracts.
+Phase 2 onwards: architect creates a ticket with `roles: [human]` when a preview deploy is ready.
+Daily log: `New build needed: NO` until the first deployable build exists.
 
-## Tech stack
-TBD — architect proposes in NEEDS_APPROVAL.md after PRD is approved.
-Do not re-litigate without writing to NEEDS_APPROVAL.md first.
+## Tech stack (detail)
+See Standing approvals above. Supabase + Node.js/TypeScript is locked.
+Do not re-litigate the database or auth choice.
 
 ## Business rules / domain notes
 - Architecture is country-agnostic, multi-tenant, configuration-first (BRD section 2, Implementation Plan section 1).
