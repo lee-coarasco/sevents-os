@@ -1,4 +1,4 @@
-import { evaluateExpression, pickNextTransition } from "./simulation.js";
+import { pickNextTransition } from "./simulation.js";
 import type {
   WorkflowCondition,
   WorkflowNode,
@@ -134,5 +134,3 @@ export function predecessorsSatisfied(
     return steps.some((s) => s.status === "completed" || s.status === "skipped");
   });
 }
-
-export { evaluateExpression, pickNextTransition };

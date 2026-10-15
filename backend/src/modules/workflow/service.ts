@@ -640,7 +640,20 @@ async function resolveAndAdvance(
       break;
     }
     case "complete": {
-      await enforceCompleteGate(repository, accessToken, instance);
+      const gateResult = await checkCompleteGate(repository, accessToken, instance);
+      if (!gateResult.ok) {
+        // FR-WI-010: block without throwing out of what may be a purely
+        // automatic cascade (e.g. from startWorkflowInstance's initial
+        // synchronous fan-out) — the node simply stays unreached, same
+        // as any other node a predecessor check withholds. The caller
+        // that explicitly tries to *act* on a gated step via
+        // completeStepInstance is the one that surfaces
+        // IncompleteGateError, since that caller can supply a
+        // gateException and needs a signal to retry with one.
+        await repository.updateStepInstance(accessToken, step.id, { status: "waiting" });
+        step.status = "waiting";
+        return;
+      }
       terminal = "completed";
       break;
     }
@@ -725,39 +738,35 @@ function groupByNodeId(steps: WorkflowStepInstance[]): Map<string, WorkflowStepI
  * FR-WI-010: a `complete` node must not be reached while any
  * request_upload_evidence/request_approval step instance on this
  * instance is outstanding (not completed/skipped), unless an
- * authorized exception is recorded via the `exception` param on
- * completeStepInstance — see enforceCompleteGate's caller chain.
+ * authorized exception is recorded. Pure query, no side effects — see
+ * checkCompleteGate (non-throwing, used by the synchronous executor
+ * cascade) and enforceCompleteGateOrThrow (throwing, used by the
+ * explicit completeStepInstance entrypoint) below.
  */
-async function enforceCompleteGate(
+async function findOutstandingGatedSteps(
   repository: WorkflowRepository,
   accessToken: string,
   instance: WorkflowInstance,
-  exception?: GateException,
-): Promise<void> {
+  excludeStepId?: string,
+): Promise<WorkflowStepInstance[]> {
   const steps = await repository.listStepInstances(accessToken, instance.id);
-  const nodeTypeByStepNodeId = new Map<string, string>();
   const graph = await repository.getVersionGraph(accessToken, instance.workflow_version_id);
-  for (const node of graph.nodes) nodeTypeByStepNodeId.set(node.id, node.node_type);
+  const nodeTypeByStepNodeId = new Map(graph.nodes.map((n) => [n.id, n.node_type]));
 
-  const outstanding = steps.filter((s) => {
+  return steps.filter((s) => {
+    if (s.id === excludeStepId) return false;
     const nodeType = nodeTypeByStepNodeId.get(s.node_id);
     return nodeType && isGatedNodeType(nodeType) && s.status !== "completed" && s.status !== "skipped";
   });
+}
 
-  if (outstanding.length === 0) return;
-
-  if (!exception) {
-    await repository.insertEvent(accessToken, {
-      instanceId: instance.id,
-      stepInstanceId: null,
-      eventType: "gate_blocked",
-      payload: { outstandingStepIds: outstanding.map((s) => s.id) },
-    });
-    throw new IncompleteGateError(
-      `cannot reach a complete node: ${outstanding.length} required evidence/approval step(s) are not completed`,
-    );
-  }
-
+async function applyGateException(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+  exception: GateException,
+  outstanding: WorkflowStepInstance[],
+): Promise<void> {
   const mergedContext = {
     ...instance.context,
     gateExceptions: [
@@ -777,6 +786,65 @@ async function enforceCompleteGate(
       outstandingStepIds: outstanding.map((s) => s.id),
     },
   });
+}
+
+/**
+ * Non-throwing gate check for the executor's own synchronous cascade
+ * (e.g. a `complete` node reached automatically as part of
+ * startWorkflowInstance's initial fan-out, or a cascade triggered by
+ * completeStepInstance on some *other* step). A block here just leaves
+ * the complete node unreached and records gate_blocked — it must never
+ * throw out of what may be an automatic, caller-invisible walk.
+ */
+async function checkCompleteGate(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+): Promise<{ ok: true } | { ok: false }> {
+  const outstanding = await findOutstandingGatedSteps(repository, accessToken, instance);
+  if (outstanding.length === 0) return { ok: true };
+  await repository.insertEvent(accessToken, {
+    instanceId: instance.id,
+    stepInstanceId: null,
+    eventType: "gate_blocked",
+    payload: { outstandingStepIds: outstanding.map((s) => s.id) },
+  });
+  return { ok: false };
+}
+
+/**
+ * Throwing variant for completeStepInstance's direct call: the caller
+ * explicitly asked to complete a step whose next hop is a `complete`
+ * node, so a block must surface as IncompleteGateError (not silently
+ * swallowed) — giving the caller the signal + shape needed to retry
+ * with an authorized gateException if that's warranted. `excludeStepId`
+ * lets the caller ask "excluding the very step I'm about to complete,
+ * is anything else still outstanding?" so a blocked first attempt
+ * doesn't burn the step before the caller can retry with an exception.
+ */
+async function enforceCompleteGateOrThrow(
+  repository: WorkflowRepository,
+  accessToken: string,
+  instance: WorkflowInstance,
+  exception?: GateException,
+  excludeStepId?: string,
+): Promise<void> {
+  const outstanding = await findOutstandingGatedSteps(repository, accessToken, instance, excludeStepId);
+  if (outstanding.length === 0) return;
+
+  if (!exception) {
+    await repository.insertEvent(accessToken, {
+      instanceId: instance.id,
+      stepInstanceId: null,
+      eventType: "gate_blocked",
+      payload: { outstandingStepIds: outstanding.map((s) => s.id) },
+    });
+    throw new IncompleteGateError(
+      `cannot reach a complete node: ${outstanding.length} required evidence/approval step(s) are not completed`,
+    );
+  }
+
+  await applyGateException(repository, accessToken, instance, exception, outstanding);
 }
 
 /**
@@ -828,7 +896,7 @@ export async function startWorkflowInstance(
 
 export interface CompleteStepInstanceOptions {
   output?: Record<string, unknown>;
-  /** Required if completing this step would otherwise unblock a `complete` node gated by FR-WI-010; see enforceCompleteGate. */
+  /** Required if completing this step would otherwise unblock a `complete` node gated by FR-WI-010; see enforceCompleteGateOrThrow. */
   gateException?: GateException;
 }
 
@@ -859,6 +927,20 @@ export async function completeStepInstance(
   const node = indexed.nodesById.get(step.node_id);
   if (!node) throw new StepInstanceNotFoundError(`step instance ${stepInstanceId} has no matching node`);
 
+  // FR-WI-010: if completing this step would immediately unblock a
+  // `complete` node (this step is the last outstanding predecessor),
+  // check the gate — excluding this very step, since it is in the
+  // process of being completed — before persisting anything, so a
+  // blocked attempt leaves this step instance untouched and retryable
+  // with a gateException rather than burning the step on a failed
+  // first call. Only runs when the next hop actually is a complete
+  // node; other transitions are unaffected.
+  const outgoing = indexed.outgoingByNode.get(node.id) ?? [];
+  const wouldReachComplete = outgoing.some((t) => indexed.nodesById.get(t.to_node_id)?.node_type === "complete");
+  if (wouldReachComplete) {
+    await enforceCompleteGateOrThrow(repository, accessToken, instance, options.gateException, step.id);
+  }
+
   const completedAt = new Date().toISOString();
   const output = options.output ?? {};
   await repository.updateStepInstance(accessToken, step.id, { status: "completed", completedAt, output });
@@ -873,7 +955,6 @@ export async function completeStepInstance(
   });
 
   const touched: WorkflowStepInstance[] = [step];
-  const outgoing = indexed.outgoingByNode.get(node.id) ?? [];
   const nextNodeIds = resolveNextNodeIds(outgoing, indexed.conditionsById, instance.context);
 
   for (const nextNodeId of nextNodeIds) {
@@ -883,19 +964,6 @@ export async function completeStepInstance(
     const stepInstancesByNodeId = groupByNodeId(existingSteps);
     if (!predecessorsSatisfied(nextNodeId, indexed.incomingByNode, stepInstancesByNodeId)) continue;
     if (stepInstancesByNodeId.has(nextNodeId)) continue;
-    if (nextNode.node_type === "complete") {
-      try {
-        await enforceCompleteGate(repository, accessToken, instance, options.gateException);
-      } catch (error) {
-        if (error instanceof IncompleteGateError) {
-          // Re-throw after persisting the already-completed step above —
-          // the step completion stands, but the walk stops short of the
-          // complete node rather than silently finishing the instance.
-          throw error;
-        }
-        throw error;
-      }
-    }
     await activateNode(repository, accessToken, instance, graph, indexed, nextNode, touched);
   }
 
