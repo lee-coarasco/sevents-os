@@ -1,240 +1,152 @@
-# SEVENTS — Pilot PRD (Phase 3 Vertical Slice)
+# SEVENTS — Product Requirements Document
 
-**Status:** Draft, pilot scope only. Awaiting business-owner confirmation on the open
-decisions in Section 9 before `BUILDING` begins. Scope source: `docs/BRD.md`
-(sections 1-4, 6, 7, 10.3, 16, 17, 20, 21) and `docs/IMPLEMENTATION-PLAN.md` (Phase 3).
-
-This PRD does not cover the full 38-module BRD. It defines the one end-to-end
-slice SEVENTS must prove before expanding, per Implementation Plan Phase 3 and
-BRD §17 (MVP Definition). Later phases (Phase 4+) are out of scope here and
-remain tracked in the BRD roadmap.
+**Status:** Active — `PHASE_1` in progress. Build in module order defined below.
+**Owner confirmed:** 2026-10-15
+**Source:** `docs/BRD.md`, `docs/IMPLEMENTATION-PLAN.md`, `docs/canonical-role-map.md`, `docs/catalogue/disposition-workbook.csv`
 
 ---
 
-## 1. Pilot flow
+## 1. Product vision
 
-**Material requirement → procurement review → quotation comparison → approval
-→ purchase order → delivery/GRN → site issue.**
+UAE-first, country-agnostic construction ERP with workflow automation and controlled AI agents. Configuration-first architecture: stable capabilities define the modules; the 1,308-row work-item catalogue defines how those modules are used by each role.
 
-This is the default named in `CLAUDE.md` and matches BRD §10.3 ("Material
-requirement to payment"), truncated before invoice/payment matching — that
-tail (vendor-bill 3-way match, payment approval) is explicitly Phase 5
-(Finance and contracts) in both the BRD roadmap and Implementation Plan, not
-part of this slice. See `DECISIONS.md` for why this flow was chosen as the
-default rather than an alternative BRD §10 flow, and the open question for
-the business owner to confirm or redirect it.
-
-### 1.1 Steps in scope
-
-1. A project role identifies a material requirement and raises a requisition.
-2. System checks stock, reservations, open POs (where that data exists) —
-   full demand-forecast intelligence is out of scope for the pilot; a basic
-   "is there already an open PO or stock for this item" check is in scope.
-3. Procurement receives, registers and validates the requisition against
-   budget/authority (authority limits are config, not hard-coded — see §9).
-4. Procurement issues RFQs and logs vendor quotations.
-5. Procurement prepares a quotation comparison (price, lead time, compliance).
-6. Named approver(s) approve the vendor/PO per the configured approval policy.
-7. Procurement issues the purchase order.
-8. Delivery is tracked; Storekeeper receives, inspects and creates a GRN,
-   recording any discrepancy.
-9. Stock ledger updates; Storekeeper issues material against an authorised
-   material request to the originating project/site activity.
-
-Everything after step 9 (vendor-bill matching, payment, retention, cost
-variance reporting) is Phase 5 and out of scope for the pilot.
-
-### 1.2 Traceability to the source catalogue
-
-The pilot flow is directly supported by these existing catalogue rows
-(`docs/catalogue/source-catalogue.json`, S.No. column; full text in
-`docs/BRD.md` §22 appendix and the source workbook):
-
-| Step | Department | Role | S.No. range (representative) |
-|---|---|---|---|
-| Raise requirement | Projects | Site Civil/MEP Engineer, Quantity Surveyor | 334, 361, 518-519 |
-| Register/validate requisition | Procurement | Procurement Lead | 601-610 |
-| RFQ / quotation comparison | Procurement | Procurement Lead | 618-630 |
-| PO approval | Procurement | Chief Procurement Officer (CPO) | 582, 584 |
-| PO issue | Procurement | Procurement Lead | 631-640 |
-| Delivery / logistics | Procurement | Logistics Coordinator | 656-690 |
-| GRN / receipt / inspection | Procurement | Storekeeper | 692-705 |
-| Stock & site issue | Procurement | Storekeeper | 714-725 |
-| Verify receipt at site | Projects | Site Civil/MEP Engineer, QHSE Engineer | 343, 371, 557 |
-
-These rows are reference input, not an executable spec by themselves (BRD
-§6.3) — see the import tickets under `tickets/` for the normalization work
-(disposition, trigger/action/SLA confirmation) each row still needs before
-being wired into a published workflow.
+The system must work for any construction company in any country, with UAE as the initial localization profile. No country-specific tax rates, statutory IDs, invoice formats or filing requirements are hard-coded — these live in localization configuration packs.
 
 ---
 
-## 2. Personas in the pilot
+## 2. Build order
 
-Subset of BRD §3.1, mapped to canonical roles in `docs/canonical-role-map.md`:
+Build modules in BRD dependency order. Do not start a module before its prerequisites are done. Do not jump to procurement, material, or finance modules early — they sit at M14–M22 and depend on identity, tenancy, roles, workflow engine, projects and tasks being solid first.
 
-- **Site Civil/MEP Engineer** — raises the material requirement.
-- **Quantity Surveyor** — verifies quantity against BOQ/budget, creates the
-  ERP requisition.
-- **Procurement Lead** (canonical: Procurement Manager/Buyer) — RFQ,
-  comparison, PO drafting.
-- **Chief Procurement Officer** (canonical: Department Head — Procurement) —
-  PO approval within delegated authority.
-- **Logistics Coordinator** — delivery tracking.
-- **Storekeeper** — GRN, stock ledger, material issue.
-- **Platform Administrator** — configures the workflow, roles and approval
-  policy (no domain decisions).
+### Phase 1 — Secure platform foundation
+| Module | What it builds |
+|---|---|
+| **M01** Identity, Authentication & Sessions | Sign-in, MFA, session control, SSO-ready, account lifecycle, audit trail |
+| **M02** Company, Branch, Project & Tenant Setup | Company profile, legal entities, branches, currencies, fiscal year, tenant isolation |
+| **M03** Organization, Departments, Roles & Authority | Department tree, role catalogue, authority matrix, approval limits, segregation of duties |
 
-CFO/Finance is **not** in the pilot's approval chain unless the configured
-approval policy routes a PO above a threshold to Finance — that threshold is
-one of the open decisions in §9, not assumed here.
+Exit criteria: authorization tests pass; tenant isolation verified; basic user and role administration works; audit captures sensitive changes.
 
----
+### Phase 2 — Configuration studio and workflow runtime
+| Module | What it builds |
+|---|---|
+| **M05** Work-Item Catalogue & Disposition | Import/normalize the 1,308-row catalogue; disposition; canonical role mapping; version definitions |
+| **M06** Configuration Studio & Workflow Engine | Triggers, step types, branching, forms, evidence, SLA calendars, approval policies, simulation, versioned publish/rollback |
+| **M33** Master Data & Configuration | Items, units, cost codes, document types, project types, numbering schemes, currencies |
 
-## 3. Core entities needed for the pilot
+Exit criteria: an administrator can configure a workflow from existing capabilities without code changes; invalid publication is blocked; active instances stay version-pinned.
 
-Minimum subset of BRD §6.2, built on the generic configuration/workflow
-runtime (Implementation Plan §4), not as pilot-specific tables:
+### Phase 3 — Core operations foundation
+| Module | What it builds |
+|---|---|
+| **M04** Employee Directory & Workforce | Profiles, skills, certifications, project allocation, onboarding/offboarding |
+| **M07** Tasks, My Work & Work Queues | Personal/team queues, assignment, priority, due date, evidence, comments, overdue tracking |
+| **M08** Approvals & Delegation | Sequential/parallel approvals, value thresholds, substitutes, rejection, resubmission, escalation, immutable decisions |
+| **M09** Project & Portfolio Management | Project register, client, contract, scope, location, WBS, milestones, budgets, risk register, change control |
+| **M35** Audit, Security, Privacy & Retention | Append-only audit, session audit, encryption, retention, data export/deletion |
+| **M31** Notifications, SLA & Escalations | In-app/email notifications, configurable templates, SLA timers, escalation ladders |
 
-- `DepartmentDefinition`, `RoleDefinition`, `RoleMapping`, `RoleAssignment`,
-  `ApprovalLimit`.
-- `Project`, `WBSNode` (reference only — scope is "attach to a project",
-  not full WBS/schedule build-out).
-- `MaterialItem`, `UnitOfMeasure`, `Warehouse`, `StockLedgerEntry`,
-  `MaterialRequest`, `MaterialIssue`.
-- `Vendor`, `RFQ`, `VendorQuotation`, `EvaluationScore`,
-  `PurchaseRequisition`, `PurchaseOrder`, `POChange`.
-- `GRN`.
-- `WorkflowDefinition`, `WorkflowVersion`, `WorkflowInstance`,
-  `WorkflowStepInstance`, `SLAProfile`, `ApprovalPolicy`, `EvidenceRequirement`.
-- `Task`, `TaskAssignment`, `Attachment`, `Comment`.
-- `AuditEvent`, `Notification`.
+### Phase 4 — Commercial and technical modules
+| Module | What it builds |
+|---|---|
+| **M10** Client, CRM & Sales Pipeline | Leads, contacts, tender calendar, pipeline forecast, handover |
+| **M11** Tendering, Estimation & Commercials | Tender documents, quantity take-off, estimate versions, costs, margin scenarios, quote approvals |
+| **M12** Technical Engineering & Design Control | Design brief, drawing register, revision control, RFI, IFC release, as-built closeout |
+| **M13** Documents, Drawings & Records | Versioned files, metadata, approvals, transmittals, OCR, retention |
+| **M18** Schedule, Progress & Resource Planning | Baseline schedule, WBS, planned vs actual, critical path, lookahead plans, delay reasons |
 
-No client-billing, contract, or payment entities are required for this slice.
+### Phase 5 — Procurement, stores and site operations
+| Module | What it builds |
+|---|---|
+| **M14** Procurement & Vendor Management | Requisitions, vendor onboarding, RFQ, quotation comparison, approved vendor list, POs, delivery tracking, GRN |
+| **M15** Inventory, Stores & Material Movement | Stock ledger, receipts, issues, transfers, reservations, reconciliation, wastage |
+| **M16** Subcontractor & Labour Operations | Work orders, manpower, attendance, measured work, claims, retention |
+| **M17** Site Operations, DPR & Field Capture | Site diary, daily progress, manpower, weather, quantities, photos, offline drafts |
+| **M19** Quality, Inspection & NCR | Inspection plans, checklists, NCRs, corrective actions, evidence, closure |
+| **M20** Safety, Incidents & Compliance | Permits-to-work, hazard observations, incidents, corrective actions. Safety decisions remain human-controlled. |
+| **M25** Equipment, Plant & Fleet | Asset register, allocation, utilisation, maintenance, certificates |
 
----
+### Phase 6 — Finance, billing and contracts
+| Module | What it builds |
+|---|---|
+| **M21** Finance, Budgets & Cost Control | Cost codes, budgets, actuals, accruals, forecasts, cash flow, expense claims |
+| **M22** Billing, Invoicing, Receivables & Payables | Applications for payment, progress claims, tax invoices, vendor bills, payment runs |
+| **M23** Contracts, Claims, Variations & EOT | Contract repository, notices, variation requests, claims valuation, bonds, DLP |
+| **M24** People, Recruitment & Performance | Manpower requests, recruitment, training, performance, offboarding |
+| **M26** Customer/Stakeholder Communications | Communication log, meeting minutes, action extraction, client complaints |
+| **M27** Legal, Licences & Regulatory Register | Legal matters, permits, compliance obligations, deadline alerts |
 
-## 4. Supported workflow step types used
+### Phase 7 — AI and intelligence layer
+| Module | What it builds |
+|---|---|
+| **M28** AI Knowledge Assistant & Search | Permission-aware answers grounded in approved records; citations; feedback |
+| **M29** AI Agent Studio & Tool Registry | Agent definitions, allowed tools, guardrails, approval requirements, evaluation tests |
+| **M30** Agent Runs, Human Review & Audit | Run queue, plan/steps, tool calls, human intervention, audit, cost tracking |
 
-From Implementation Plan §5 (the only step types this pilot may use — a new
-step type is a code change, not configuration):
-
-1. Start from business event (requisition raised).
-2. Create/update task via application service.
-3. Assign to role/queue (Procurement, Storekeeper).
-4. Collect structured form fields (requisition, RFQ, GRN discrepancy).
-5. Request/validate evidence (vendor quotation docs, delivery note, GRN photo).
-6. Evaluate deterministic condition (value above/below approval threshold).
-7. Request sequential approval (CPO, and Finance if threshold routes there).
-8. Send notification/reminder.
-9. Wait for SLA threshold (quotation deadline, delivery due date).
-10. Create linked follow-up task (discrepancy resolution).
-11. Escalate/reject/cancel/complete.
-
----
-
-## 5. Acceptance criteria
-
-From Implementation Plan §3 Phase 3 exit criteria and BRD §17 MVP demo
-scenario, adapted to this flow:
-
-- [ ] A Site Engineer/Quantity Surveyor can raise a material requirement
-      that creates a `PurchaseRequisition` linked to a project and (where
-      configured) a cost code.
-- [ ] Procurement can register the requisition, issue RFQs, and record at
-      least two competing quotations with a comparison view.
-- [ ] The configured approval policy (sequential, by value band) must
-      approve before a PO is issued; rejection returns the item with a
-      reason and does not silently drop it.
-- [ ] A PO cannot be issued twice from the same approved requisition (no
-      duplicate-write on retry).
-- [ ] Storekeeper can record a GRN against the PO, including a
-      discrepancy/rejection path, and the stock ledger reflects the
-      accepted quantity.
-- [ ] Material issue against the GRN'd stock requires an authorised
-      material request; the issuing role and quantity are audited.
-- [ ] Every step (requisition, RFQ, approval, PO, GRN, issue) is visible in
-      an audit trail: who, when, under what authority, which workflow
-      version.
-- [ ] The full path runs in a staging environment with realistic sample
-      data; reject/exception paths work, not just the happy path.
-- [ ] None of this requires VAT/tax posting to be active (tax activation is
-      explicitly out of scope — see §9).
+### Phase 8 — Platform completion
+| Module | What it builds |
+|---|---|
+| **M32** Dashboards, Reports & KPI Builder | Role-specific dashboards, project health, cost variance, agent metrics, export |
+| **M34** Integrations & API Management | REST APIs, webhooks, accounting/banking, e-sign, OCR/LLM, vendor portals |
+| **M36** Platform Administration & Support | Feature flags, tenant config, health, job queues, failed workflow repair, release notes |
+| **M37** Mobile/PWA & Offline Site Mode | PWA, installability, offline drafts for field forms, sync queue |
+| **M38** Implementation, Migration & Data Quality | Excel import wizard, validation, dry-run, import report, staged activation |
 
 ---
 
-## 6. Out of scope for the pilot
+## 3. Key personas (from BRD §3.1 + canonical-role-map.md)
 
-- Vendor-bill 3-way match, payment approval/release, retention (Phase 5).
-- Full WBS/critical-path scheduling.
-- Subcontractor work orders and labour certification.
-- Client-facing billing/invoicing.
-- AI agents of any kind (knowledge assistant, copilot) — the pilot is pure
-  workflow/ERP; agents are Phase 6+ per the BRD roadmap.
-- Vendor/client self-service portals.
-- Any country other than the UAE profile; and within UAE, no VAT
-  calculation or posting (configurable field may exist, but is not
-  activated — see §9 and BRD §2.3A).
-- Mobile offline mode (site users may use the PWA online; offline drafting
-  is a later M37 concern).
+All 44 raw catalogue roles are mapped in `docs/canonical-role-map.md`. Key personas by phase:
+
+**Phase 1–2 (Platform setup):** Platform Administrator, Company Administrator  
+**Phase 3 (Operations):** All department heads, managers and employees — task queues and approvals apply to every role  
+**Phase 5 (Procurement/site):** Site Civil/MEP Engineer, Quantity Surveyor, Procurement Lead, CPO, Logistics Coordinator, Storekeeper, QHSE Engineer, Site Manager  
+**Phase 6 (Finance):** CFO, Senior Accountant, Accountant, CLO, Legal Counsel  
+**Phase 7 (AI):** AI Admin, authorized operators, auditors  
 
 ---
 
-## 7. Non-functional guardrails (carried from BRD, not new for pilot)
+## 4. Non-functional requirements (all phases)
 
-- Every write goes through a validated application service with
-  server-side permission checks — never UI-only enforcement.
-- Idempotent writes: retrying a PO/GRN submission must not create a
-  duplicate record.
-- Immutable audit trail on requisition, approval, PO, GRN and issue events.
-- Workflow instances pin to the published workflow version active at their
-  creation; a later republish does not silently change an in-flight
-  requisition's rules.
-- No AI involvement in this slice; nothing here authorizes AI to execute
-  procurement actions.
+- Every write goes through a validated application service with server-side permission checks — no UI-only enforcement.
+- Idempotent writes: retrying any submission (PO, approval, GRN, invoice) must not create a duplicate record.
+- Immutable audit trail on all consequential actions.
+- Workflow instances pin to the published version active at creation; a later republish does not silently change in-flight instances.
+- Tenant isolation via Supabase Row-Level Security on every table — no query may return another tenant's data.
+- VAT/tax fields are configurable but not activated by default. Finance owner sign-off required before any tax posting goes live (BRD §2.3A).
+- No country-specific logic hard-coded in the generic core.
+- Safety decisions (M20) remain human-controlled — AI agents may suggest, never action.
 
 ---
 
-## 8. Role authority — explicitly not invented here
+## 5. Open decisions for the business owner
 
-Approval value thresholds, who sits above the CPO in the approval chain for
-large POs, and segregation-of-duties specifics (e.g. can the same person
-raise and approve a requisition) are **not** defined in this PRD. BRD §21
-item 6 lists "actual approval limits by role and transaction type" as a
-business decision still required. Building the approval *engine* (config-
-driven, supports value bands, sequential/parallel, segregation-of-duties
-checks) is in scope; populating it with real numbers is not — see the open
-decision below.
+These do not block Phase 1–2 build. They must be resolved before the relevant module goes live:
 
----
-
-## 9. Open decisions for the business owner
-
-These block *activation* of the pilot with real authority limits, not the
-build of the configurable engine itself. Tracked as a ticket-level
-`## Needs approval` (not `NEEDS_APPROVAL.md`, since other Phase 0 work can
-continue without an answer):
-
-1. **Approval value bands for PO issuance** — who approves at what value,
-   and whether Finance (CFO) sits above the CPO for high-value POs. No
-   default will be invented; the pilot's approval policy stays in draft/
-   simulation state until the owner confirms real bands.
-2. **First pilot project/project type** — BRD §21 item 3 (commercial,
-   residential, fit-out, civil/infrastructure) is still open; it affects
-   what sample data populates the staging demo in acceptance criterion 8.
-3. **Segregation-of-duties rule for this flow** — can one person raise and
-   approve, or must requisition-raiser and PO-approver always differ?
-
-None of these block Phase 0 documentation/ticket work. They block turning
-the configured workflow from "simulated" to "published/active" per the
-configuration lifecycle (BRD §5.4.2, Implementation Plan §6).
+1. **Approval value bands** (needed before M08 is activated with real limits) — who approves at what value threshold, across which modules. No default will be invented.
+2. **UAE VAT position** (needed before M21/M22 go live) — whether the company is VAT-registered, what rates apply, and which transactions are taxable. Requires UAE tax adviser confirmation.
+3. **First pilot project type** (needed for M09 sample data) — commercial, residential, fit-out or civil/infrastructure.
+4. **Segregation-of-duties rules** — e.g. can one person raise and approve the same requisition?
+5. **Frontend framework** — architect to propose in NEEDS_APPROVAL.md during Phase 1.
+6. **Hosting target** — architect to propose in NEEDS_APPROVAL.md during Phase 1.
 
 ---
 
-## 10. Relationship to later phases
+## 6. Catalogue traceability
 
-This PRD intentionally does not re-litigate the full BRD. Phases 1-2
-(platform foundation, configuration studio) must exist before this flow can
-be configured rather than coded; Phase 4 widens to the rest of procurement/
-engineering/site; Phase 5 adds the finance tail this PRD deliberately stops
-short of. See `docs/IMPLEMENTATION-PLAN.md` §3 for the full sequence.
+All 1,308 source-catalogue rows are imported and classified in `docs/catalogue/disposition-workbook.csv`:
+- 995 rows → Configure workflow (executable steps in M06–M20)
+- 215 rows → Configure approval/decision (approval policies in M08)
+- 60 rows → Periodic review/monitor (dashboards/reports in M32)
+- 21 rows → Track obligation/document (document register in M13, M27)
+- 17 rows → Defer (vendor payments, finance tail — Phase 6)
+
+Tickets 0001–0051 in `tickets/` contain the detailed disposition per role cluster.
+
+---
+
+## 7. What this PRD is not
+
+- It is not a detailed spec for each module — that lives in the tickets the architect creates at the start of each phase.
+- It is not a data model — that lives in migration files under `supabase/migrations/`.
+- It does not invent authority limits, SLA values, tax rates or approval policies — those are business decisions tracked in open decisions above.
