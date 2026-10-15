@@ -20,10 +20,56 @@ Work item catalogue: `docs/work-item-catalogue.xlsx` (1,308 rows — imported an
 1. ✓ **Phase 0** — Discovery and configuration design. Done.
 2. → **Phase 1** — Secure platform foundation. **Start here now.**
 3. **Phase 2** — Configuration studio and workflow runtime.
-4. **Phase 3** — Material request → PO → GRN → site issue pilot flow.
-5. **Phase 4+** — Core construction operations, knowledge assistant, controlled AI agents.
+4. **Phase 3 onwards** — Build BRD modules in dependency order (see below).
+5. **Phase 4+** — Knowledge assistant, controlled AI agents.
 
-**Do NOT skip to Phase 3 features.** Phase 1 (auth, tenancy, roles, audit) and Phase 2 (workflow engine) must be built first, or every Phase 3 feature has no platform underneath it and must be rewritten.
+**Do NOT skip to procurement or material-request features.** Build modules in the BRD order — every later module depends on the ones before it.
+
+### BRD module build order (Phase 3 onwards)
+Build in this sequence. Each module depends on those before it. Do not start a module until its prerequisites are done.
+
+| # | Module | Depends on |
+|---|---|---|
+| M01 | Identity, Authentication & Sessions | — |
+| M02 | Company, Branch, Project & Tenant Setup | M01 |
+| M03 | Organization, Departments, Roles & Authority | M01, M02 |
+| M04 | Employee Directory & Workforce | M01, M02, M03 |
+| M05 | Work-Item Catalogue & Disposition | M03 |
+| M06 | Configuration Studio & Workflow Engine | M03, M05 |
+| M07 | Tasks, My Work & Work Queues | M03, M06 |
+| M08 | Approvals & Delegation | M03, M06, M07 |
+| M09 | Project & Portfolio Management | M02, M03, M08 |
+| M10 | Client, CRM & Sales Pipeline | M02, M09 |
+| M11 | Tendering, Estimation & Commercials | M09, M10 |
+| M12 | Technical Engineering & Design Control | M09, M13 |
+| M13 | Documents, Drawings & Records | M02, M09 |
+| M14 | Procurement & Vendor Management | M09, M15, M08 |
+| M15 | Inventory, Stores & Material Movement | M09, M14 |
+| M16 | Subcontractor & Labour Operations | M09, M04 |
+| M17 | Site Operations, DPR & Field Capture | M09, M07 |
+| M18 | Schedule, Progress & Resource Planning | M09 |
+| M19 | Quality, Inspection & NCR | M09, M07 |
+| M20 | Safety, Incidents & Compliance | M09, M07 |
+| M21 | Finance, Budgets & Cost Control | M09, M08 |
+| M22 | Billing, Invoicing, Receivables & Payables | M21, M14 |
+| M23 | Contracts, Claims, Variations & EOT | M09, M08, M21 |
+| M24 | People, Recruitment & Performance | M04, M03 |
+| M25 | Equipment, Plant & Fleet | M09, M04 |
+| M26 | Customer/Stakeholder Communications | M10, M09 |
+| M27 | Legal, Licences & Regulatory Register | M02, M08 |
+| M28 | AI Knowledge Assistant & Search | M05, M06, M13 |
+| M29 | AI Agent Studio & Tool Registry | M06, M28 |
+| M30 | Agent Runs, Human Review & Audit | M29 |
+| M31 | Notifications, SLA & Escalations | M06, M07 |
+| M32 | Dashboards, Reports & KPI Builder | M07, M09, M21 |
+| M33 | Master Data & Configuration | M02 |
+| M34 | Integrations & API Management | M02, M34 |
+| M35 | Audit, Security, Privacy & Retention | M01, M02 |
+| M36 | Platform Administration & Support | all |
+| M37 | Mobile/PWA & Offline Site Mode | M07, M17 |
+| M38 | Implementation, Migration & Data Quality | M05, M33 |
+
+**Note on Phase 1 overlap:** M01, M02, M03 are the Phase 1 deliverables. Phase 1 builds those. Phase 2 builds M05 + M06 (catalogue + workflow engine). Phase 3 starts M04, M07, M08, M09 and continues in order.
 
 ---
 
@@ -87,8 +133,7 @@ itself. See those files before assuming what a subagent can/can't do.
 
 ### Standing approvals (owner pre-approved, with date)
 - **2026-10-15** — Tech stack: Supabase (DB + Auth + Storage + Realtime) + Node.js/TypeScript backend. Final.
-- **2026-10-15** — Pilot flow: material request → procurement review → quotation comparison → approval → purchase order → delivery/GRN → site issue (Phase 3). PRD confirmed.
-- **2026-10-15** — Phase build order: Phase 1 → Phase 2 → Phase 3 → Phase 4+. Do not skip phases.
+- **2026-10-15** — Phase build order: Phase 1 → Phase 2 → Phase 3+, no skipping. Within Phase 3+, build BRD modules in dependency order starting from M01 (see module table above). Do not jump to procurement or material modules early — they sit at M14/M15 and depend on everything before them.
 
 ## PRD sync rule
 The AppYard dashboard reads `PRD.md` at the **repo root**. The detailed PRD lives at `docs/PRD.md`. Whenever you update `docs/PRD.md`, also update the root `PRD.md` in the same commit so the dashboard stays in sync.
