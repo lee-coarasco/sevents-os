@@ -27,6 +27,11 @@ import {
   createSupabaseWorkflowRepository,
   type WorkflowRepository,
 } from "./modules/workflow/repository.js";
+import { workforceRoutes } from "./modules/workforce/routes.js";
+import {
+  createSupabaseWorkforceRepository,
+  type WorkforceRepository,
+} from "./modules/workforce/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -46,6 +51,8 @@ export interface BuildAppOptions {
   getCatalogueRepository?: () => CatalogueRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getWorkflowRepository?: () => WorkflowRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getWorkforceRepository?: () => WorkforceRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -101,6 +108,15 @@ function defaultWorkflowRepository(): WorkflowRepository {
   return cachedWorkflowRepository;
 }
 
+let cachedWorkforceRepository: WorkforceRepository | null = null;
+
+function defaultWorkforceRepository(): WorkforceRepository {
+  if (!cachedWorkforceRepository) {
+    cachedWorkforceRepository = createSupabaseWorkforceRepository(createServiceClient(), createUserScopedClient);
+  }
+  return cachedWorkforceRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -131,6 +147,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(workflowRoutes, {
     getRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(workforceRoutes, {
+    getRepository: options.getWorkforceRepository ?? defaultWorkforceRepository,
     requirePermission: guard,
   });
 

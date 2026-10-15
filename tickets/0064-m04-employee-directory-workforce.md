@@ -1,7 +1,7 @@
 ---
 id: 64
 title: "M04 — Employee Directory & Workforce"
-status: next
+status: testing
 roles: [architect, backend-engineer]
 priority: 6
 created: 2026-10-15
@@ -67,18 +67,18 @@ writing any schema. The module description to build against:
   rule applies here too if any document/ID field is added).
 
 ## Acceptance
-- [ ] Employee CRUD (create/update/deactivate) works through the
+- [x] Employee CRUD (create/update/deactivate) works through the
       repository and is gated on `employee.directory.manage`.
-- [ ] Skills/certifications/training can be attached to an employee;
+- [x] Skills/certifications/training can be attached to an employee;
       certification expiry is computed correctly (test both "still
       valid" and "expired" cases).
-- [ ] Project allocation is effective-dated (test a past, current and
+- [x] Project allocation is effective-dated (test a past, current and
       future allocation window, same style as ticket 0056's
       `role_assignments` tests).
-- [ ] An employee can read their own record via self-service without
+- [x] An employee can read their own record via self-service without
       `employee.directory.manage`; cannot read another tenant's or
       another employee's record without it.
-- [ ] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
+- [x] `npm test` / `npm run build` pass; `scripts/tickets.py check` clean.
 
 ## Progress
 - 2026-10-15: Filed as the first Phase 3 module (ticket 0063/M06d just
@@ -86,3 +86,34 @@ writing any schema. The module description to build against:
   ticket once scoped in detail, split it the way ticket 0059 (M06) was
   split into 0060-0063 — don't force it into one ticket just because
   it was filed as one.
+- 2026-10-15 20:40 UTC: Built as a single ticket (scope was comparable
+  to M03's, not M06's — no split needed). Added migration
+  `20261015000009_m04_employee_directory_workforce.sql`:
+  `employee_records` (NOT NULL tenant_id, nullable 1:1 `app_user_id`,
+  employment_status enum active/on_leave/suspended/offboarded),
+  `skills`/`employee_skills` (tenant-defined list, free-text
+  `proficiency_note` — no rating scale invented), `certifications`/
+  `employee_certifications` (date-only issued_at/expires_at,
+  expires_at nullable = never expires), `training_records` (free-text
+  `result`, no LMS), `employee_project_allocations` (effective-dated,
+  same valid_from/valid_to pattern as ticket 0056's role_assignments).
+  New permission `employee.directory.manage`, granted only to
+  `role.platform_administrator` by default (same deny-by-default
+  bootstrap every prior migration uses). New `backend/src/modules/
+  workforce/` module: `WorkforceRepository` port + Supabase adapter +
+  `service.ts` (incl. `isCertificationExpired`, calendar-day comparison,
+  unit-tested for still-valid/expired/never-expires) + Fastify routes,
+  wired into `app.ts`. `GET /employees/me` is self-service (no
+  permission required, same exemption as `GET /identity/audit-log`);
+  `GET/POST/PATCH /employees/:id...` routes are gated on
+  `employee.directory.manage`. `FakeWorkforceRepository` test double +
+  `service.test.ts` (18 cases) + `routes.test.ts` (8 cases) cover every
+  acceptance point, including the cross-tenant 404 and the
+  no-permission 403 on another employee's record. `npm run build`,
+  `npm run lint` and `npm test` all pass (187/187 tests, 20 files).
+  `scripts/tickets.py check` clean. Supabase CLI still unavailable in
+  this sandbox (same recurring gap as every prior ticket) — migration
+  is unexercised against a live project; schema correctness is reviewed
+  by hand against the ticket 0055/0056 conventions it copies.
+  Set to `status: testing` — next session or the owner should try a
+  real `supabase db push` once the CLI/credentials are reachable.
