@@ -145,3 +145,13 @@ tied to a step instance.
   this ticket is considered fully done, not just `testing`.
   Status set to `testing`. Next: ticket 0071 (M07b, the seven queue
   views), which reads `due_at`/`priority`/`blocked_reason` added here.
+- 2026-10-15 22:10 UTC: Closed the gap flagged above. Added a
+  `routes.test.ts` describe block for all four endpoints
+  (`/workflow/steps/:stepId/{block,unblock,comments,evidence}`): happy
+  path for each, the two existing 400 validations (empty block reason,
+  missing comment body/fileObjectId), and `it.each` 403-without-
+  `workflow.instance.act`/401-without-token coverage. `npm test`:
+  240/240 (up from 225 after ticket 0071's own additions). No code
+  changes to the routes/service themselves — this was test coverage
+  only, picked up opportunistically while ticket 0071 was already
+  touching this file, since the gap was small and well-scoped.

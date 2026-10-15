@@ -363,6 +363,204 @@ describe("workflow instance routes (ticket 0062, M06c)", () => {
   });
 });
 
+describe("task metadata, blocking, comments & evidence routes (ticket 0070, M07a)", () => {
+  async function startWaitingStep(app: ReturnType<typeof appWithFakeRepos>["app"]) {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/definitions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { key: "task_routes", name: "Task Routes" },
+    });
+    const { definition, version } = createResponse.json();
+
+    const startNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "start", nodeType: "create_task" },
+    });
+    const endNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "end", nodeType: "complete" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/transitions`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fromNodeId: startNode.json().node.id, toNodeId: endNode.json().node.id },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/validate`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/submit`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/approve`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id, decision: "approved" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/publish`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    const startResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/instances",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { definitionId: definition.id },
+    });
+    return startResponse.json().stepInstances[0].id as string;
+  }
+
+  it("POST /workflow/steps/:stepId/block blocks a waiting step with a reason", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/block`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { reason: "waiting on client sign-off" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().stepInstance.blocked_reason).toBe("waiting on client sign-off");
+  });
+
+  it("POST /workflow/steps/:stepId/block 400s with an empty reason", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/block`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { reason: "" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("POST /workflow/steps/:stepId/unblock clears a block", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+    await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/block`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { reason: "waiting on client sign-off" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/unblock`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().stepInstance.blocked_reason).toBeNull();
+  });
+
+  it("POST /workflow/steps/:stepId/comments adds a comment", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/comments`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { body: "started on this" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().comment.body).toBe("started on this");
+  });
+
+  it("POST /workflow/steps/:stepId/comments 400s without a body", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/comments`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("POST /workflow/steps/:stepId/evidence attaches a file object", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/evidence`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fileObjectId: "file-object-1" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().ok).toBe(true);
+  });
+
+  it("POST /workflow/steps/:stepId/evidence 400s without a fileObjectId", async () => {
+    const { app } = appWithFakeRepos();
+    const stepId = await startWaitingStep(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/workflow/steps/${stepId}/evidence`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it.each(["block", "unblock", "comments", "evidence"])(
+    "POST /workflow/steps/:stepId/%s 403s without workflow.instance.act",
+    async (action) => {
+      const { app, authorityRepo } = appWithFakeRepos();
+      const stepId = await startWaitingStep(app);
+      authorityRepo.addSession("plain-token", "plain-user", TENANT_ID);
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/workflow/steps/${stepId}/${action}`,
+        headers: { authorization: "Bearer plain-token" },
+        payload: { reason: "x", body: "x", fileObjectId: "x" },
+      });
+
+      expect(response.statusCode).toBe(403);
+    },
+  );
+
+  it.each(["block", "unblock", "comments", "evidence"])(
+    "POST /workflow/steps/:stepId/%s 401s without a bearer token",
+    async (action) => {
+      const { app } = appWithFakeRepos();
+      const stepId = await startWaitingStep(app);
+
+      const response = await app.inject({ method: "POST", url: `/workflow/steps/${stepId}/${action}` });
+
+      expect(response.statusCode).toBe(401);
+    },
+  );
+});
+
 describe("workflow migration routes (ticket 0063, M06d)", () => {
   async function publishSimpleDefinition(app: ReturnType<typeof appWithFakeRepos>["app"], key: string) {
     const createResponse = await app.inject({
