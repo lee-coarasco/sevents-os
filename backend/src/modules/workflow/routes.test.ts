@@ -361,3 +361,173 @@ describe("workflow instance routes (ticket 0062, M06c)", () => {
     expect(response.statusCode).toBe(403);
   });
 });
+
+describe("workflow migration routes (ticket 0063, M06d)", () => {
+  async function publishSimpleDefinition(app: ReturnType<typeof appWithFakeRepos>["app"], key: string) {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/definitions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { key, name: key },
+    });
+    const { definition, version } = createResponse.json();
+    await publishDraftVersion(app, definition.id, version.id);
+    return { definitionId: definition.id as string, versionId: version.id as string };
+  }
+
+  async function publishDraftVersion(app: ReturnType<typeof appWithFakeRepos>["app"], definitionId: string, versionId: string) {
+    const startNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${versionId}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "start", nodeType: "create_task" },
+    });
+    const endNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${versionId}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "end", nodeType: "complete" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${versionId}/transitions`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fromNodeId: startNode.json().node.id, toNodeId: endNode.json().node.id },
+    });
+    await app.inject({ method: "POST", url: `/workflow/versions/${versionId}/validate`, headers: { authorization: `Bearer ${TOKEN}` } });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definitionId}/submit`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definitionId}/approve`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId, decision: "approved" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definitionId}/publish`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId },
+    });
+  }
+
+  async function publishSecondVersion(app: ReturnType<typeof appWithFakeRepos>["app"], definitionId: string) {
+    const draftResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definitionId}/versions`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: {},
+    });
+    const versionId = draftResponse.json().version.id as string;
+    await publishDraftVersion(app, definitionId, versionId);
+    return versionId;
+  }
+
+  it("walks a migration through create -> preview -> approve -> execute and moves the auto-mappable instance", async () => {
+    const { app } = appWithFakeRepos();
+    const { definitionId, versionId: v1Id } = await publishSimpleDefinition(app, "migration_route_flow");
+
+    const startResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/instances",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { definitionId },
+    });
+    expect(startResponse.json().instance.workflow_version_id).toBe(v1Id);
+
+    const v2Id = await publishSecondVersion(app, definitionId);
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/migrations",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fromVersionId: v1Id, toVersionId: v2Id },
+    });
+    expect(createResponse.statusCode).toBe(200);
+    const migrationId = createResponse.json().migration.id as string;
+    expect(createResponse.json().migration.status).toBe("draft");
+
+    const previewResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/migrations/${migrationId}/preview`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    expect(previewResponse.json().migration.impact_summary.autoMappableCount).toBe(1);
+
+    // Cannot execute before approval.
+    const tooEarlyExecute = await app.inject({
+      method: "POST",
+      url: `/workflow/migrations/${migrationId}/execute`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(tooEarlyExecute.statusCode).toBe(400);
+
+    const approveResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/migrations/${migrationId}/approve`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(approveResponse.statusCode).toBe(200);
+    expect(approveResponse.json().migration.status).toBe("approved");
+
+    const executeResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/migrations/${migrationId}/execute`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(executeResponse.statusCode).toBe(200);
+    expect(executeResponse.json().migration.status).toBe("executed");
+    expect(executeResponse.json().results).toHaveLength(1);
+    expect(executeResponse.json().results[0].outcome).toBe("migrated");
+
+    const resultsResponse = await app.inject({
+      method: "GET",
+      url: `/workflow/migrations/${migrationId}/results`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(resultsResponse.statusCode).toBe(200);
+    expect(resultsResponse.json().results).toHaveLength(1);
+  });
+
+  it("403s creating a migration without workflow.definition.manage, and 403s approving without workflow.definition.publish", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    const { versionId: v1Id, definitionId } = await publishSimpleDefinition(app, "migration_route_perms");
+    const v2Id = await publishSecondVersion(app, definitionId);
+
+    authorityRepo.addSession("manage-only-token", "manage-only-user", TENANT_ID);
+    authorityRepo.roleAssignments.set("manage-only-seed", {
+      id: "manage-only-seed",
+      tenant_id: TENANT_ID,
+      user_id: "manage-only-user",
+      role_id: "role.manage_only",
+      department_id: null,
+      valid_from: "2000-01-01T00:00:00.000Z",
+      valid_to: null,
+    });
+    authorityRepo.grantPermission("role.manage_only", "workflow.definition.manage");
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/migrations",
+      headers: { authorization: "Bearer manage-only-token" },
+      payload: { fromVersionId: v1Id, toVersionId: v2Id },
+    });
+    expect(createResponse.statusCode).toBe(200);
+    const migrationId = createResponse.json().migration.id as string;
+
+    const approveResponse = await app.inject({
+      method: "POST",
+      url: `/workflow/migrations/${migrationId}/approve`,
+      headers: { authorization: "Bearer manage-only-token" },
+    });
+    expect(approveResponse.statusCode).toBe(403);
+
+    const noTokenResponse = await app.inject({ method: "POST", url: "/workflow/migrations", payload: { fromVersionId: v1Id, toVersionId: v2Id } });
+    expect(noTokenResponse.statusCode).toBe(401);
+  });
+});
