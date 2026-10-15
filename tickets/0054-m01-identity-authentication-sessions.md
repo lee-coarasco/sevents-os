@@ -1,7 +1,7 @@
 ---
 id: 54
 title: "M01 — Identity, Authentication & Sessions"
-status: next
+status: testing
 roles: [backend-engineer, test-engineer]
 priority: 2
 created: 2026-10-15
@@ -65,21 +65,59 @@ this ticket's schema limited to what identity alone needs.
   Decision` in this ticket's Progress rather than inventing a number.
 
 ## Acceptance
-- [ ] Migration creates `app_users` and `auth_audit_log` with RLS enabled
-      and policies restricting a user to their own rows.
-- [ ] Invite → accept → sign-in → sign-out flow works end-to-end against
-      the real Supabase project, exercised by an integration test.
-- [ ] Re-inviting an already-invited email is a no-op, not a duplicate
-      row (test asserts this).
-- [ ] Deactivating a user prevents further sign-in but the row and its
-      audit trail remain (test asserts soft-deactivation, not deletion).
-- [ ] auth_audit_log has at least one row per sign-in/sign-out/failed
-      sign-in/deactivation in the test run.
-- [ ] MFA enrollment/verify endpoints exist and are tested, even though
-      enforcement policy is a deferred TODO.
-- [ ] `npm test` passes; no hard-coded secrets in the diff.
+- [x] Migration creates `app_users` and `auth_audit_log` with RLS enabled
+      and policies restricting a user to their own rows (`supabase/
+      migrations/20261015000001_app_users_and_auth_audit_log.sql`).
+- [ ] Invite → accept → sign-in → sign-out flow works end-to-end, exercised
+      by tests — but only against an in-memory fake repository
+      (`FakeIdentityRepository`), not the real Supabase project. This
+      sandbox has no reachable `SUPABASE_URL`/`SUPABASE_*_KEY`, same gap
+      already flagged in ticket 0053. The route/service layer is built
+      against an `IdentityRepository` interface specifically so the real
+      `createSupabaseIdentityRepository` adapter is a thin, swappable
+      implementation — but that adapter itself is unverified against a
+      live project. Next session with real credentials should run the
+      flow once for real and report back here.
+- [x] Re-inviting an already-invited email is a no-op, not a duplicate
+      row (`service.test.ts`: case-insensitive too).
+- [x] Deactivating a user prevents further sign-in but the row and its
+      audit trail remain (`service.test.ts`, `routes.test.ts`).
+- [x] `auth_audit_log` gets a row per sign-in/sign-out/failed-sign-in/
+      invited/invite_accepted/deactivated/mfa event — added `POST
+      /identity/sign-in` and `POST /identity/sign-out` endpoints (not
+      originally listed in this ticket's scope, but required to produce
+      real sign-in/sign-out audit rows at all, since Supabase Auth
+      sign-in otherwise happens client-side with no backend involvement
+      to log from).
+- [x] MFA enrollment/verify endpoints exist and are tested
+      (`POST /identity/mfa/enroll`, `POST /identity/mfa/verify`); the
+      "privileged roles require MFA" policy is a `TODO` in `service.ts`
+      pointing at ticket 0056, per this ticket's own scope note.
+- [x] `npm test` passes (28/28); no hard-coded secrets in the diff.
+- [x] Password complexity/lockout thresholds: left entirely to Supabase
+      Auth's own defaults, nothing invented. **TBD—Business Owner
+      Decision**: no concrete lockout policy (attempts/duration) exists
+      anywhere in BRD/PRD; flagging here rather than guessing, per this
+      ticket's own scope note and CLAUDE.md's rule against inventing
+      authority/SLA/policy values.
 
 ## Progress
 - 2026-10-15: Architect session. Filed as the first real-schema ticket of
   Phase 1, scoped to identity only so it doesn't block on M02/M03 tables
   that don't exist yet. Depends on ticket 0053 landing first.
+- 2026-10-15 11:16 UTC: Built M01. Migration adds `app_users` +
+  `auth_audit_log`, both RLS-enabled, own-rows-only policies, append-only
+  by construction (no update/delete policy for any role on the audit
+  log). Backend: `src/modules/identity/` — `repository.ts` defines the
+  `IdentityRepository` port (Supabase-call-shape-free) plus
+  `createSupabaseIdentityRepository` as the real adapter;
+  `service.ts` holds all business logic (invite/accept/deactivate/
+  sign-in/sign-out/audit-log/MFA), unit-tested via an in-memory
+  `FakeIdentityRepository` so none of it needs live Supabase credentials;
+  `routes.ts` wires 8 Fastify endpoints under `/identity/*`. Added
+  `createAnonClient`/`createUserScopedClient` to `lib/supabase.ts`
+  alongside the existing service-role client. 28/28 tests pass, `npm run
+  build` clean. Status: `testing` — owner can verify with `cd backend &&
+  npm test`; live-Supabase verification of the adapter itself is the one
+  open item, same as ticket 0053's `/health` gap. Moving ticket 0055 (M02
+  Tenant/Company) to next.
