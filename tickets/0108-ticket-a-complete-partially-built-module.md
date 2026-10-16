@@ -70,3 +70,25 @@ _Created by lee-coarasco in the AppYard dashboard._
   `vite build` both clean.
   M04/M07/M08/M09/M10 pieces not started yet — picking up M04 next
   (employee → auth-user link) since `<UserPicker>` is now reusable.
+- 2026-10-16 21:50 UTC: M04 done. `PATCH /employees/:id` now accepts
+  `appUserId` (previously only `POST /employees` could set the link —
+  `UpdateEmployeeRecordInput`/route/test added, Supabase-backed repo
+  needed no change since it passes the input object through
+  generically). Frontend: `EmployeesPage`'s create form gained the
+  `<UserPicker>` "link to auth account" field, and existing employees
+  now show their linked account (or "—") in a new Account column —
+  clicking it opens the same picker inline and PATCHes on selection.
+  Backend: 586 tests pass (581 before + 5 new); frontend: 26 tests
+  pass; both `tsc --noEmit` and `vite build` clean.
+  **Stopping here for budget** (session cap) — M07 (reassign/delegate
+  buttons + picker on the task drawer), M08 (return-for-correction /
+  approved-with-conditions decision buttons), M09 (project/WBS/
+  milestone/activity create+edit forms) and M10 (client/contact/
+  opportunity create+edit forms) are still open. M09/M10 are
+  the largest remaining pieces — each needs 3-4 new forms, not just a
+  button + picker like M07/M08 will. Suggest the next session do M07
+  and M08 first (same small shape as M03/M04 — existing backend,
+  missing UI, both now have `<UserPicker>` to reuse) before tackling
+  M09/M10's bigger form-building work. Left `status: in-progress`
+  (not `testing`) since the ticket's acceptance criteria aren't met
+  yet — only 2 of 6 modules are done.

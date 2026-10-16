@@ -29,6 +29,8 @@ export interface UpdateEmployeeRecordInput {
   employment_status?: EmploymentStatus;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
+  /** Ticket 0108: links this HR record to a Supabase Auth account after the fact — the create form already supported this, update never did. */
+  app_user_id?: string | null;
 }
 
 export interface AddEmployeeSkillInput {

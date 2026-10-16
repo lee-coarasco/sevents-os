@@ -101,21 +101,24 @@ instances.
 
 ## M04 — Employee Directory & Workforce
 
-**Status:** testing (ticket 0064); frontend screen added ticket 0099
+**Status:** testing (tickets 0064, 0108); frontend screen added ticket 0099
 
 **What's built:** Backend `workforce` module — employee records
 (create/list/update/deactivate), skills, certifications, training, and
 project allocations with effective dates; `GET /employees/me` for
-self-service profile lookup. Frontend: `EmployeesPage`, nav label "Employee
-Directory", at `/employees`.
+self-service profile lookup; `PATCH /employees/:id` now also accepts
+`appUserId` (ticket 0108 — previously only `POST /employees` could set the
+link). Frontend: `EmployeesPage`, nav label "Employee Directory", at
+`/employees`.
 
 **How to use it:** On Employee Directory, filter by company/department, see
-each employee's code/name/department/status, and add a new employee with
-the add-employee form (only shown if you hold the
-`employee.directory.manage` permission). There is still no lookup from an
-employee record to their Supabase auth user ID — anywhere a screen needs a
-"delegate to" or "assign role to" user, you type a raw user ID (see M03,
-M07, M08).
+each employee's code/name/department/status/linked account, and add a new
+employee with the add-employee form (only shown if you hold the
+`employee.directory.manage` permission) — the form includes an "Link to
+auth account" search field (the shared `<UserPicker>`, optional at creation
+time). For an employee created without a link, click their "—" in the
+Account column to open the same search field and link them to an existing
+Supabase Auth account after the fact.
 
 ## M07 — Tasks, My Work & Work Queues
 

@@ -130,6 +130,7 @@ export async function workforceRoutes(app: FastifyInstance, options: WorkforceRo
       employmentStatus?: "active" | "on_leave" | "suspended" | "offboarded";
       emergencyContactName?: string | null;
       emergencyContactPhone?: string | null;
+      appUserId?: string | null;
     };
   }>(
     "/employees/:id",
@@ -149,6 +150,7 @@ export async function workforceRoutes(app: FastifyInstance, options: WorkforceRo
           ...(body.emergencyContactPhone !== undefined
             ? { emergency_contact_phone: body.emergencyContactPhone }
             : {}),
+          ...(body.appUserId !== undefined ? { app_user_id: body.appUserId } : {}),
         });
         return { employee };
       } catch (error) {

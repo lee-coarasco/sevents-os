@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
+import { useUsers } from "../hooks/useUsers";
+import { UserPicker } from "../components/UserPicker";
 
 interface Company {
   id: string;
@@ -23,6 +25,7 @@ interface Employee {
   full_name: string;
   department_id: string | null;
   employment_status: EmploymentStatus;
+  app_user_id: string | null;
 }
 
 const statusColors: Record<EmploymentStatus, string> = {
@@ -42,6 +45,7 @@ const statusLabels: Record<EmploymentStatus, string> = {
 export function EmployeesPage() {
   const { session } = useAuth();
   const { has, loading: permissionsLoading } = usePermissions();
+  const { users } = useUsers();
 
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
@@ -53,7 +57,9 @@ export function EmployeesPage() {
   const [newEmployeeCode, setNewEmployeeCode] = useState("");
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [newEmployeeDepartmentId, setNewEmployeeDepartmentId] = useState("");
+  const [newEmployeeAppUserId, setNewEmployeeAppUserId] = useState("");
   const [creatingEmployee, setCreatingEmployee] = useState(false);
+  const [linkingEmployeeId, setLinkingEmployeeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -103,6 +109,7 @@ export function EmployeesPage() {
           employeeCode: newEmployeeCode.trim(),
           fullName: newEmployeeName.trim(),
           departmentId: newEmployeeDepartmentId || undefined,
+          appUserId: newEmployeeAppUserId || undefined,
         }),
       });
       if (!selectedDepartmentId || employee.department_id === selectedDepartmentId) {
@@ -111,11 +118,33 @@ export function EmployeesPage() {
       setNewEmployeeCode("");
       setNewEmployeeName("");
       setNewEmployeeDepartmentId("");
+      setNewEmployeeAppUserId("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create employee");
     } finally {
       setCreatingEmployee(false);
     }
+  }
+
+  async function handleLinkAccount(employeeId: string, appUserId: string) {
+    if (!session) return;
+    setError(null);
+    try {
+      const { employee } = await apiFetch<{ employee: Employee }>(`/employees/${employeeId}`, session.access_token, {
+        method: "PATCH",
+        body: JSON.stringify({ appUserId }),
+      });
+      setEmployees((prev) => prev?.map((e) => (e.id === employee.id ? employee : e)) ?? prev);
+      setLinkingEmployeeId(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not link this employee to an account");
+    }
+  }
+
+  function appUserLabel(appUserId: string | null): string {
+    if (!appUserId) return "—";
+    const user = users?.find((u) => u.id === appUserId);
+    return user ? user.display_name ?? user.email : "Linked";
   }
 
   function departmentName(departmentId: string | null): string {
@@ -191,6 +220,7 @@ export function EmployeesPage() {
                   <th className="py-2">Code</th>
                   <th className="py-2">Department</th>
                   <th className="py-2">Status</th>
+                  <th className="py-2">Account</th>
                 </tr>
               </thead>
               <tbody>
@@ -203,6 +233,24 @@ export function EmployeesPage() {
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[employee.employment_status]}`}>
                         {statusLabels[employee.employment_status]}
                       </span>
+                    </td>
+                    <td className="py-3">
+                      {linkingEmployeeId === employee.id ? (
+                        <UserPicker
+                          value={employee.app_user_id ?? ""}
+                          onChange={(userId) => userId && handleLinkAccount(employee.id, userId)}
+                          className="w-56"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => has("employee.directory.manage") && setLinkingEmployeeId(employee.id)}
+                          disabled={!has("employee.directory.manage")}
+                          className="text-zinc-600 underline-offset-2 hover:text-brand-dim hover:underline disabled:cursor-default disabled:text-zinc-600 disabled:no-underline"
+                        >
+                          {appUserLabel(employee.app_user_id)}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -236,6 +284,12 @@ export function EmployeesPage() {
                   </option>
                 ))}
               </select>
+              <UserPicker
+                value={newEmployeeAppUserId}
+                onChange={setNewEmployeeAppUserId}
+                placeholder="Link to auth account (optional)…"
+                className="w-56"
+              />
               <button
                 type="submit"
                 disabled={creatingEmployee || !newEmployeeCode.trim() || !newEmployeeName.trim()}

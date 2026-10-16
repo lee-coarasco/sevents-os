@@ -40,6 +40,9 @@ function mockDefaultResponses() {
     if (path === "/authority/effective-permissions") {
       return Promise.resolve({ permissions: ["employee.directory.manage"] });
     }
+    if (path === "/admin/users") {
+      return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
+    }
     return Promise.resolve({});
   });
 }
@@ -73,6 +76,9 @@ describe("EmployeesPage", () => {
       if (path === "/authority/effective-permissions") {
         return Promise.resolve({ permissions: [] });
       }
+      if (path === "/admin/users") {
+        return Promise.resolve({ users: [] });
+      }
       return Promise.resolve({});
     });
 
@@ -95,6 +101,9 @@ describe("EmployeesPage", () => {
       if (path === "/authority/effective-permissions") {
         return Promise.resolve({ permissions: ["employee.directory.manage"] });
       }
+      if (path === "/admin/users") {
+        return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
+      }
       if (path === "/employees" && init?.method === "POST") {
         return Promise.resolve({
           employee: { id: "e2", company_id: "c1", employee_code: "EMP-2", full_name: "Bea", department_id: null, employment_status: "active" },
@@ -111,5 +120,45 @@ describe("EmployeesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /add employee/i }));
 
     expect(await screen.findByText("Bea")).toBeInTheDocument();
+  });
+
+  it("links an existing employee to an auth account", async () => {
+    apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
+      if (path === "/tenancy/companies") {
+        return Promise.resolve({ companies: [{ id: "c1", legal_name: "Acme Construction" }] });
+      }
+      if (path.startsWith("/authority/departments")) {
+        return Promise.resolve({ departments: [{ id: "d1", company_id: "c1", name: "Civil" }] });
+      }
+      if (path.startsWith("/employees?")) {
+        return Promise.resolve({
+          employees: [
+            { id: "e1", company_id: "c1", employee_code: "EMP-1", full_name: "Amir", department_id: "d1", employment_status: "active", app_user_id: null },
+          ],
+        });
+      }
+      if (path === "/authority/effective-permissions") {
+        return Promise.resolve({ permissions: ["employee.directory.manage"] });
+      }
+      if (path === "/admin/users") {
+        return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
+      }
+      if (path === "/employees/e1" && init?.method === "PATCH") {
+        return Promise.resolve({
+          employee: { id: "e1", company_id: "c1", employee_code: "EMP-1", full_name: "Amir", department_id: "d1", employment_status: "active", app_user_id: "u1" },
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<EmployeesPage />);
+    await userEvent.click(await screen.findByText("—"));
+
+    const search = screen.getByPlaceholderText("Search by name or email…");
+    await userEvent.click(search);
+    await userEvent.type(search, "Uma");
+    await userEvent.click(await screen.findByText("Uma One (u1@sevents.test)"));
+
+    expect(await screen.findByText("Uma One")).toBeInTheDocument();
   });
 });

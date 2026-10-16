@@ -64,6 +64,41 @@ describe("POST /employees", () => {
   });
 });
 
+describe("PATCH /employees/:id", () => {
+  it("links an existing employee to an app user, 403s without the permission", async () => {
+    const { app, workforceRepo } = appWithFakeRepos();
+    const created = await workforceRepo.createEmployeeRecord(ADMIN_TOKEN, {
+      company_id: "company-1",
+      employee_code: "EMP-200",
+      full_name: "Bob",
+      app_user_id: null,
+      department_id: null,
+      reporting_role_id: null,
+      emergency_contact_name: null,
+      emergency_contact_phone: null,
+      onboarded_at: null,
+    });
+
+    const forbidden = await app.inject({
+      method: "PATCH",
+      url: `/employees/${created.id}`,
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { appUserId: "auth-user-1" },
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/employees/${created.id}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { appUserId: "auth-user-1" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().employee.app_user_id).toBe("auth-user-1");
+  });
+});
+
 describe("GET /employees", () => {
   it("lists employees in the caller's tenant, filterable by department, 403s without the permission", async () => {
     const { app, workforceRepo } = appWithFakeRepos();
