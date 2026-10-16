@@ -124,3 +124,27 @@ _Created by lee-coarasco in the AppYard dashboard._
   (M10, opportunity kanban). Check `modules/projects`/`modules/crm`'s
   actual route surface before designing those two, same as M04/M07/M08
   needed. `status: in-progress` stands, nothing blocked.
+- 2026-10-16 17:00 UTC: Built **screen 4/5, Projects (M09)**:
+  `frontend/src/pages/ProjectsPage.tsx` (register list — name/code,
+  client, location, contract value, status badge, linking to detail) and
+  `frontend/src/pages/ProjectDetailPage.tsx` (project header card + WBS
+  tree recursively rendered from the flat `GET /projects/:id/wbs-nodes`
+  list via `parent_wbs_node_id`, + milestone timeline from
+  `GET /projects/:id/milestones` sorted by target date with a status
+  badge). No missing endpoints — ticket 0073/0074's `GET /projects`,
+  `GET /projects/:id`, `GET /projects/:projectId/wbs-nodes` and
+  `GET /projects/:projectId/milestones` already cover list + detail +
+  WBS + milestones exactly as scoped. Kept this read-only, matching the
+  ticket's screen spec ("project register list, project detail page with
+  WBS tree and milestone timeline") — no create/edit forms added since
+  none were asked for here (unlike M04's Employee Directory, which did
+  ask for an add-employee form). Routes added: `/projects` and
+  `/projects/:id`; new "Projects" nav section in `AppLayout.tsx`. 4 new
+  tests (2 per page), all passing; `npm run build` clean. Full frontend
+  suite: same two pre-existing failures as before (`LoginPage.test.tsx`,
+  `DepartmentsRolesPage.test.tsx`), nothing new broken.
+  **Stopping here for this session** (budget checkpoint): 1/5 screens
+  remain — Clients & CRM (M10, client list, contact list, opportunity
+  kanban board lead→qualified→tender→won/lost). Check `modules/crm`'s
+  route surface first, same pattern as every prior screen in this
+  ticket. `status: in-progress` stands, nothing blocked.
