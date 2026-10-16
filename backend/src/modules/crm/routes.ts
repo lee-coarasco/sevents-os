@@ -31,6 +31,8 @@ import {
   resolveHandoverException,
   searchClients,
   searchContacts,
+  updateClient,
+  updateContact,
   updateOpportunity,
 } from "./service.js";
 
@@ -82,6 +84,28 @@ export async function crmRoutes(app: FastifyInstance, options: CrmRouteOptions) 
     return { clients };
   });
 
+  app.patch<{
+    Params: { id: string };
+    Body: { name?: string; tradeLicenseNumber?: string | null; registrationCountry?: string | null };
+  }>("/crm/clients/:id", guard, async (request, reply) => {
+    const body = request.body ?? {};
+    const token = bearerToken(request.headers.authorization) as string;
+    try {
+      const client = await updateClient(options.getRepository(), token, request.params.id, {
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.tradeLicenseNumber !== undefined ? { trade_license_number: body.tradeLicenseNumber } : {}),
+        ...(body.registrationCountry !== undefined ? { registration_country: body.registrationCountry } : {}),
+      });
+      return { client };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
+
   app.post<{
     Params: { id: string };
     Body: { name: string; title?: string; email?: string; phone?: string; isPrimary?: boolean };
@@ -108,6 +132,30 @@ export async function crmRoutes(app: FastifyInstance, options: CrmRouteOptions) 
     const token = bearerToken(request.headers.authorization) as string;
     const contacts = await listContactsForClient(options.getRepository(), token, request.params.id);
     return { contacts };
+  });
+
+  app.patch<{
+    Params: { contactId: string };
+    Body: { name?: string; title?: string | null; email?: string | null; phone?: string | null; isPrimary?: boolean };
+  }>("/crm/contacts/:contactId", guard, async (request, reply) => {
+    const body = request.body ?? {};
+    const token = bearerToken(request.headers.authorization) as string;
+    try {
+      const contact = await updateContact(options.getRepository(), token, request.params.contactId, {
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.email !== undefined ? { email: body.email } : {}),
+        ...(body.phone !== undefined ? { phone: body.phone } : {}),
+        ...(body.isPrimary !== undefined ? { is_primary: body.isPrimary } : {}),
+      });
+      return { contact };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
   });
 
   // FR-CRM-002: duplicate detection — surfaces likely matches by

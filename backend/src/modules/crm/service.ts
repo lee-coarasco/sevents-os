@@ -7,6 +7,8 @@ import type {
   CreateTenderSubmissionInput,
   CrmRepository,
   ListOpportunitiesFilter,
+  UpdateClientInput,
+  UpdateContactInput,
   UpdateOpportunityInput,
 } from "./repository.js";
 import {
@@ -49,12 +51,34 @@ export async function searchClients(repo: CrmRepository, accessToken: string, se
   return repo.searchClients(accessToken, search);
 }
 
+export async function updateClient(
+  repo: CrmRepository,
+  accessToken: string,
+  clientId: string,
+  input: UpdateClientInput,
+): Promise<Client> {
+  const updated = await repo.updateClient(accessToken, clientId, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
+}
+
 export async function createContact(
   repo: CrmRepository,
   accessToken: string,
   input: CreateContactInput,
 ): Promise<Contact> {
   return repo.createContact(accessToken, input);
+}
+
+export async function updateContact(
+  repo: CrmRepository,
+  accessToken: string,
+  contactId: string,
+  input: UpdateContactInput,
+): Promise<Contact> {
+  const updated = await repo.updateContact(accessToken, contactId, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
 }
 
 export async function listContactsForClient(

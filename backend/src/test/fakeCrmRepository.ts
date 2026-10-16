@@ -9,6 +9,8 @@ import type {
   CreateTenderSubmissionInput,
   CrmRepository,
   ListOpportunitiesFilter,
+  UpdateClientInput,
+  UpdateContactInput,
   UpdateHandoverChecklistItemInput,
   UpdateHandoverExceptionInput,
   UpdateOpportunityInput,
@@ -90,6 +92,15 @@ export class FakeCrmRepository implements CrmRepository {
     );
   }
 
+  async updateClient(accessToken: string, clientId: string, input: UpdateClientInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const client = this.clients.get(clientId);
+    if (!client || client.tenant_id !== tenantId) return null;
+    const updated: Client = { ...client, ...input, updated_at: new Date().toISOString() };
+    this.clients.set(clientId, updated);
+    return updated;
+  }
+
   async createContact(accessToken: string, input: CreateContactInput) {
     const { tenantId } = this.contextOf(accessToken);
     const now = new Date().toISOString();
@@ -114,6 +125,15 @@ export class FakeCrmRepository implements CrmRepository {
     return [...this.contacts.values()].filter(
       (contact) => contact.tenant_id === tenantId && contact.client_id === clientId,
     );
+  }
+
+  async updateContact(accessToken: string, contactId: string, input: UpdateContactInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const contact = this.contacts.get(contactId);
+    if (!contact || contact.tenant_id !== tenantId) return null;
+    const updated: Contact = { ...contact, ...input, updated_at: new Date().toISOString() };
+    this.contacts.set(contactId, updated);
+    return updated;
   }
 
   async searchContacts(accessToken: string, search?: string) {

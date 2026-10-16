@@ -130,6 +130,128 @@ describe("POST /crm/clients", () => {
   });
 });
 
+describe("PATCH /crm/clients/:id", () => {
+  it("updates a client's name and trade license for a caller with crm.lead.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/crm/clients/${clientId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction LLC", tradeLicenseNumber: "DXB-12345" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().client.name).toBe("Acme Construction LLC");
+    expect(response.json().client.trade_license_number).toBe("DXB-12345");
+  });
+
+  it("404s updating another tenant's client", async () => {
+    const { app } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/crm/clients/${clientId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Should not update" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("403s without the permission", async () => {
+    const { app } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/crm/clients/${clientId}`,
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { name: "Should not update" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+});
+
+describe("PATCH /crm/contacts/:contactId", () => {
+  it("updates a contact's details and primary flag", async () => {
+    const { app } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const contactResponse = await app.inject({
+      method: "POST",
+      url: `/crm/clients/${clientId}/contacts`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Jane Doe" },
+    });
+    const contactId = contactResponse.json().contact.id;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/crm/contacts/${contactId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { email: "jane@acme.test", isPrimary: true },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().contact.email).toBe("jane@acme.test");
+    expect(response.json().contact.is_primary).toBe(true);
+  });
+
+  it("404s updating a contact that belongs to another tenant", async () => {
+    const { app } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const contactResponse = await app.inject({
+      method: "POST",
+      url: `/crm/clients/${clientId}/contacts`,
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+      payload: { name: "Jane Doe" },
+    });
+    const contactId = contactResponse.json().contact.id;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/crm/contacts/${contactId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Should not update" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+});
+
 describe("GET /crm/clients?search=", () => {
   it("surfaces a likely duplicate by name (FR-CRM-002)", async () => {
     const { app } = appWithFakeRepos();

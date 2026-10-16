@@ -21,9 +21,23 @@ export interface CreateClientInput {
   created_by: string | null;
 }
 
+export interface UpdateClientInput {
+  name?: string;
+  trade_license_number?: string | null;
+  registration_country?: string | null;
+}
+
 export interface CreateContactInput {
   client_id: string;
   name: string;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  is_primary?: boolean;
+}
+
+export interface UpdateContactInput {
+  name?: string;
   title?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -119,10 +133,12 @@ export interface CrmRepository {
   getClient(accessToken: string, clientId: string): Promise<Client | null>;
   /** FR-CRM-002: case-insensitive name search surfacing likely duplicates for a human to resolve. */
   searchClients(accessToken: string, search?: string): Promise<Client[]>;
+  updateClient(accessToken: string, clientId: string, input: UpdateClientInput): Promise<Client | null>;
   createContact(accessToken: string, input: CreateContactInput): Promise<Contact>;
   listContactsForClient(accessToken: string, clientId: string): Promise<Contact[]>;
   /** FR-CRM-002: case-insensitive name/email/phone search surfacing likely duplicates for a human to resolve. */
   searchContacts(accessToken: string, search?: string): Promise<Contact[]>;
+  updateContact(accessToken: string, contactId: string, input: UpdateContactInput): Promise<Contact | null>;
   createOpportunity(accessToken: string, input: CreateOpportunityInput): Promise<Opportunity>;
   getOpportunity(accessToken: string, opportunityId: string): Promise<Opportunity | null>;
   listOpportunities(accessToken: string, filter?: ListOpportunitiesFilter): Promise<Opportunity[]>;
@@ -203,6 +219,18 @@ export function createSupabaseCrmRepository(
       return (data as Client[]) ?? [];
     },
 
+    async updateClient(accessToken, clientId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("clients")
+        .update(input)
+        .eq("id", clientId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateClient: ${error.message}`);
+      return (data as Client | null) ?? null;
+    },
+
     async createContact(accessToken, input) {
       const client = userScopedClientFactory(accessToken);
       const { data, error } = await client
@@ -212,6 +240,18 @@ export function createSupabaseCrmRepository(
         .single();
       if (error || !data) throw new Error(`createContact: ${error?.message ?? "no row returned"}`);
       return data as Contact;
+    },
+
+    async updateContact(accessToken, contactId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("contacts")
+        .update(input)
+        .eq("id", contactId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateContact: ${error.message}`);
+      return (data as Contact | null) ?? null;
     },
 
     async listContactsForClient(accessToken, clientId) {
