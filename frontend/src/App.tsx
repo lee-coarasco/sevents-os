@@ -7,6 +7,7 @@ import { OrgSetupPage } from "./pages/OrgSetupPage";
 import { DepartmentsRolesPage } from "./pages/DepartmentsRolesPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { TaskInboxPage } from "./pages/TaskInboxPage";
+import { ApprovalQueuePage } from "./pages/ApprovalQueuePage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -34,6 +35,7 @@ export function App() {
             <Route path="departments-roles" element={<DepartmentsRolesPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="my-work" element={<TaskInboxPage />} />
+            <Route path="approvals" element={<ApprovalQueuePage />} />
           </Route>
         </Routes>
       </BrowserRouter>

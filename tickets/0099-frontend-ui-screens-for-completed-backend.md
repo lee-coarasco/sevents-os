@@ -96,3 +96,31 @@ _Created by lee-coarasco in the AppYard dashboard._
   `modules/crm`'s actual route surface before designing the screen).
   Left `status: in-progress` rather than `blocked` — nothing here is
   waiting on an answer, just unstarted.
+- 2026-10-16 16:50 UTC: Built **screen 3/5, Approval Queue (M08)**:
+  `frontend/src/pages/ApprovalQueuePage.tsx`. No missing list endpoint
+  this time — `GET /tasks/my-work` (already used by My Work) carries a
+  `nodeType` field per entry, so the queue is just that list filtered to
+  `nodeType === "request_approval"` client-side; no backend change
+  needed. Detail drawer calls `GET /approvals/:stepInstanceId` (ticket
+  0066) for request context, prior decisions and the authority-limit
+  check; Approve/Reject call `POST /approvals/:stepInstanceId/decide`
+  (reason required for Reject, enforced client-side and by the backend);
+  delegation calls the existing `POST /tasks/:stepInstanceId/delegate`
+  (plain user-ID input — there's no user-picker/employee-to-auth-user
+  lookup anywhere in this frontend yet, same gap `DepartmentsRolesPage`
+  already lives with for role assignment, so this follows that
+  precedent rather than inventing one here). Scoped to exactly what the
+  ticket asked (approve/reject with comment, delegation button) —
+  skipped the backend's third decision kind (`returned_for_correction`)
+  and the "add a comment" thread (separate from the decision reason)
+  since neither was in the ticket's screen spec. Wired into
+  `App.tsx`/`AppLayout.tsx` nav as "Approvals" under the Work section.
+  5 new tests, all passing; `npm run build` clean. Full frontend suite:
+  same two pre-existing failures as last session (`LoginPage.test.tsx`,
+  `DepartmentsRolesPage.test.tsx` — stale markup assertions, confirmed
+  present before this session's changes), nothing new broken.
+  **Stopping here for this session** (budget checkpoint): 2/5 screens
+  remain — Projects (M09, WBS tree + milestone timeline), Clients & CRM
+  (M10, opportunity kanban). Check `modules/projects`/`modules/crm`'s
+  actual route surface before designing those two, same as M04/M07/M08
+  needed. `status: in-progress` stands, nothing blocked.
