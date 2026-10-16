@@ -59,3 +59,27 @@ Survey findings that shaped this split (see DECISIONS.md entry):
 - [ ] `docs/USER-GUIDE.md` M05 entry updated.
 
 ## Progress
+- 2026-10-16 23:10 UTC: backend half done and committed (5c22fcf):
+  `GET /catalogue/work-items` now returns a `WorkItemSummary` (joined
+  `work_item_name`/`description`/`who_is_responsible`/`source_department`
+  alongside the definition fields) instead of a bare
+  `work_item_definitions` row, and the `search` querystring param
+  (previously declared in `WorkItemFilters` but never wired anywhere)
+  now does a case-insensitive substring match against name+description.
+  Updated `FakeCatalogueRepository` to match so existing tests still
+  pass conceptually (`.id`/array-length assertions are unaffected by
+  the superset shape) — **not actually run this session**: this
+  sandbox had no `node_modules` installed and running `npm install`
+  would have pushed past this session's budget cap, so `npm test`/
+  `npm run lint` in `backend/` have not been executed against this
+  change. Next session: run `npm install && npm run lint && npm test`
+  in `backend/` first and fix anything that surfaces before touching
+  the frontend.
+  Still to build (frontend, this ticket's actual UI deliverable): the
+  Catalogue admin page itself (search box, disposition/module/status
+  filters, results table, edit form for all `UpdateWorkItemFields`,
+  retire action via `PATCH status=retired`, "show archived" toggle,
+  `<PermissionGate permission="catalogue.workitem.manage">` on writes,
+  nav link in `AppLayout`), a frontend test for it, and the
+  `docs/USER-GUIDE.md` M05 entry update. None of that frontend work has
+  started yet.
