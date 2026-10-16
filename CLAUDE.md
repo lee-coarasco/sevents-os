@@ -111,7 +111,7 @@ Reference implementation: `frontend/src/components/AppLayout.tsx`, `frontend/src
 
 **Supabase project is provisioned and ready.** Credentials are already set as GitHub Actions secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. Do not hard-code them. Use `SUPABASE_SERVICE_ROLE_KEY` only in backend/server contexts, never in client-side code.
 
-Use the Supabase CLI (`supabase`) for all schema work: write migration files under `supabase/migrations/`, apply with `supabase db push`. Initialize the Supabase project config (`supabase init`) if not already present. RLS must be enabled on every table — no table is accessible without a policy.
+Use the Supabase MCP tool (`mcp__Supabase__apply_migration`) to apply migrations — do NOT use the Supabase CLI (`supabase db push`), which is not available in the agent sandbox. Write migration files under `supabase/migrations/`, then apply each one via `mcp__Supabase__apply_migration`. At the start of every session, call `mcp__Supabase__list_migrations` to check for unapplied migrations and apply any that are pending before doing other work. RLS must be enabled on every table — no table is accessible without a policy.
 
 **What is decided:** Supabase for DB + Auth + Storage + Realtime. Node.js + TypeScript (Fastify) for the backend. Vite + React 18 + TypeScript + Tailwind for the frontend, hosted on Vercel for preview deploys. These are not up for debate.
 
