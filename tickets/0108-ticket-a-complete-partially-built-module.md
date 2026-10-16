@@ -92,3 +92,23 @@ _Created by lee-coarasco in the AppYard dashboard._
   M09/M10's bigger form-building work. Left `status: in-progress`
   (not `testing`) since the ticket's acceptance criteria aren't met
   yet — only 2 of 6 modules are done.
+- 2026-10-16 22:05 UTC: M07 done — Task Inbox drawer gained Reassign
+  and Delegate buttons, each with its own `<UserPicker>` (distinct
+  placeholders "Reassign to..."/"Delegate to..." so tests can tell
+  them apart), calling the existing `POST /tasks/:id/reassign` and
+  `/tasks/:id/delegate` endpoints. No backend change needed.
+  M08 done — Approval Queue decision drawer gained "Approve with
+  conditions" and "Return for correction" buttons (existing
+  `POST /approvals/:id/decide` already accepts both decision values).
+  Also replaced the drawer's raw-UUID delegate text input with
+  `<UserPicker>` — a no-raw-UUIDs acceptance-criteria gap left over
+  from before this ticket, now closed.
+  Frontend: 30 tests pass (26 before + 4 new), `tsc --noEmit` and
+  `vite build` both clean. No backend changes this round.
+  Still open: M09 (project/WBS/milestone/activity create+edit forms)
+  and M10 (client/contact/opportunity create+edit forms) — the two
+  largest remaining pieces. Picking up M09 next.
+  Also still pending from part 1: migration `20261016000020`
+  (`app_users_select_same_tenant` RLS policy) has not been applied
+  live yet — Supabase MCP tools were unreachable again this session.
+  Next session with MCP access should apply it.
