@@ -166,6 +166,89 @@ its GitHub token has no `workflows` permission, so the push is rejected and the
 whole session's commits are lost. Needed workflow changes go into a ticket with
 `roles: [human]`.
 
+## Definition of Done — every module must pass ALL of these before `status: testing`
+
+A module (or sub-ticket) is NOT done until every checkbox below is true.
+Do not mark a ticket `testing` or `done` until you have verified each point.
+If a point cannot be met within the current ticket's scope, create a follow-on
+ticket for the gap — do NOT silently leave it as a known hole.
+
+### Backend checklist
+- [ ] Every CRUD operation the BRD names exists as a REST endpoint — no
+  read-only endpoints for data the BRD says can be created, edited, or deleted.
+- [ ] Every table has RLS enabled with a tenant-isolation policy.
+- [ ] Every write endpoint is gated by a named permission (`requirePermission`).
+- [ ] Every action that creates or modifies a workflow-relevant record calls
+  `dispatchNotification` so the M31 pipeline can deliver alerts. If M31 is not
+  yet built, add a `// TODO: dispatch notification` comment with the event name
+  so the M31 session can wire it in without hunting every callsite.
+- [ ] Every meaningful write is recorded in `workflow_events` or the module's
+  own audit log (same pattern as `task_reassigned`, `approval_decision`, etc.).
+
+### Frontend checklist — no module UI is done without ALL of these
+- [ ] **Full CRUD in the UI.** Every entity the module owns has a list screen,
+  a create form, and an edit form. A read-only page is only acceptable when the
+  ticket explicitly notes the scope decision and a follow-on ticket exists to
+  add the forms.
+- [ ] **No raw UUIDs.** Every field that references another entity (user, project,
+  document, role, etc.) uses a picker or typeahead component backed by a real
+  API endpoint. Typing a bare UUID into a text box is never acceptable in a
+  finished screen.
+- [ ] **All status transitions from the backend are in the UI.** If the backend
+  accepts `returned_for_correction`, `approved_with_conditions`, `delegate`,
+  `reassign`, or any other action, the UI must expose that action. A backend-only
+  transition is only acceptable when the ticket explicitly scopes it out, with a
+  follow-on ticket.
+- [ ] **Permission-aware buttons.** Every action button (create, edit, delete,
+  approve, assign, etc.) is wrapped in a `<PermissionGate>` that hides it when
+  the current user lacks the required permission. Use `GET /auth/effective-
+  permissions` to populate the permission set. Never show a button that will
+  return 403.
+- [ ] **Cross-module navigation.** Every detail page that references an entity
+  from another module (e.g. a project ID on a document, a client on an
+  opportunity) has a clickable link to that entity's own detail page. Foreign
+  keys are not displayed as bare IDs.
+- [ ] **Notification bell + inbox in AppLayout.** Once the first module that
+  triggers notifications is UI-complete, the notification bell must be in the
+  header. All subsequent modules inherit it for free. Do not mark any
+  notification-triggering module's UI done without the bell being present.
+- [ ] **`docs/USER-GUIDE.md` updated.** The module's entry describes what a
+  user can actually do today, not what the backend supports. The "How to use
+  it" section must name every screen and every action available in the UI.
+
+### Shared component rule — build once, reuse everywhere
+Before building any module UI, check `frontend/src/components/` for these
+shared components. If one is missing and the module needs it, **build the
+shared component as part of that module's ticket** — do not defer it, open a
+separate ticket, or reinvent it inline. Once built, every later module reuses it:
+
+| Component | When needed | Backend endpoint |
+|---|---|---|
+| `<UserPicker>` | Any form field referencing a user | `GET /admin/users` or `GET /employees` |
+| `<EntityPicker type="project\|client\|document\|…">` | Any form field referencing another entity | The entity's list endpoint |
+| `<PermissionGate permission="…">` | Every action button | `GET /auth/effective-permissions` |
+| `<ActivityThread entityType="…" entityId="…">` | Any entity that supports comments/history | The entity's comments endpoint |
+| `<FileAttachment>` | Any `storage_reference` field | Supabase Storage (via backend proxy) |
+| `<CurrencyInput>` / `<CurrencyDisplay>` | Any monetary value | — |
+| `<DatePicker>` | Any date/datetime field | — (locale-aware, week starts Sunday) |
+| `<StatusBadge status="…">` | Any entity with a status enum | — |
+
+### Configuration data is always manageable — never static-only
+Any data that operators need to manage (catalogue items, workflow definitions,
+notification templates, role lists, retention policies) must have a UI to
+create, edit, archive/retire, and export it. "Imported once from a CSV" is
+acceptable for the initial seed only — a live system must be able to manage
+that data without a developer running a script. If the module's data is
+configuration-class, its UI ticket must include full CRUD, not just a read view.
+
+An entity that is archived/retired must:
+- Be hidden from all active pickers and list views by default.
+- Remain visible under a "Show archived" filter.
+- Block archival when active dependent records exist (show a clear error naming
+  the dependents, never silently fail or cascade-delete).
+
+---
+
 ## Ground rules
 1. Never guess on an approval-required item — ask the owner and stop working
    on that thread of work. A question about one ticket goes in that ticket's
