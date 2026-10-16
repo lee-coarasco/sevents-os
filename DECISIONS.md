@@ -908,3 +908,37 @@ approved (agent-autonomous or you).
 - Approved by: agent (internal permission/data-model detail, explicitly
   agent-decidable per CLAUDE.md; same weight as ticket 0090's and
   0092's own permission decisions).
+
+## 2026-10-16 12:00 UTC - M11b (ticket 0097): new `estimating` module; `returned_for_correction` kept as its own estimate status, not collapsed into `draft`
+- Decision 1 (module placement): built a new `backend/src/modules/estimating/`
+  module rather than folding estimate versions/lines into
+  `modules/tendering` (ticket 0096). Routes are gated on the existing
+  `tendering.document.manage` permission (no new permission minted),
+  but the code lives in its own module.
+- Why: ticket 0096's tendering module owns child rows of
+  `tender_submissions` itself (document register, clarification log) —
+  simple CRUD with no lifecycle of its own. Estimates are a distinct
+  lifecycle (versioned, workflow-approved via the request_approval
+  seam, with their own child `estimate_lines` and server-computed
+  totals) that matches the BRD's own module name split
+  ("Tendering, Estimation & Commercials" = M11a tendering + M11b
+  estimation + M11c commercials) — ticket 0095's own three-way ticket
+  split already treats these as separate concerns. Sharing the
+  permission (not the module) keeps ticket 0096's actor-cluster
+  reasoning intact without conflating two different code lifecycles
+  into one file set.
+- Decision 2 (status enum): `estimates.status` includes
+  `returned_for_correction` as its own value (not collapsed into
+  `draft` on resolve), matching ticket 0066's
+  `ApprovalChainDecision` value of the same name and ticket 0075's
+  literal pass-through of it onto `project_baseline_change_requests.status`.
+  A `returned_for_correction` estimate is treated as editable in place
+  (same as `draft`) so the submitter can fix it and resubmit without
+  creating a brand new version — ticket 0075 has no equivalent case
+  since a rejected/returned baseline *change request* never touches
+  the baseline itself, but an estimate version IS the thing being
+  approved here, so "returned" has to mean something actionable on
+  that same row.
+- Approved by: agent (internal module/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0096's and
+  0092's own decisions).
