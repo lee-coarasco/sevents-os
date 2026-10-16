@@ -35,6 +35,11 @@ describe("DepartmentsRolesPage", () => {
       if (path === "/authority/role-assignments" && !init) {
         return Promise.resolve({ roleAssignments: [] });
       }
+      if (path === "/admin/users") {
+        return Promise.resolve({
+          users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }],
+        });
+      }
       if (path.startsWith("/authority/departments?companyId=")) {
         return Promise.resolve({ departments: [] });
       }
@@ -70,11 +75,14 @@ describe("DepartmentsRolesPage", () => {
     render(<DepartmentsRolesPage />);
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
 
-    await userEvent.type(screen.getByPlaceholderText("User ID"), "u1");
+    const userSearch = screen.getByPlaceholderText("Search by name or email…");
+    await userEvent.click(userSearch);
+    await userEvent.type(userSearch, "Uma");
+    await userEvent.click(await screen.findByText("Uma One (u1@sevents.test)"));
     await userEvent.selectOptions(screen.getByDisplayValue("Select a role…"), "role.storekeeper");
     await userEvent.click(screen.getByRole("button", { name: /assign role/i }));
 
-    const userIdNode = await screen.findByText(/u1/);
+    const userIdNode = await screen.findByText("Uma One");
     const row = userIdNode.closest("div.flex") as HTMLElement;
     expect(within(row).getByText("Storekeeper")).toBeInTheDocument();
   });

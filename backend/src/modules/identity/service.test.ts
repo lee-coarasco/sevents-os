@@ -7,6 +7,7 @@ import {
   enrollMfa,
   getOwnAuditLog,
   inviteUser,
+  listUsers,
   signIn,
   signOut,
   verifyMfa,
@@ -164,6 +165,27 @@ describe("getOwnAuditLog", () => {
 
     expect(entries.every((e) => e.user_id === userA.id)).toBe(true);
     expect(entries.some((e) => e.user_id === userB.id)).toBe(false);
+  });
+});
+
+describe("listUsers", () => {
+  it("rejects a missing/invalid session", async () => {
+    const repo = new FakeIdentityRepository();
+    await expect(listUsers(repo, "no-such-token")).rejects.toThrow(UnauthorizedError);
+  });
+
+  it("lists every non-deactivated user, sorted by display name", async () => {
+    const repo = new FakeIdentityRepository();
+    const userA = await inviteUser(repo, "a@sevents.test", "Zara", null);
+    await inviteUser(repo, "b@sevents.test", "Amir", null);
+    const userC = await inviteUser(repo, "c@sevents.test", "Deactivated", null);
+    await deactivateUser(repo, userC.id);
+    repo.addSession("token-a", userA.id);
+
+    const users = await listUsers(repo, "token-a");
+
+    expect(users.map((u) => u.display_name)).toEqual(["Amir", "Zara"]);
+    expect(users.some((u) => u.id === userC.id)).toBe(false);
   });
 });
 

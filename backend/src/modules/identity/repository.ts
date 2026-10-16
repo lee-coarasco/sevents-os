@@ -29,6 +29,14 @@ export interface IdentityRepository {
   /** Blocks future sign-in without deleting the auth.users row. */
   banAuthUser(userId: string): Promise<void>;
   getUserIdFromAccessToken(accessToken: string): Promise<string | null>;
+  /**
+   * Ticket 0108: backs the shared `<UserPicker>` — every tenant member,
+   * for picking an assignee/reviewer/approver. Queried through the
+   * user-scoped client (not service role) so the
+   * `app_users_select_same_tenant` RLS policy enforces tenant isolation
+   * independently of this handler, same convention as `listOwnAuditLog`.
+   */
+  listUsers(accessToken: string): Promise<AppUser[]>;
   signInWithPassword(
     email: string,
     password: string,
@@ -187,6 +195,17 @@ export function createSupabaseIdentityRepository(
     async signOut(accessToken) {
       const { error } = await serviceClient.auth.admin.signOut(accessToken, "global");
       if (error) throw new Error(`signOut: ${error.message}`);
+    },
+
+    async listUsers(accessToken) {
+      const userClient = userScopedClientFactory(accessToken);
+      const { data, error } = await userClient
+        .from("app_users")
+        .select("*")
+        .neq("status", "deactivated")
+        .order("display_name", { ascending: true, nullsFirst: false });
+      if (error) throw new Error(`listUsers: ${error.message}`);
+      return (data as AppUser[]) ?? [];
     },
 
     async listOwnAuditLog(accessToken, userId) {

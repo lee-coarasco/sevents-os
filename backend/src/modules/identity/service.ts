@@ -79,6 +79,15 @@ export async function signOut(repo: IdentityRepository, accessToken: string): Pr
   await repo.insertAuditEvent(userId, "sign_out", {});
 }
 
+/** Ticket 0108: directory lookup behind the shared `<UserPicker>` — any signed-in tenant member, not gated by a separate permission (same broad-read convention as other modules' list endpoints). */
+export async function listUsers(repo: IdentityRepository, accessToken: string): Promise<AppUser[]> {
+  const userId = await repo.getUserIdFromAccessToken(accessToken);
+  if (!userId) {
+    throw new UnauthorizedError();
+  }
+  return repo.listUsers(accessToken);
+}
+
 export async function getOwnAuditLog(
   repo: IdentityRepository,
   accessToken: string,

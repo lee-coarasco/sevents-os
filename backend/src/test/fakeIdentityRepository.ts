@@ -141,6 +141,12 @@ export class FakeIdentityRepository implements IdentityRepository {
     this.sessions.delete(accessToken);
   }
 
+  async listUsers(_accessToken: string) {
+    return [...this.users.values()]
+      .filter((user) => user.status !== "deactivated")
+      .sort((a, b) => (a.display_name ?? a.email).localeCompare(b.display_name ?? b.email));
+  }
+
   async listOwnAuditLog(_accessToken: string, userId: string) {
     return this.auditLog
       .filter((entry) => entry.user_id === userId)

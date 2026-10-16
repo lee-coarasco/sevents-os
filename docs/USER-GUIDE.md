@@ -50,19 +50,22 @@ here — that lives on the Projects screen (M09) once a company exists.
 
 ## M03 — Organization, Departments, Roles & Authority
 
-**Status:** testing (ticket 0056)
+**Status:** testing (tickets 0056, 0108)
 
 **What's built:** Backend `authority` module — departments (tree structure),
 role assignments, delegations (temporary acting-role grants), and approval
 spending limits; also the `effective-permissions` endpoint every other
-module's UI uses to show/hide buttons. Frontend: `DepartmentsRolesPage`, nav
-label "Departments & Roles", at `/departments-roles`.
+module's UI uses to show/hide buttons. Also backend `GET /admin/users`
+(`identity` module, ticket 0108) — the tenant's user directory (id, email,
+display name), open to any signed-in tenant member, backing the shared
+`<UserPicker>` component. Frontend: `DepartmentsRolesPage`, nav label
+"Departments & Roles", at `/departments-roles`.
 
-**How to use it:** Create departments, assign a role to a user by pasting
-in their user ID (no user picker yet — there's no directory lookup UI for
-raw auth user IDs anywhere in this frontend, see M04's note below), and set
-up approval limits. Effective-permission checks gate every "can I act on
-this" button across every other screen.
+**How to use it:** Create departments, assign a role to a user by typing
+their name or email into the "Role assignments" search box and picking
+them from the dropdown (no more raw user IDs), and set up approval limits.
+Effective-permission checks gate every "can I act on this" button across
+every other screen.
 
 ## M05 — Work-Item Catalogue & Disposition
 

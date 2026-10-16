@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
+import { useUsers } from "../hooks/useUsers";
+import { UserPicker } from "../components/UserPicker";
 
 interface Company {
   id: string;
@@ -31,6 +33,7 @@ interface RoleAssignment {
 export function DepartmentsRolesPage() {
   const { session } = useAuth();
   const { has, loading: permissionsLoading } = usePermissions();
+  const { users } = useUsers();
 
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
@@ -133,6 +136,11 @@ export function DepartmentsRolesPage() {
     return roles?.find((r) => r.id === roleId)?.label ?? roleId;
   }
 
+  function userLabel(userId: string): string {
+    const user = users?.find((u) => u.id === userId);
+    return user ? user.display_name ?? user.email : userId;
+  }
+
   const departmentsForSelected = departments ?? [];
 
   return (
@@ -216,9 +224,6 @@ export function DepartmentsRolesPage() {
       <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
         <div className="border-b border-zinc-100 px-6 py-4">
           <h2 className="font-brand text-base font-semibold text-zinc-900">Role assignments</h2>
-          <p className="mt-0.5 text-xs text-zinc-400">
-            No user directory yet — enter the user ID directly.
-          </p>
         </div>
         <div className="p-6">
           {roleAssignments === null && <p className="mb-3 text-sm text-zinc-400">Loading…</p>}
@@ -229,7 +234,7 @@ export function DepartmentsRolesPage() {
             <div className="mb-4 space-y-2">
               {roleAssignments.map((assignment) => (
                 <div key={assignment.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
-                  <span className="font-mono text-xs text-zinc-500">{assignment.user_id.slice(0, 12)}…</span>
+                  <span className="font-medium text-zinc-700">{userLabel(assignment.user_id)}</span>
                   <span className="mx-2 text-zinc-300">→</span>
                   <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700">
                     {roleLabel(assignment.role_id)}
@@ -244,12 +249,7 @@ export function DepartmentsRolesPage() {
           {!permissionsLoading && has("authority.role_assignment.manage") && (
             <form onSubmit={handleCreateRoleAssignment} className="space-y-3">
               <div className="flex gap-2">
-                <input
-                  value={assignUserId}
-                  onChange={(e) => setAssignUserId(e.target.value)}
-                  placeholder="User ID"
-                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                />
+                <UserPicker value={assignUserId} onChange={setAssignUserId} className="flex-1" />
                 <select
                   value={assignRoleId}
                   onChange={(e) => setAssignRoleId(e.target.value)}

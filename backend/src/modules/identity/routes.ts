@@ -8,6 +8,7 @@ import {
   enrollMfa,
   getOwnAuditLog,
   inviteUser,
+  listUsers,
   signIn,
   signOut,
   verifyMfa,
@@ -115,6 +116,27 @@ export async function identityRoutes(app: FastifyInstance, options: IdentityRout
       return { user };
     },
   );
+
+  // Ticket 0108: directory lookup backing the shared <UserPicker> —
+  // M03/M04/M07/M08 all need to resolve a name/email search to a user id
+  // without the caller ever typing a raw UUID.
+  app.get("/admin/users", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    try {
+      const users = await listUsers(options.getRepository(), token);
+      return { users };
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        reply.code(401);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
 
   app.get("/identity/audit-log", async (request, reply) => {
     const token = bearerToken(request.headers.authorization);
