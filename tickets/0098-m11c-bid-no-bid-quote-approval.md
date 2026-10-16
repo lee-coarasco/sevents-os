@@ -1,7 +1,7 @@
 ---
 id: 98
 title: "M11c — Bid/no-bid decision & quote/proposal approval (FR-BID-001)"
-status: next
+status: in-progress
 roles: [backend-engineer]
 priority: 14
 created: 2026-10-16

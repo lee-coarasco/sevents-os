@@ -420,7 +420,22 @@ export interface WorkflowMigration {
 export const APPROVAL_CHAIN_MODES = ["sequential", "parallel"] as const;
 export type ApprovalChainMode = (typeof APPROVAL_CHAIN_MODES)[number];
 
-export const APPROVAL_CHAIN_DECISIONS = ["approved", "rejected", "returned_for_correction"] as const;
+/**
+ * Ticket 0098 (M11c): added `approved_with_conditions` — FR-BID-001's
+ * own word for a bid/no-bid approval that isn't a clean yes/no. Treated
+ * as terminal exactly like `rejected`/`returned_for_correction` (see
+ * resolveChainOutcome's `decision !== "approved"` check, unchanged) —
+ * one approver attaching conditions resolves the whole chain to that
+ * outcome rather than being silently folded into a plain "approved"
+ * count, and (via decideApprovalStep's existing reason-required-unless-
+ * approved rule) the approver's `reason` doubles as the conditions text.
+ */
+export const APPROVAL_CHAIN_DECISIONS = [
+  "approved",
+  "approved_with_conditions",
+  "rejected",
+  "returned_for_correction",
+] as const;
 export type ApprovalChainDecision = (typeof APPROVAL_CHAIN_DECISIONS)[number];
 
 /**

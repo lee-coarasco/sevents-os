@@ -60,6 +60,11 @@ import {
   createSupabaseEstimatingRepository,
   type EstimatingRepository,
 } from "./modules/estimating/repository.js";
+import { biddingRoutes } from "./modules/bidding/routes.js";
+import {
+  createSupabaseBiddingRepository,
+  type BiddingRepository,
+} from "./modules/bidding/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -94,6 +99,8 @@ export interface BuildAppOptions {
   getTenderingRepository?: () => TenderingRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getEstimatingRepository?: () => EstimatingRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getBiddingRepository?: () => BiddingRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -215,6 +222,15 @@ function defaultEstimatingRepository(): EstimatingRepository {
   return cachedEstimatingRepository;
 }
 
+let cachedBiddingRepository: BiddingRepository | null = null;
+
+function defaultBiddingRepository(): BiddingRepository {
+  if (!cachedBiddingRepository) {
+    cachedBiddingRepository = createSupabaseBiddingRepository(createUserScopedClient);
+  }
+  return cachedBiddingRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -290,6 +306,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(estimatingRoutes, {
     getRepository: options.getEstimatingRepository ?? defaultEstimatingRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(biddingRoutes, {
+    getRepository: options.getBiddingRepository ?? defaultBiddingRepository,
     getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
     requirePermission: guard,
   });
