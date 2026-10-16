@@ -1,7 +1,7 @@
 ---
 id: 90
 title: "M10a — Client/Contact/Lead/Opportunity core data model"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 13
 created: 2026-10-16
@@ -57,16 +57,40 @@ Lead, Opportunity`.
 - Pipeline forecast reporting, handover checklist — ticket 0092 (M10c).
 
 ## Acceptance
-- [ ] `clients`/`contacts`/`leads` (or `opportunities` — pick one name
+- [x] `clients`/`contacts`/`leads` (or `opportunities` — pick one name
       and be consistent; BRD uses both terms for what looks like the
       same entity progressing through `stage`) tables, tenant-scoped
       with RLS.
-- [ ] Every FR-CRM-001 field (source, client, owner, stage, expected
+- [x] Every FR-CRM-001 field (source, client, owner, stage, expected
       value, probability, next action, due date) is a real column.
-- [ ] Duplicate client/contact detection surfaced via the API (FR-CRM-002).
-- [ ] Tests cover tenant isolation, permission gating, and duplicate
+- [x] Duplicate client/contact detection surfaced via the API (FR-CRM-002).
+- [x] Tests cover tenant isolation, permission gating, and duplicate
       detection.
 
 ## Progress
 - 2026-10-16: Filed as the first of three M10 sub-tickets (see ticket
   0089's split).
+- 2026-10-16 11:40 UTC: Built. Migration
+  `supabase/migrations/20261016000012_m10a_crm_core.sql` adds
+  `clients`/`contacts`/`opportunities` (tenant-scoped RLS, every
+  FR-CRM-001 field as a real column, `stage` enum through
+  lead/qualified/site_visit/tender/negotiation/won/lost) and the
+  `crm.lead.manage` permission granted to
+  `role.platform_administrator` plus the Marketing & Sales cluster
+  (`role.business_development_executive`, `role.marketing_manager_lead`,
+  `role.cmo`) per the ticket's own instruction. New `backend/src/modules/
+  crm/` (types/repository/service/routes), `GET /crm/clients?search=`
+  and `GET /crm/contacts?search=` for FR-CRM-002 duplicate surfacing,
+  wired into `app.ts`. One naming judgment call recorded in
+  `DECISIONS.md` (one `opportunities` table, not a separate `leads`
+  table — the ticket's own text left this open). 18 new tests
+  (service.test.ts: creation/search/duplicate-surfacing/tenant
+  isolation/stage-advance; routes.test.ts: permission gating,
+  tenant-isolated 404s, full create→read→list→patch lifecycle).
+  `npm test`: 465/465 (447 prior + 18 new), `npm run build` clean,
+  `scripts/tickets.py check` clean. Not yet applied to the real
+  Supabase project — no reachable Supabase credentials in this
+  sandbox, same gap flagged for every other migration in this repo.
+  Status `testing`, not `done`: migration needs to actually run
+  against live Supabase before this is usable. Next: ticket 0091
+  (M10b — site visits, tender deadline tracking, communication log).

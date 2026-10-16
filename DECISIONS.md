@@ -805,3 +805,25 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   data-model split are explicitly agent-decidable per CLAUDE.md, same
   weight as every prior module split recorded here).
+
+## 2026-10-16 11:40 UTC - M10a (ticket 0090): one `opportunities` table, not separate `leads`/`opportunities`
+- Decision: BRD §6.2 lists `Client, Contact, Lead, Opportunity` as four
+  entities, but §10.1's "Opportunity to project" step list and
+  FR-CRM-001's single field set (source, client, owner, stage, expected
+  value, probability, next action, due date) describe one thing
+  progressing through a `stage` enum — a "lead" is just an opportunity
+  at the `lead` stage, not a separate record a human promotes into a
+  second table. Modeled as one `opportunities` table with
+  `stage in ('lead','qualified','site_visit','tender','negotiation',
+  'won','lost')`, defaulting new rows to `lead`. The ticket's own text
+  explicitly left this choice open ("pick one name and be consistent"),
+  so this isn't a scope deviation, just recording the naming call for
+  the next session that builds M10b/M10c or M11/M12's later stages on
+  top of this enum.
+- Why: a second `leads` table would need its own promotion-to-
+  opportunity migration step nothing in FR-CRM-001/§10.1 asks for, and
+  would duplicate the source/client/owner fields across two tables for
+  no behavioral difference.
+- Approved by: agent (internal data-model detail, explicitly
+  agent-decidable per CLAUDE.md; the ticket text itself delegated the
+  naming choice to whoever built it).
