@@ -1,11 +1,11 @@
 ---
 id: 75
 title: "M09c — Baseline snapshots & baseline-change control (approval-gated)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 9
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 Third of five M09 sub-tickets. Depends on ticket 0073 (project
@@ -59,19 +59,69 @@ into). Covers BRD §8.4 FR-PROJ-004 only. BRD §6.2 entity:
   FR-PROJ-004's literal text.
 
 ## Acceptance
-- [ ] `project_baselines` and `project_baseline_change_requests`
+- [x] `project_baselines` and `project_baseline_change_requests`
       created, tenant-scoped with RLS.
-- [ ] Proposing a baseline change requires `reason` and
+- [x] Proposing a baseline change requires `reason` and
       `impact_analysis`; creation fails without them.
-- [ ] A baseline change request starts a real workflow/approval
+- [x] A baseline change request starts a real workflow/approval
       instance via the existing M06/M08 machinery (no parallel
       approval logic).
-- [ ] An approved change supersedes the prior baseline; a
+- [x] An approved change supersedes the prior baseline; a
       rejected/returned one leaves the current baseline untouched.
-- [ ] Tests cover the full lifecycle (propose → approve → baseline
+- [x] Tests cover the full lifecycle (propose → approve → baseline
       superseded) and (propose → reject → baseline unchanged), plus
       tenant isolation and permission gating.
-- [ ] `docs/BRD.md` FR-PROJ-004 is satisfied.
+- [x] `docs/BRD.md` FR-PROJ-004 is satisfied.
 
 ## Progress
 - 2026-10-15: Filed as the third of five M09 sub-tickets.
+- 2026-10-16 01:26 UTC: Built. Migration
+  `20261016000003_m09c_baseline_management.sql` adds
+  `project_baselines` (version, jsonb `snapshot`, status
+  draft/pending_approval/approved/superseded) and
+  `project_baseline_change_requests` (required `reason`/
+  `impact_analysis`, `workflow_instance_id` FK into
+  `workflow_instances`, status pending/approved/rejected/
+  returned_for_correction), both tenant-scoped with RLS, plus
+  `project.baseline.manage` permission. `backend/src/modules/projects/
+  service.ts` adds `setInitialBaseline` (v1, approved immediately, no
+  workflow — captures the project's current WBS/milestone/budget state
+  via a new `buildLiveSnapshot` helper; refuses a second call via
+  `DuplicateInitialBaselineError`), `proposeBaselineChange` (requires
+  non-blank reason/impactAnalysis, requires an existing approved
+  baseline via `NoCurrentBaselineError`, calls the existing
+  `startWorkflowInstance` — no parallel approval logic here) and
+  `resolveBaselineChangeRequest`, the polling half of the seam: since
+  this codebase has no event bus, a change request's workflow instance
+  is read back on demand (`getWorkflowInstance`) and resolved by
+  finding the step instance whose `output.decision` key is set (only a
+  resolved `request_approval` step's `completeStepInstance` call ever
+  writes that key, per ticket 0066) — idempotent once status leaves
+  `pending`. `routes.ts` wires `GET /baseline-change-requests/:id` as
+  the poll endpoint (each read re-resolves) plus
+  `POST /projects/:projectId/baselines`,
+  `GET /projects/:projectId/baselines`, `GET /baselines/:baselineId`,
+  `POST /projects/:projectId/baseline-change-requests`,
+  `GET /projects/:projectId/baseline-change-requests`, all gated on
+  the new `project.baseline.manage` permission. `app.ts` now injects
+  `getWorkflowRepository` into `projectsRoutes` (projects module reads
+  the workflow module's repository directly, same direct-call
+  convention every other module uses — no HTTP hop between modules).
+  Two scope calls recorded in DECISIONS.md: (1) the proposer names an
+  explicit, already-published `definitionId` for the approval workflow
+  — no "the baseline-approval workflow" auto-resolution exists or is
+  built here, matching ticket 0066's explicit-approverUserIds
+  precedent; (2) `proposedSnapshot` is supplied explicitly by the
+  caller, never auto-computed from live state, since proposing a
+  change is explicitly proposing a *different* state than what's live.
+  Tests: `baselines.test.ts` (8 cases — v1 capture, duplicate-v1
+  rejection, blank reason/impact rejection, missing-current-baseline
+  rejection, full propose→approve→supersede lifecycle incl.
+  idempotent re-resolve, propose→reject→unchanged, tenant isolation)
+  and `baselines.routes.test.ts` (permission gating 403/201/409,
+  missing-field 400, full HTTP propose→approve→GET-resolves lifecycle).
+  `npm test`: 309/309 across 31 files. `npm run build`/`lint` clean.
+  `scripts/tickets.py check` clean. Status set to `testing` — owner
+  reviews migration/API contracts per Phase 2-era testing instructions
+  (no UI yet). Next: ticket 0076 (M09d — issue/risk/decision/
+  assumption/dependency/change-request register).

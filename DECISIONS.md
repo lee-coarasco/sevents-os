@@ -349,3 +349,44 @@ approved (agent-autonomous or you).
   and 0077 were newly filed.
 - Approved by: agent (ticket classification/ordering and DB schema
   details are both explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-16 01:26 UTC - M09c baseline changes: caller names an explicit published workflow definitionId, no auto-resolution; proposed snapshot is caller-supplied, never auto-computed; outcome is read back by polling the linked workflow instance's step output, not a new callback/event mechanism
+- Decision: Ticket 0075 (M09c — baseline snapshots & baseline-change
+  control) built FR-PROJ-004 as a thin layer on top of ticket 0066's
+  `request_approval`/workflow-instance seam, with three scope calls:
+  (1) `proposeBaselineChange` takes an explicit `definitionId` for an
+  already-published approval workflow from the caller — there is no
+  "the baseline-change-approval workflow for this tenant" lookup
+  mechanism anywhere in this codebase, so this module does not invent
+  one, same "no resolution magic, caller names it explicitly" spirit
+  as ticket 0066's `approverUserIds`; (2) the proposer supplies
+  `proposedSnapshot` directly in the request — it is never
+  auto-computed from the project's current live WBS/milestone/budget
+  state, because proposing a baseline change is explicitly proposing a
+  *different* state than what is live today (auto-computing it from
+  live state would silently propose "no change"); (3) since this
+  codebase has no event bus or webhook mechanism, a change request's
+  resolution is read back on demand by inspecting its linked workflow
+  instance's step instances for the one whose `output.decision` key is
+  set (only a resolved `request_approval` step's `completeStepInstance`
+  call ever writes that key) — `GET /baseline-change-requests/:id`
+  re-runs this check on every read and is idempotent once the request
+  leaves `pending`, rather than building a new polling/callback table
+  or background job.
+- Why: (1)/(2) are both the same "don't invent an unrequested
+  resolution mechanism" principle this project has applied repeatedly
+  (ticket 0066's explicit approver list, ticket 0072's reassignment-
+  not-delegation-entity call) — BRD §8.4 FR-PROJ-004 says baseline
+  changes need reason/impact-analysis/approval, not that the system
+  must guess which workflow or auto-diff the live state. (3) follows
+  directly from how ticket 0062's runtime engine already works:
+  `completeStepInstance`/`decideApprovalStep` are synchronous, and
+  M07's own task queues are documented as polling
+  `workflow_step_instances` rather than being pushed to — a baseline
+  change request consuming that same seam the same way (read on
+  demand) is consistent with the rest of the codebase, not a new
+  pattern.
+- Approved by: agent (internal API design/DB schema details are both
+  explicitly agent-decidable per CLAUDE.md; recorded here at the same
+  weight as the M06/M07/M08 scope calls per this project's own
+  precedent).

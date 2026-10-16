@@ -1,7 +1,11 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
 import type { ProjectsRepository } from "./repository.js";
 import {
+  DuplicateInitialBaselineError,
+  MissingBaselineChangeReasonError,
+  NoCurrentBaselineError,
   NotFoundError,
   addScheduleActivityDependency,
   createMilestone,
@@ -9,7 +13,10 @@ import {
   createProjectType,
   createScheduleActivity,
   createWBSNode,
+  getBaseline,
   getProject,
+  listBaselineChangeRequests,
+  listBaselines,
   listMilestones,
   listProgressEntries,
   listProjectTypes,
@@ -17,8 +24,11 @@ import {
   listScheduleActivities,
   listScheduleActivityDependencies,
   listWBSNodes,
+  proposeBaselineChange,
   recordProgressEntry,
   removeScheduleActivityDependency,
+  resolveBaselineChangeRequest,
+  setInitialBaseline,
   updateMilestone,
   updateProject,
   updateScheduleActivity,
@@ -27,6 +37,7 @@ import {
 
 export interface ProjectsRouteOptions {
   getRepository: () => ProjectsRepository;
+  getWorkflowRepository: () => WorkflowRepository;
   /** Reuses tenancy.project.manage (ticket 0056) — project setup is project administration, not a new actor class. */
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
 }
@@ -480,6 +491,129 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
       const token = bearerToken(request.headers.authorization) as string;
       const progressEntries = await listProgressEntries(options.getRepository(), token, request.params.activityId);
       return { progressEntries };
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // Baseline snapshots & baseline-change control (ticket 0075, M09c)
+  // -------------------------------------------------------------------
+
+  app.post<{ Params: { projectId: string } }>(
+    "/projects/:projectId/baselines",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const baseline = await setInitialBaseline(options.getRepository(), token, request.params.projectId, callerUserId);
+        reply.code(201);
+        return { baseline };
+      } catch (error) {
+        if (error instanceof DuplicateInitialBaselineError) {
+          reply.code(409);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/baselines",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const baselines = await listBaselines(options.getRepository(), token, request.params.projectId);
+      return { baselines };
+    },
+  );
+
+  app.get<{ Params: { baselineId: string } }>(
+    "/baselines/:baselineId",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const baseline = await getBaseline(options.getRepository(), token, request.params.baselineId);
+        return { baseline };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { projectId: string };
+    Body: { definitionId: string; proposedSnapshot: Record<string, unknown>; reason: string; impactAnalysis: string };
+  }>(
+    "/projects/:projectId/baseline-change-requests",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.definitionId || !body.proposedSnapshot || !body.reason || !body.impactAnalysis) {
+        reply.code(400);
+        return { error: "definitionId, proposedSnapshot, reason and impactAnalysis are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const changeRequest = await proposeBaselineChange(options.getRepository(), options.getWorkflowRepository(), token, {
+          projectId: request.params.projectId,
+          definitionId: body.definitionId,
+          proposedSnapshot: body.proposedSnapshot,
+          reason: body.reason,
+          impactAnalysis: body.impactAnalysis,
+          submittedBy: callerUserId,
+        });
+        reply.code(201);
+        return { changeRequest };
+      } catch (error) {
+        if (error instanceof NoCurrentBaselineError || error instanceof MissingBaselineChangeReasonError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/baseline-change-requests",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const changeRequests = await listBaselineChangeRequests(options.getRepository(), token, request.params.projectId);
+      return { changeRequests };
+    },
+  );
+
+  // GET is the poll: each read re-checks the linked workflow instance
+  // and applies the outcome exactly once (resolveBaselineChangeRequest
+  // is idempotent once status leaves 'pending').
+  app.get<{ Params: { requestId: string } }>(
+    "/baseline-change-requests/:requestId",
+    { preHandler: options.requirePermission("project.baseline.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const changeRequest = await resolveBaselineChangeRequest(
+          options.getRepository(),
+          options.getWorkflowRepository(),
+          token,
+          request.params.requestId,
+        );
+        return { changeRequest };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
     },
   );
 }

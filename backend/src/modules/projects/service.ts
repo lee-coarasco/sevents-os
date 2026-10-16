@@ -16,17 +16,30 @@ import type {
   Milestone,
   ProgressEntry,
   Project,
+  ProjectBaseline,
+  ProjectBaselineChangeRequest,
   ProjectType,
   ScheduleActivity,
   ScheduleActivityDependency,
   WBSNode,
 } from "./types.js";
+import { getWorkflowInstance, startWorkflowInstance } from "../workflow/service.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
 
 export class NotFoundError extends Error {
   constructor(message = "not found") {
     super(message);
   }
 }
+
+/** Ticket 0075 (M09c): a project already has a baseline — propose a change instead of setting another "initial" one. */
+export class DuplicateInitialBaselineError extends Error {}
+
+/** Ticket 0075 (M09c): a baseline change was proposed before the project has any approved baseline to change. */
+export class NoCurrentBaselineError extends Error {}
+
+/** FR-PROJ-004: reason and impact analysis are both required, non-blank. */
+export class MissingBaselineChangeReasonError extends Error {}
 
 /** FR-PROJ-001: the only creation path today is this authorized-manual-entry call. */
 export async function createProject(
@@ -195,4 +208,182 @@ export async function listProgressEntries(
   scheduleActivityId: string,
 ): Promise<ProgressEntry[]> {
   return repo.listProgressEntries(accessToken, scheduleActivityId);
+}
+
+// ---------------------------------------------------------------------------
+// Baseline snapshots & baseline-change control (ticket 0075, M09c)
+// ---------------------------------------------------------------------------
+
+/** The frozen copy FR-PROJ-004 asks for — WBS/milestone/activity planned dates and budget, read live and never updated again once captured. */
+async function buildLiveSnapshot(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<Record<string, unknown>> {
+  const project = await getProject(repo, accessToken, projectId);
+  const [wbsNodes, milestones, scheduleActivities] = await Promise.all([
+    repo.listWBSNodes(accessToken, projectId),
+    repo.listMilestones(accessToken, projectId),
+    repo.listScheduleActivities(accessToken, projectId),
+  ]);
+  return {
+    budgetAmount: project.budget_amount,
+    budgetCurrency: project.budget_currency,
+    wbsNodes,
+    milestones,
+    scheduleActivities,
+  };
+}
+
+async function requireCurrentBaseline(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectBaseline> {
+  const baselines = await repo.listBaselines(accessToken, projectId);
+  const current = baselines.find((b) => b.status === "approved");
+  if (!current) {
+    throw new NoCurrentBaselineError(`project ${projectId} has no approved baseline yet — set the initial baseline first`);
+  }
+  return current;
+}
+
+/**
+ * FR-PROJ-004: "the initial baseline requires approval" is not what
+ * the BRD text says — it says baseline *changes* require approval.
+ * Baseline v1 is captured directly from the project's current live
+ * WBS/milestone/activity/budget state, no workflow instance involved.
+ * Only ever callable once per project; later baselines only come from
+ * an approved change request (see proposeBaselineChange below).
+ */
+export async function setInitialBaseline(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+  createdBy: string | null,
+): Promise<ProjectBaseline> {
+  const existing = await repo.listBaselines(accessToken, projectId);
+  if (existing.length > 0) {
+    throw new DuplicateInitialBaselineError(`project ${projectId} already has a baseline; propose a baseline change instead`);
+  }
+  const snapshot = await buildLiveSnapshot(repo, accessToken, projectId);
+  return repo.createBaseline(accessToken, {
+    project_id: projectId,
+    version: 1,
+    snapshot,
+    status: "approved",
+    created_by: createdBy,
+  });
+}
+
+export async function listBaselines(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectBaseline[]> {
+  return repo.listBaselines(accessToken, projectId);
+}
+
+export async function getBaseline(repo: ProjectsRepository, accessToken: string, baselineId: string): Promise<ProjectBaseline> {
+  const baseline = await repo.getBaseline(accessToken, baselineId);
+  if (!baseline) throw new NotFoundError();
+  return baseline;
+}
+
+export interface ProposeBaselineChangeInput {
+  projectId: string;
+  /** Whoever configured this feature in the Configuration Studio names which published approval workflow to run — same "no automatic resolution" convention as ticket 0066's explicit approverUserIds; this module does not guess a definition. */
+  definitionId: string;
+  proposedSnapshot: Record<string, unknown>;
+  reason: string;
+  impactAnalysis: string;
+  submittedBy: string | null;
+}
+
+/**
+ * FR-PROJ-004: starts a real `request_approval` workflow instance
+ * (ticket 0066/0062's seam) rather than inventing a parallel approval
+ * mechanism here. The change request only records what was proposed
+ * and which instance is deciding it; resolveBaselineChangeRequest
+ * reads the outcome back out of that same instance.
+ */
+export async function proposeBaselineChange(
+  repo: ProjectsRepository,
+  workflowRepo: WorkflowRepository,
+  accessToken: string,
+  input: ProposeBaselineChangeInput,
+): Promise<ProjectBaselineChangeRequest> {
+  if (!input.reason.trim() || !input.impactAnalysis.trim()) {
+    throw new MissingBaselineChangeReasonError("a baseline change request requires a non-empty reason and impact analysis");
+  }
+  const currentBaseline = await requireCurrentBaseline(repo, accessToken, input.projectId);
+  const { instance } = await startWorkflowInstance(workflowRepo, accessToken, input.definitionId, input.submittedBy, {
+    projectId: input.projectId,
+    currentBaselineId: currentBaseline.id,
+  });
+  return repo.createBaselineChangeRequest(accessToken, {
+    project_id: input.projectId,
+    current_baseline_id: currentBaseline.id,
+    proposed_snapshot: input.proposedSnapshot,
+    reason: input.reason,
+    impact_analysis: input.impactAnalysis,
+    submitted_by: input.submittedBy,
+    workflow_instance_id: instance.id,
+  });
+}
+
+export async function listBaselineChangeRequests(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectBaselineChangeRequest[]> {
+  return repo.listBaselineChangeRequests(accessToken, projectId);
+}
+
+/**
+ * The polling half of the seam: no event bus exists in this codebase,
+ * so a change request's outcome is read back on demand by inspecting
+ * its workflow instance's step instances for the one whose output
+ * carries a `decision` (only a resolved request_approval step's
+ * completeStepInstance call ever writes that key — see ticket 0066's
+ * decideApprovalStep). Idempotent: once a request is no longer
+ * `pending`, this is a no-op read, never re-applies the outcome twice.
+ */
+export async function resolveBaselineChangeRequest(
+  repo: ProjectsRepository,
+  workflowRepo: WorkflowRepository,
+  accessToken: string,
+  requestId: string,
+): Promise<ProjectBaselineChangeRequest> {
+  const request = await repo.getBaselineChangeRequest(accessToken, requestId);
+  if (!request) throw new NotFoundError();
+  if (request.status !== "pending") return request;
+
+  const { stepInstances } = await getWorkflowInstance(workflowRepo, accessToken, request.workflow_instance_id);
+  const decidedStep = stepInstances.find((s) => typeof s.output?.decision === "string");
+  if (!decidedStep) return request;
+
+  const decision = decidedStep.output.decision as string;
+  if (decision === "approved") {
+    const baselines = await repo.listBaselines(accessToken, request.project_id);
+    const nextVersion = Math.max(0, ...baselines.map((b) => b.version)) + 1;
+    const newBaseline = await repo.createBaseline(accessToken, {
+      project_id: request.project_id,
+      version: nextVersion,
+      snapshot: request.proposed_snapshot,
+      status: "approved",
+      created_by: request.submitted_by,
+    });
+    await repo.updateBaseline(accessToken, request.current_baseline_id, { status: "superseded" });
+    const updated = await repo.updateBaselineChangeRequest(accessToken, requestId, {
+      status: "approved",
+      resulting_baseline_id: newBaseline.id,
+    });
+    return updated!;
+  }
+
+  const updated = await repo.updateBaselineChangeRequest(accessToken, requestId, {
+    status: decision as "rejected" | "returned_for_correction",
+  });
+  return updated!;
 }

@@ -5,6 +5,10 @@ import type {
   MilestoneStatus,
   Project,
   ProgressEntry,
+  ProjectBaseline,
+  ProjectBaselineChangeRequest,
+  ProjectBaselineChangeRequestStatus,
+  ProjectBaselineStatus,
   ProjectStatus,
   ProjectType,
   ScheduleActivity,
@@ -111,6 +115,33 @@ export interface RecordProgressEntryInput {
   note?: string | null;
 }
 
+export interface CreateBaselineInput {
+  project_id: string;
+  version: number;
+  snapshot: Record<string, unknown>;
+  status?: ProjectBaselineStatus;
+  created_by: string | null;
+}
+
+export interface UpdateBaselineInput {
+  status?: ProjectBaselineStatus;
+}
+
+export interface CreateBaselineChangeRequestInput {
+  project_id: string;
+  current_baseline_id: string;
+  proposed_snapshot: Record<string, unknown>;
+  reason: string;
+  impact_analysis: string;
+  submitted_by: string | null;
+  workflow_instance_id: string;
+}
+
+export interface UpdateBaselineChangeRequestInput {
+  status?: ProjectBaselineChangeRequestStatus;
+  resulting_baseline_id?: string | null;
+}
+
 /**
  * Every method is keyed off the caller's own access token, not an
  * explicit tenant id — same convention as `TenancyRepository`
@@ -159,6 +190,23 @@ export interface ProjectsRepository {
 
   recordProgressEntry(accessToken: string, input: RecordProgressEntryInput): Promise<ProgressEntry>;
   listProgressEntries(accessToken: string, scheduleActivityId: string): Promise<ProgressEntry[]>;
+
+  createBaseline(accessToken: string, input: CreateBaselineInput): Promise<ProjectBaseline>;
+  listBaselines(accessToken: string, projectId: string): Promise<ProjectBaseline[]>;
+  getBaseline(accessToken: string, baselineId: string): Promise<ProjectBaseline | null>;
+  updateBaseline(accessToken: string, baselineId: string, input: UpdateBaselineInput): Promise<ProjectBaseline | null>;
+
+  createBaselineChangeRequest(
+    accessToken: string,
+    input: CreateBaselineChangeRequestInput,
+  ): Promise<ProjectBaselineChangeRequest>;
+  listBaselineChangeRequests(accessToken: string, projectId: string): Promise<ProjectBaselineChangeRequest[]>;
+  getBaselineChangeRequest(accessToken: string, requestId: string): Promise<ProjectBaselineChangeRequest | null>;
+  updateBaselineChangeRequest(
+    accessToken: string,
+    requestId: string,
+    input: UpdateBaselineChangeRequestInput,
+  ): Promise<ProjectBaselineChangeRequest | null>;
 }
 
 /**
@@ -377,6 +425,96 @@ export function createSupabaseProjectsRepository(
         .order("recorded_at", { ascending: true });
       if (error) throw new Error(`listProgressEntries: ${error.message}`);
       return (data as ProgressEntry[]) ?? [];
+    },
+
+    async createBaseline(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baselines")
+        .insert({ status: "approved", ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createBaseline: ${error?.message ?? "no row returned"}`);
+      return data as ProjectBaseline;
+    },
+
+    async listBaselines(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baselines")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("version", { ascending: true });
+      if (error) throw new Error(`listBaselines: ${error.message}`);
+      return (data as ProjectBaseline[]) ?? [];
+    },
+
+    async getBaseline(accessToken, baselineId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baselines")
+        .select("*")
+        .eq("id", baselineId)
+        .maybeSingle();
+      if (error) throw new Error(`getBaseline: ${error.message}`);
+      return (data as ProjectBaseline | null) ?? null;
+    },
+
+    async updateBaseline(accessToken, baselineId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baselines")
+        .update(input)
+        .eq("id", baselineId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateBaseline: ${error.message}`);
+      return (data as ProjectBaseline | null) ?? null;
+    },
+
+    async createBaselineChangeRequest(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baseline_change_requests")
+        .insert({ status: "pending", ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createBaselineChangeRequest: ${error?.message ?? "no row returned"}`);
+      return data as ProjectBaselineChangeRequest;
+    },
+
+    async listBaselineChangeRequests(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baseline_change_requests")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(`listBaselineChangeRequests: ${error.message}`);
+      return (data as ProjectBaselineChangeRequest[]) ?? [];
+    },
+
+    async getBaselineChangeRequest(accessToken, requestId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baseline_change_requests")
+        .select("*")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (error) throw new Error(`getBaselineChangeRequest: ${error.message}`);
+      return (data as ProjectBaselineChangeRequest | null) ?? null;
+    },
+
+    async updateBaselineChangeRequest(accessToken, requestId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_baseline_change_requests")
+        .update(input)
+        .eq("id", requestId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateBaselineChangeRequest: ${error.message}`);
+      return (data as ProjectBaselineChangeRequest | null) ?? null;
     },
   };
 }

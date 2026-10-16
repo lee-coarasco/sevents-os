@@ -104,3 +104,46 @@ export interface ProgressEntry {
   percent_complete: number;
   note: string | null;
 }
+
+/**
+ * Ticket 0075 (M09c, FR-PROJ-004). A frozen copy, never a live view —
+ * `snapshot` is whatever the projects module captured (WBS/milestone/
+ * activity planned dates + budget) at the moment this baseline was
+ * set, not a pointer to the live rows.
+ */
+export type ProjectBaselineStatus = "draft" | "pending_approval" | "approved" | "superseded";
+
+export interface ProjectBaseline {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  version: number;
+  snapshot: Record<string, unknown>;
+  status: ProjectBaselineStatus;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type ProjectBaselineChangeRequestStatus = "pending" | "approved" | "rejected" | "returned_for_correction";
+
+/**
+ * FR-PROJ-004: baseline changes require reason, impact analysis and
+ * approval. `workflow_instance_id` is the only approval mechanism —
+ * this table never resolves its own chain, it reads the outcome back
+ * from the workflow_instances/request_approval seam (ticket 0066).
+ */
+export interface ProjectBaselineChangeRequest {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  current_baseline_id: string;
+  proposed_snapshot: Record<string, unknown>;
+  reason: string;
+  impact_analysis: string;
+  status: ProjectBaselineChangeRequestStatus;
+  submitted_by: string | null;
+  workflow_instance_id: string;
+  resulting_baseline_id: string | null;
+  created_at: string;
+  updated_at: string;
+}

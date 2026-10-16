@@ -1,5 +1,7 @@
 import type {
   AddScheduleActivityDependencyInput,
+  CreateBaselineChangeRequestInput,
+  CreateBaselineInput,
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
@@ -7,6 +9,8 @@ import type {
   CreateWBSNodeInput,
   ProjectsRepository,
   RecordProgressEntryInput,
+  UpdateBaselineChangeRequestInput,
+  UpdateBaselineInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
   UpdateScheduleActivityInput,
@@ -16,6 +20,8 @@ import type {
   Milestone,
   ProgressEntry,
   Project,
+  ProjectBaseline,
+  ProjectBaselineChangeRequest,
   ProjectType,
   ScheduleActivity,
   ScheduleActivityDependency,
@@ -42,6 +48,8 @@ export class FakeProjectsRepository implements ProjectsRepository {
   scheduleActivities = new Map<string, ScheduleActivity>();
   dependencies: ScheduleActivityDependency[] = [];
   progressEntries: ProgressEntry[] = [];
+  baselines = new Map<string, ProjectBaseline>();
+  baselineChangeRequests = new Map<string, ProjectBaselineChangeRequest>();
 
   addSession(accessToken: string, tenantId: string) {
     this.sessions.set(accessToken, tenantId);
@@ -259,5 +267,93 @@ export class FakeProjectsRepository implements ProjectsRepository {
     return this.progressEntries.filter(
       (e) => e.tenant_id === tenant_id && e.schedule_activity_id === scheduleActivityId,
     );
+  }
+
+  async createBaseline(accessToken: string, input: CreateBaselineInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const baseline: ProjectBaseline = {
+      id: nextId("baseline"),
+      tenant_id,
+      project_id: input.project_id,
+      version: input.version,
+      snapshot: input.snapshot,
+      status: input.status ?? "approved",
+      created_by: input.created_by,
+      created_at: new Date().toISOString(),
+    };
+    this.baselines.set(baseline.id, baseline);
+    return baseline;
+  }
+
+  async listBaselines(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.baselines.values()]
+      .filter((b) => b.tenant_id === tenant_id && b.project_id === projectId)
+      .sort((a, b) => a.version - b.version);
+  }
+
+  async getBaseline(accessToken: string, baselineId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    const baseline = this.baselines.get(baselineId);
+    if (!baseline || baseline.tenant_id !== tenant_id) return null;
+    return baseline;
+  }
+
+  async updateBaseline(accessToken: string, baselineId: string, input: UpdateBaselineInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const baseline = this.baselines.get(baselineId);
+    if (!baseline || baseline.tenant_id !== tenant_id) return null;
+    const updated: ProjectBaseline = { ...baseline, ...input };
+    this.baselines.set(baselineId, updated);
+    return updated;
+  }
+
+  async createBaselineChangeRequest(accessToken: string, input: CreateBaselineChangeRequestInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const now = new Date().toISOString();
+    const request: ProjectBaselineChangeRequest = {
+      id: nextId("baseline-change-request"),
+      tenant_id,
+      project_id: input.project_id,
+      current_baseline_id: input.current_baseline_id,
+      proposed_snapshot: input.proposed_snapshot,
+      reason: input.reason,
+      impact_analysis: input.impact_analysis,
+      status: "pending",
+      submitted_by: input.submitted_by,
+      workflow_instance_id: input.workflow_instance_id,
+      resulting_baseline_id: null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.baselineChangeRequests.set(request.id, request);
+    return request;
+  }
+
+  async listBaselineChangeRequests(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.baselineChangeRequests.values()].filter(
+      (r) => r.tenant_id === tenant_id && r.project_id === projectId,
+    );
+  }
+
+  async getBaselineChangeRequest(accessToken: string, requestId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    const request = this.baselineChangeRequests.get(requestId);
+    if (!request || request.tenant_id !== tenant_id) return null;
+    return request;
+  }
+
+  async updateBaselineChangeRequest(accessToken: string, requestId: string, input: UpdateBaselineChangeRequestInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const request = this.baselineChangeRequests.get(requestId);
+    if (!request || request.tenant_id !== tenant_id) return null;
+    const updated: ProjectBaselineChangeRequest = {
+      ...request,
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    this.baselineChangeRequests.set(requestId, updated);
+    return updated;
   }
 }
