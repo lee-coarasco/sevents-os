@@ -205,10 +205,64 @@ M04-M10 in CLAUDE.md's official build order.
 
 ---
 
+## M13 — Documents, Drawings & Records
+
+**Status:** backend built, `testing` — not yet owner-verified (ticket
+0104/M13a only). The umbrella ticket 0103 is `done` in the sense that
+its architect breakdown work is finished; M13b (approval stamps/IFC
+release gate, ticket 0105) and M13c (transmittals/document requests,
+ticket 0106) are not built yet.
+
+**What's built (M13a — document register & revision control):**
+Backend `documents` module: a general-purpose document-control spine
+other modules (M12 engineering, M14 procurement, M17 site ops, M19
+quality, M27 legal, etc.) will attach records to.
+- `documents`: one row per logical document — free-text
+  `document_type` (e.g. "drawing", "spec", "BOQ", "RFI" — this module
+  does not own the list of types other modules may use),
+  `document_number`, `title`, optional `project_id` (not every
+  controlled document is project-scoped, e.g. a corporate SOP),
+  free-text `discipline` and `access_class` (no fixed classification
+  scheme invented here), `tags`, `originator_id`, and
+  `current_revision_id` (set once the first revision exists).
+- `document_revisions`: one row per version of a document —
+  caller-supplied `revision_code` (e.g. "A", "B", "P1"), `status`
+  (`draft` → `under_review` → `approved` → `superseded`/`rejected` —
+  its own vocabulary, distinct from the approval-chain decision enum
+  used elsewhere), a `storage_reference` pointer only (no file
+  upload/storage wiring — that's a separate concern), `reviewer_id`/
+  `approver_id`, and `superseded_by_revision_id`.
+- **Auto-supersede (FR-DOC-002):** creating a new revision on a
+  document whose current revision is `approved` marks that old
+  revision `superseded` and points it at the new one, in the same
+  call — never a separate step.
+- **Current-for-construction views:** listing a document's revisions
+  excludes `superseded`/`rejected` by default; pass
+  `?includeSuperseded=true` to see them. A separate revision-history
+  endpoint always returns the full ordered (oldest-to-newest) list with
+  every field, as the raw data a future revision-comparison screen
+  needs.
+- **Permission:** `documents.register.manage` gates all writes (create
+  document, create revision, edit metadata) and is granted only to
+  `role.platform_administrator` and `role.document_controller`. Reads
+  (list/get documents, list/get revisions, revision history) are open
+  to any authenticated user with no extra permission check, same
+  broad-read/narrow-write split used elsewhere (e.g. `modules/projects`).
+
+**Out of scope for M13a (left for later tickets or other modules):**
+file upload/binary storage wiring, OCR/extraction, retention/legal hold
+(already generic and reusable via ticket 0079's `retention_policies`/
+`legal_holds`), approval-stamp/IFC release gating (M13b), transmittals
+and document requests (M13c).
+
+**How to use it:** Nothing to click yet — backend only, no frontend.
+
+---
+
 ## Not started yet
 
-Everything from M12 onward in CLAUDE.md's build order table (M12 Technical
-Engineering, M13 Documents/Drawings, M14 Procurement, M15 Inventory, …
-through M38) has no code. Don't assume otherwise just because a module
-number is skipped above — check `tickets/` and this file before relying on
-a module existing.
+Everything from M12 onward in CLAUDE.md's build order table except M13a
+above (M12 Technical Engineering, M13b/M13c Documents/Drawings remainder,
+M14 Procurement, M15 Inventory, … through M38) has no code. Don't assume
+otherwise just because a module number is skipped above — check
+`tickets/` and this file before relying on a module existing.

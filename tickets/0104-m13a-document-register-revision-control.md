@@ -1,7 +1,7 @@
 ---
 id: 104
 title: "M13a — Document register & revision control"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 15
 created: 2026-10-16
@@ -79,19 +79,66 @@ module's specific document types.
   `legal_holds` (ticket 0079); nothing to build here.
 
 ## Acceptance
-- [ ] `documents` and `document_revisions` created, tenant-scoped, RLS
+- [x] `documents` and `document_revisions` created, tenant-scoped, RLS
       enabled.
-- [ ] Creating a revision on a document whose current revision is
+- [x] Creating a revision on a document whose current revision is
       `approved` supersedes the old one in the same call (FR-DOC-002).
-- [ ] List/get endpoints exclude `superseded`/`rejected` revisions by
+- [x] List/get endpoints exclude `superseded`/`rejected` revisions by
       default; `includeSuperseded=true` returns them.
-- [ ] Revision-history endpoint returns full ordered revision list.
-- [ ] `documents.register.manage` gates all writes; reads are open to
+- [x] Revision-history endpoint returns full ordered revision list.
+- [x] `documents.register.manage` gates all writes; reads are open to
       any permitted authenticated user.
-- [ ] Tests cover tenant isolation, the auto-supersede-on-new-revision
+- [x] Tests cover tenant isolation, the auto-supersede-on-new-revision
       behavior, the default-excludes-superseded list behavior, and
       permission gating on writes.
 
 ## Progress
 - 2026-10-16 18:10 UTC: Filed as the first of three M13 sub-tickets
   per ticket 0103's split.
+- 2026-10-16 17:15 UTC: Built. Migration
+  `supabase/migrations/20261016000018_m13a_document_register_revision_control.sql`
+  adds `documents` and `document_revisions` (tenant-scoped, RLS enabled
+  on both, `documents.current_revision_id` FK added after
+  `document_revisions` exists to avoid a forward reference) and grants
+  the new `documents.register.manage` permission to
+  `role.platform_administrator` and `role.document_controller` only, via
+  the same `insert into permissions` / `insert into role_permissions`
+  mechanism ticket 0096 used. Not applied — no reachable Supabase MCP
+  tools in this sandbox this session, consistent with every prior
+  module.
+  Backend module `backend/src/modules/documents/` (types.ts,
+  repository.ts — Supabase-backed, not exercised live — service.ts,
+  routes.ts), `backend/src/test/fakeDocumentsRepository.ts` for the
+  in-memory test double, registered in `backend/src/app.ts`. The
+  FR-DOC-002 auto-supersede rule lives in
+  `service.ts#createDocumentRevision`: it reads the document's current
+  revision, and if that revision's status is `approved`, marks it
+  `superseded` with `superseded_by_revision_id` pointing at the new
+  revision, then sets the document's `current_revision_id` to the new
+  revision — all inside the one service call, so there's no separate
+  step a caller could skip. Routes split broad-read/narrow-write: GET
+  `/documents`, `/documents/:id`, `/documents/:id/revisions` (default
+  excludes `superseded`/`rejected`; `?includeSuperseded=true` returns
+  everything), `/documents/:id/revisions/history` (full ordered oldest-
+  to-newest list) and `/documents/revisions/:revisionId` have no
+  permission preHandler beyond the module's own bearer-token hook;
+  POST/PATCH routes are gated with
+  `requirePermission("documents.register.manage")`.
+  Tests: `backend/src/modules/documents/service.test.ts` (14 cases) and
+  `routes.test.ts` (17 cases) — tenant isolation on every
+  create/get/list path, the auto-supersede behavior (and the negative
+  case: a non-approved current revision is left alone), the
+  default-excludes-superseded/rejected list view vs.
+  `includeSuperseded=true`, full revision history ordering, and 401/403
+  permission gating on every write route. Full backend suite:
+  `npm install && npm run build && npm test` — before 540 tests / 55
+  files, after 571 tests / 56 files, all green.
+  One judgment call: the ticket's `createDocumentRevisionInput` didn't
+  specify whether a caller can set a revision's initial `status`
+  directly (vs. always starting at `draft`); allowed an optional
+  `status` on create (defaulting to `draft`) since M13b (approval gate)
+  isn't built yet and a caller may need to register an
+  already-`approved` historical revision during data migration — this
+  doesn't weaken FR-DOC-002 since the supersede check still runs
+  against whatever the *previous* current revision's status was, not
+  the new one.
