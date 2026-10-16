@@ -1,11 +1,11 @@
 ---
 id: 86
 title: Wire a real preview deploy for the frontend (Vercel)
-status: blocked
+status: done
 roles: [human, devops]
 priority: 1
 created: 2026-10-16
-updated: 2026-10-16T12:30Z
+updated: 2026-10-16
 ---
 
 Ticket 0084 (the owner's "when will UI be created" question) got a
@@ -85,3 +85,4 @@ automatically via its GitHub connection.**
   Directory = `frontend/`) and add the three `VITE_*` env vars there.
   Once done, Vercel auto-deploys on every push — devops step is then
   just verifying the preview URL works end-to-end.
+- 2026-10-16 16:24 GST - lee-coarasco (dashboard): Blocked → Done. i have done all the setup in vercel.
