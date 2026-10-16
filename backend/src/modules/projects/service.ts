@@ -3,12 +3,15 @@ import type {
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
+  CreateRegisterEntryInput,
   CreateScheduleActivityInput,
   CreateWBSNodeInput,
+  ListRegisterEntriesFilters,
   ProjectsRepository,
   RecordProgressEntryInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
+  UpdateRegisterEntryInput,
   UpdateScheduleActivityInput,
   UpdateWBSNodeInput,
 } from "./repository.js";
@@ -18,6 +21,7 @@ import type {
   Project,
   ProjectBaseline,
   ProjectBaselineChangeRequest,
+  ProjectRegisterEntry,
   ProjectType,
   ScheduleActivity,
   ScheduleActivityDependency,
@@ -386,4 +390,60 @@ export async function resolveBaselineChangeRequest(
     status: decision as "rejected" | "returned_for_correction",
   });
   return updated!;
+}
+
+// ---------------------------------------------------------------------------
+// Issue/risk/decision/assumption/dependency/change-request register
+// (ticket 0076, M09d)
+// ---------------------------------------------------------------------------
+
+export interface CreateRegisterEntryServiceInput {
+  projectId: string;
+  kind: CreateRegisterEntryInput["kind"];
+  title: string;
+  description?: string | null;
+  ownerId?: string | null;
+  dueDate?: string | null;
+  raisedBy: string | null;
+  likelihood?: string | null;
+  impact?: string | null;
+}
+
+/** A `change_request` row here is a logged intent/record only — it never starts a workflow instance itself; ticket 0075 owns FR-PROJ-004's one named approval path. */
+export async function createRegisterEntry(
+  repo: ProjectsRepository,
+  accessToken: string,
+  input: CreateRegisterEntryServiceInput,
+): Promise<ProjectRegisterEntry> {
+  return repo.createRegisterEntry(accessToken, {
+    project_id: input.projectId,
+    kind: input.kind,
+    title: input.title,
+    description: input.description ?? null,
+    owner_id: input.ownerId ?? null,
+    due_date: input.dueDate ?? null,
+    raised_by: input.raisedBy,
+    likelihood: input.likelihood ?? null,
+    impact: input.impact ?? null,
+  });
+}
+
+export async function listRegisterEntries(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+  filters: ListRegisterEntriesFilters = {},
+): Promise<ProjectRegisterEntry[]> {
+  return repo.listRegisterEntries(accessToken, projectId, filters);
+}
+
+export async function updateRegisterEntry(
+  repo: ProjectsRepository,
+  accessToken: string,
+  entryId: string,
+  input: UpdateRegisterEntryInput,
+): Promise<ProjectRegisterEntry> {
+  const updated = await repo.updateRegisterEntry(accessToken, entryId, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
 }

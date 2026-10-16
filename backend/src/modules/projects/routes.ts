@@ -13,6 +13,7 @@ import {
   createProjectType,
   createScheduleActivity,
   createWBSNode,
+  createRegisterEntry,
   getBaseline,
   getProject,
   listBaselineChangeRequests,
@@ -21,6 +22,7 @@ import {
   listProgressEntries,
   listProjectTypes,
   listProjects,
+  listRegisterEntries,
   listScheduleActivities,
   listScheduleActivityDependencies,
   listWBSNodes,
@@ -31,9 +33,11 @@ import {
   setInitialBaseline,
   updateMilestone,
   updateProject,
+  updateRegisterEntry,
   updateScheduleActivity,
   updateWBSNode,
 } from "./service.js";
+import type { RegisterEntryKind, RegisterEntryStatus } from "./types.js";
 
 export interface ProjectsRouteOptions {
   getRepository: () => ProjectsRepository;
@@ -607,6 +611,104 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
           request.params.requestId,
         );
         return { changeRequest };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // Issue/risk/decision/assumption/dependency/change-request register
+  // (ticket 0076, M09d)
+  // -------------------------------------------------------------------
+
+  app.post<{
+    Params: { projectId: string };
+    Body: {
+      kind: RegisterEntryKind;
+      title: string;
+      description?: string;
+      ownerId?: string;
+      dueDate?: string;
+      likelihood?: string;
+      impact?: string;
+    };
+  }>(
+    "/projects/:projectId/register",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.kind || !body.title) {
+        reply.code(400);
+        return { error: "kind and title are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      const entry = await createRegisterEntry(options.getRepository(), token, {
+        projectId: request.params.projectId,
+        kind: body.kind,
+        title: body.title,
+        description: body.description ?? null,
+        ownerId: body.ownerId ?? null,
+        dueDate: body.dueDate ?? null,
+        raisedBy: callerUserId,
+        likelihood: body.likelihood ?? null,
+        impact: body.impact ?? null,
+      });
+      reply.code(201);
+      return { entry };
+    },
+  );
+
+  app.get<{ Params: { projectId: string }; Querystring: { kind?: RegisterEntryKind; status?: RegisterEntryStatus } }>(
+    "/projects/:projectId/register",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const entries = await listRegisterEntries(options.getRepository(), token, request.params.projectId, {
+        kind: request.query.kind,
+        status: request.query.status,
+      });
+      return { entries };
+    },
+  );
+
+  app.patch<{
+    Params: { projectId: string; entryId: string };
+    Body: {
+      title?: string;
+      description?: string | null;
+      status?: "open" | "in_progress" | "resolved" | "closed";
+      ownerId?: string | null;
+      dueDate?: string | null;
+      resolvedAt?: string | null;
+      resolutionNote?: string | null;
+      likelihood?: string | null;
+      impact?: string | null;
+    };
+  }>(
+    "/projects/:projectId/register/:entryId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const entry = await updateRegisterEntry(options.getRepository(), token, request.params.entryId, {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.description !== undefined ? { description: body.description } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.ownerId !== undefined ? { owner_id: body.ownerId } : {}),
+          ...(body.dueDate !== undefined ? { due_date: body.dueDate } : {}),
+          ...(body.resolvedAt !== undefined ? { resolved_at: body.resolvedAt } : {}),
+          ...(body.resolutionNote !== undefined ? { resolution_note: body.resolutionNote } : {}),
+          ...(body.likelihood !== undefined ? { likelihood: body.likelihood } : {}),
+          ...(body.impact !== undefined ? { impact: body.impact } : {}),
+        });
+        return { entry };
       } catch (error) {
         if (error instanceof NotFoundError) {
           reply.code(404);

@@ -5,14 +5,17 @@ import type {
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
+  CreateRegisterEntryInput,
   CreateScheduleActivityInput,
   CreateWBSNodeInput,
+  ListRegisterEntriesFilters,
   ProjectsRepository,
   RecordProgressEntryInput,
   UpdateBaselineChangeRequestInput,
   UpdateBaselineInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
+  UpdateRegisterEntryInput,
   UpdateScheduleActivityInput,
   UpdateWBSNodeInput,
 } from "../modules/projects/repository.js";
@@ -22,6 +25,7 @@ import type {
   Project,
   ProjectBaseline,
   ProjectBaselineChangeRequest,
+  ProjectRegisterEntry,
   ProjectType,
   ScheduleActivity,
   ScheduleActivityDependency,
@@ -50,6 +54,7 @@ export class FakeProjectsRepository implements ProjectsRepository {
   progressEntries: ProgressEntry[] = [];
   baselines = new Map<string, ProjectBaseline>();
   baselineChangeRequests = new Map<string, ProjectBaselineChangeRequest>();
+  registerEntries = new Map<string, ProjectRegisterEntry>();
 
   addSession(accessToken: string, tenantId: string) {
     this.sessions.set(accessToken, tenantId);
@@ -354,6 +359,52 @@ export class FakeProjectsRepository implements ProjectsRepository {
       updated_at: new Date().toISOString(),
     };
     this.baselineChangeRequests.set(requestId, updated);
+    return updated;
+  }
+
+  async createRegisterEntry(accessToken: string, input: CreateRegisterEntryInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const now = new Date().toISOString();
+    const entry: ProjectRegisterEntry = {
+      id: nextId("register-entry"),
+      tenant_id,
+      project_id: input.project_id,
+      kind: input.kind,
+      title: input.title,
+      description: input.description ?? null,
+      status: "open",
+      owner_id: input.owner_id ?? null,
+      due_date: input.due_date ?? null,
+      raised_by: input.raised_by,
+      raised_at: now,
+      resolved_at: null,
+      resolution_note: null,
+      likelihood: input.likelihood ?? null,
+      impact: input.impact ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.registerEntries.set(entry.id, entry);
+    return entry;
+  }
+
+  async listRegisterEntries(accessToken: string, projectId: string, filters: ListRegisterEntriesFilters) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.registerEntries.values()].filter(
+      (e) =>
+        e.tenant_id === tenant_id &&
+        e.project_id === projectId &&
+        (!filters.kind || e.kind === filters.kind) &&
+        (!filters.status || e.status === filters.status),
+    );
+  }
+
+  async updateRegisterEntry(accessToken: string, entryId: string, input: UpdateRegisterEntryInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const entry = this.registerEntries.get(entryId);
+    if (!entry || entry.tenant_id !== tenant_id) return null;
+    const updated: ProjectRegisterEntry = { ...entry, ...input, updated_at: new Date().toISOString() };
+    this.registerEntries.set(entryId, updated);
     return updated;
   }
 }

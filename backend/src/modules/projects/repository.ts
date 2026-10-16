@@ -9,8 +9,11 @@ import type {
   ProjectBaselineChangeRequest,
   ProjectBaselineChangeRequestStatus,
   ProjectBaselineStatus,
+  ProjectRegisterEntry,
   ProjectStatus,
   ProjectType,
+  RegisterEntryKind,
+  RegisterEntryStatus,
   ScheduleActivity,
   ScheduleActivityDependency,
   WBSNode,
@@ -142,6 +145,35 @@ export interface UpdateBaselineChangeRequestInput {
   resulting_baseline_id?: string | null;
 }
 
+export interface CreateRegisterEntryInput {
+  project_id: string;
+  kind: RegisterEntryKind;
+  title: string;
+  description?: string | null;
+  owner_id?: string | null;
+  due_date?: string | null;
+  raised_by: string | null;
+  likelihood?: string | null;
+  impact?: string | null;
+}
+
+export interface UpdateRegisterEntryInput {
+  title?: string;
+  description?: string | null;
+  status?: RegisterEntryStatus;
+  owner_id?: string | null;
+  due_date?: string | null;
+  resolved_at?: string | null;
+  resolution_note?: string | null;
+  likelihood?: string | null;
+  impact?: string | null;
+}
+
+export interface ListRegisterEntriesFilters {
+  kind?: RegisterEntryKind;
+  status?: RegisterEntryStatus;
+}
+
 /**
  * Every method is keyed off the caller's own access token, not an
  * explicit tenant id — same convention as `TenancyRepository`
@@ -207,6 +239,18 @@ export interface ProjectsRepository {
     requestId: string,
     input: UpdateBaselineChangeRequestInput,
   ): Promise<ProjectBaselineChangeRequest | null>;
+
+  createRegisterEntry(accessToken: string, input: CreateRegisterEntryInput): Promise<ProjectRegisterEntry>;
+  listRegisterEntries(
+    accessToken: string,
+    projectId: string,
+    filters: ListRegisterEntriesFilters,
+  ): Promise<ProjectRegisterEntry[]>;
+  updateRegisterEntry(
+    accessToken: string,
+    entryId: string,
+    input: UpdateRegisterEntryInput,
+  ): Promise<ProjectRegisterEntry | null>;
 }
 
 /**
@@ -515,6 +559,39 @@ export function createSupabaseProjectsRepository(
         .maybeSingle();
       if (error) throw new Error(`updateBaselineChangeRequest: ${error.message}`);
       return (data as ProjectBaselineChangeRequest | null) ?? null;
+    },
+
+    async createRegisterEntry(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_register_entries")
+        .insert({ status: "open", ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createRegisterEntry: ${error?.message ?? "no row returned"}`);
+      return data as ProjectRegisterEntry;
+    },
+
+    async listRegisterEntries(accessToken, projectId, filters) {
+      const client = userScopedClientFactory(accessToken);
+      let query = client.from("project_register_entries").select("*").eq("project_id", projectId);
+      if (filters.kind) query = query.eq("kind", filters.kind);
+      if (filters.status) query = query.eq("status", filters.status);
+      const { data, error } = await query.order("raised_at", { ascending: true });
+      if (error) throw new Error(`listRegisterEntries: ${error.message}`);
+      return (data as ProjectRegisterEntry[]) ?? [];
+    },
+
+    async updateRegisterEntry(accessToken, entryId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_register_entries")
+        .update(input)
+        .eq("id", entryId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateRegisterEntry: ${error.message}`);
+      return (data as ProjectRegisterEntry | null) ?? null;
     },
   };
 }

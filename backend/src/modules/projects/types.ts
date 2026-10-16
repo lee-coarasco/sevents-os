@@ -147,3 +147,36 @@ export interface ProjectBaselineChangeRequest {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Ticket 0076 (M09d, FR-PROJ-005). One table for all six categories —
+ * they share the same fields, BRD only asks that each be "tracked." A
+ * `change_request` row here is a logged intent/record only; it never
+ * triggers workflow/approval itself (ticket 0075 already owns
+ * FR-PROJ-004's baseline-change approval path).
+ */
+export const REGISTER_ENTRY_KINDS = ["issue", "risk", "decision", "assumption", "dependency", "change_request"] as const;
+export type RegisterEntryKind = (typeof REGISTER_ENTRY_KINDS)[number];
+
+export type RegisterEntryStatus = "open" | "in_progress" | "resolved" | "closed";
+
+export interface ProjectRegisterEntry {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  kind: RegisterEntryKind;
+  title: string;
+  description: string | null;
+  status: RegisterEntryStatus;
+  owner_id: string | null;
+  due_date: string | null;
+  raised_by: string | null;
+  raised_at: string;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  /** Free-text, tenant-configurable (meaningful for `risk` rows only in practice) — never a computed/numeric score, per FR-PROJ-006. */
+  likelihood: string | null;
+  impact: string | null;
+  created_at: string;
+  updated_at: string;
+}
