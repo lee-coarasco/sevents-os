@@ -80,6 +80,12 @@ export function AppLayout() {
             </svg>
             Projects
           </NavLink>
+          <NavLink to="/crm" className={navLinkClass}>
+            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M9 7a3 3 0 106 0 3 3 0 00-6 0z" />
+            </svg>
+            Clients &amp; CRM
+          </NavLink>
 
           <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
             Workforce

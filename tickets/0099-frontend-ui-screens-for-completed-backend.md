@@ -1,7 +1,7 @@
 ---
 id: 99
 title: Frontend UI screens for completed backend modules (M04, M07, M08, M09, M10)" module: "M04/M07/M08/M09/M10
-status: in-progress
+status: testing
 roles: [ui-designer]
 priority: 1
 created: 2026-10-16
@@ -148,3 +148,38 @@ _Created by lee-coarasco in the AppYard dashboard._
   kanban board lead→qualified→tender→won/lost). Check `modules/crm`'s
   route surface first, same pattern as every prior screen in this
   ticket. `status: in-progress` stands, nothing blocked.
+- 2026-10-16 17:10 UTC: Built **screen 5/5, Clients & CRM (M10)**:
+  `frontend/src/pages/CrmPage.tsx` — single page, three tabs (Clients,
+  Contacts, Pipeline) since all three share the same client-name lookup
+  and the ticket described them as one screen group. Clients tab:
+  `GET /crm/clients?search=` (live search). Contacts tab:
+  `GET /crm/contacts?search=`, client name resolved client-side against
+  the clients list already loaded. Pipeline tab: `GET /crm/opportunities`
+  rendered as Kanban columns across the backend's full 7-stage set
+  (lead/qualified/site_visit/tender/negotiation/won/lost — ticket 0091's
+  `OPPORTUNITY_STAGES`; the ticket text's "lead → qualified → tender →
+  won/lost" was a shorthand description, not an instruction to drop the
+  stages the backend actually has). Each card has a stage `<select>`
+  that calls `PATCH /crm/opportunities/:id` to move it — picked over a
+  drag-and-drop library since no such dependency exists in this
+  frontend yet and a select is the plain-HTML equivalent for "move this
+  card's stage". No missing endpoints — ticket 0090/0091's client/
+  contact/opportunity CRUD already covers list+search+move exactly as
+  scoped. Kept read-only aside from the stage move (no new-client/
+  contact/opportunity forms — ticket's screen spec didn't ask for them,
+  same read-only-except-the-core-interaction call as the Projects
+  screens). Routes: `/crm`; new "Clients & CRM" nav entry in
+  `AppLayout.tsx`. 4 new tests, all passing; `npm run build` clean.
+  **All 5 screens in this ticket are now built.** Full frontend suite:
+  21/25 passing — the 4 failures are in `LoginPage.test.tsx`,
+  `OrgSetupPage.test.tsx` and `DepartmentsRolesPage.test.tsx`, the same
+  three pre-existing-stale-markup files flagged by name in this
+  ticket's first progress note (confirmed via `git stash` back then);
+  nothing new broke. (Correction: the two progress notes above this one
+  said "two" pre-existing failing files — it was three all along,
+  `OrgSetupPage.test.tsx` included; this note has the accurate count.)
+  Those three files are stale-assertion fixes, not new work — ticket
+  0102 already exists to track them. Moving ticket 0099 to
+  `status: testing` — definition of done is met (all five screen groups
+  render, sidebar nav reaches each, empty states shown, `npm run build`
+  clean).

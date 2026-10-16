@@ -10,6 +10,7 @@ import { TaskInboxPage } from "./pages/TaskInboxPage";
 import { ApprovalQueuePage } from "./pages/ApprovalQueuePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { CrmPage } from "./pages/CrmPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -40,6 +41,7 @@ export function App() {
             <Route path="approvals" element={<ApprovalQueuePage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:id" element={<ProjectDetailPage />} />
+            <Route path="crm" element={<CrmPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
