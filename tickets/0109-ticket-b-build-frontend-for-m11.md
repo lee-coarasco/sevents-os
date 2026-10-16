@@ -1,7 +1,7 @@
 ---
 id: 109
 title: Ticket B — Build frontend for M11 and M13 (zero UI currently)
-status: next
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-16
@@ -55,3 +55,29 @@ Acceptance:
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-16 22:25 UTC: Built both modules' frontend.
+  - Added `GET /workflow/definitions/published` (backend, permission-light)
+    so non-admin actors can pick a `definitionId` for submit-for-approval —
+    see DECISIONS.md for why the existing endpoint couldn't be reused.
+  - M11: `OpportunityDetailPage` (`/crm/opportunities/:id`, site visits +
+    tender submissions tabs), `TenderSubmissionDetailPage`
+    (`/tendering/tender-submissions/:id`, Tender Documents / Estimates /
+    Bid-No-Bid tabs covering all of tendering+estimating+bidding).
+  - M13: `DocumentsPage` (`/documents`, nav entry "Documents & Drawings")
+    and `DocumentDetailPage` (`/documents/:id`) — register list/create,
+    revisions list/create, submit-for-IFC-release, supersede.
+  - Linked opportunity cards (CrmPage) and document rows to their detail
+    pages; documents link to their project.
+  - Followed the established inline-`has()`/native-input convention (no
+    `<PermissionGate>`/`<EntityPicker>` yet — that's ticket 0123, filed
+    before this one, covering the whole app).
+  - Two scope gaps found during build, each with a reasoning note in
+    DECISIONS.md: estimate/document top-level field editing has no UI
+    (only create + line-item add/remove) — filed as ticket 0124; the
+    estimate/line fields and the "Supersede" action's exact backend
+    semantics didn't match the ticket's prose exactly, so the UI follows
+    the real API shape instead (documented in DECISIONS.md and
+    USER-GUIDE.md).
+  - All backend (594) and frontend (54) tests pass; `tsc --noEmit` and
+    `vite build` clean on both sides. Not yet owner-verified in a running
+    app — set to `testing`.
