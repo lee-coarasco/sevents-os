@@ -83,17 +83,17 @@ Build in this sequence. Each module depends on those before it. Do not start a m
 | **Auth** | Supabase Auth | JWT-based; role claims in JWT for permission checks |
 | **File storage** | Supabase Storage | Documents, evidence attachments, engineering files |
 | **Realtime** | Supabase Realtime | Task/approval queue updates |
-| **Backend API** | Node.js (TypeScript) | REST + tRPC or REST only — architect decides |
-| **Frontend** | TBD — architect proposes in Phase 1 ticket | React-based preferred but not locked |
-| **Hosting** | TBD — architect proposes | Vercel / Railway / Fly.io all acceptable |
+| **Backend API** | Node.js (TypeScript), Fastify | REST + tRPC or REST only — architect decides |
+| **Frontend** | Vite + React 18 + TypeScript | Tailwind CSS, React Router, `@supabase/supabase-js` used directly from the browser for sign-in (decided 2026-10-16, see DECISIONS.md) |
+| **Hosting** | Vercel (frontend preview deploys) | Backend hosting target still TBD — architect proposes |
 
 **Supabase project is provisioned and ready.** Credentials are already set as GitHub Actions secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. Do not hard-code them. Use `SUPABASE_SERVICE_ROLE_KEY` only in backend/server contexts, never in client-side code.
 
 Use the Supabase CLI (`supabase`) for all schema work: write migration files under `supabase/migrations/`, apply with `supabase db push`. Initialize the Supabase project config (`supabase init`) if not already present. RLS must be enabled on every table — no table is accessible without a policy.
 
-**What is decided:** Supabase for DB + Auth + Storage + Realtime. Node.js + TypeScript for the backend. These are not up for debate.
+**What is decided:** Supabase for DB + Auth + Storage + Realtime. Node.js + TypeScript (Fastify) for the backend. Vite + React 18 + TypeScript + Tailwind for the frontend, hosted on Vercel for preview deploys. These are not up for debate.
 
-**What is still TBD:** Frontend framework (architect proposes), hosting target (architect proposes), specific Node.js framework (Express / Fastify / Hono — architect decides). Write to NEEDS_APPROVAL.md only if a genuinely new paid service is needed.
+**What is still TBD:** Backend hosting target (architect proposes — Vercel / Railway / Fly.io all acceptable). Write to NEEDS_APPROVAL.md only if a genuinely new paid service is needed.
 
 ---
 

@@ -556,3 +556,42 @@ approved (agent-autonomous or you).
 > this first build, expand to other entity types in a later ticket once
 > real categories of sensitive data (HR/legal/financial, per the PRD
 > module row) actually exist as entities in this codebase.
+
+## 2026-10-16 06:04 UTC - Frontend framework and hosting decided: Vite + React + TypeScript, Tailwind, Supabase JS client direct from browser, Vercel preview hosting
+- Decision: This was deferred three times without ever being picked
+  up — ticket 0053 (Phase 1 scaffold) deferred it "to a Phase 2 ticket
+  when there's something to render/deploy"; `docs/PRD.md` §3 open
+  question 5 said "architect to propose in NEEDS_APPROVAL.md during
+  Phase 1"; neither Phase 1 nor Phase 2 ever filed that ticket, and
+  the owner noticed via ticket 0084 ("so far only backend is
+  created"). Deciding now rather than deferring again: **Vite + React
+  18 + TypeScript** for the frontend build tool/framework, **Tailwind
+  CSS** for styling (no heavy component library yet — add one only
+  once a second/third screen shows real duplication), **React Router**
+  for client routing, and the **`@supabase/supabase-js` client used
+  directly from the browser with the anon key** for sign-in/sign-out
+  (matches CLAUDE.md's "Auth | Supabase Auth | JWT-based" row — the
+  backend has no password/session endpoints of its own, by design;
+  `identity/routes.ts` only has sign-out/accept-invite/mfa-enroll/
+  audit-log, confirmed by reading it). The resulting Supabase session
+  JWT is sent as a bearer token to the Node/Fastify backend for every
+  API call, which is what every existing route (e.g.
+  `GET /tenancy/companies`) already expects. **Hosting: Vercel** for
+  frontend preview deploys (devops-decidable per CLAUDE.md, zero
+  committed cost at preview-deploy volume; production deploy still
+  requires owner approval same as everything else under "Production
+  deploys").
+- Why: React was already the CLAUDE.md-stated preference ("React-based
+  preferred but not locked"); Vite over Next.js because this frontend
+  is a pure SPA against a separate REST API with no server-rendering
+  requirement anywhere in the BRD/PRD, so Next.js's SSR machinery
+  would be unused weight. Supabase-direct-from-browser (rather than
+  proxying auth through the backend) avoids inventing a second,
+  parallel auth mechanism the backend doesn't have — same
+  "don't build unrequested machinery" principle used repeatedly in
+  this project's M06-M09 decisions.
+- Approved by: agent (CLAUDE.md lists "Frontend framework (architect
+  proposes)" and "hosting target (architect proposes)" explicitly
+  under what needs no owner approval; recorded here, not in
+  NEEDS_APPROVAL.md, because it is agent-decidable, same weight as
+  the Fastify framework choice in ticket 0053).

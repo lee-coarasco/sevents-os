@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { healthRoute } from "./routes/health.js";
 import { identityRoutes } from "./modules/identity/routes.js";
@@ -47,6 +48,7 @@ import {
   createServiceClient,
   createUserScopedClient,
 } from "./lib/supabase.js";
+import { env } from "./lib/env.js";
 
 export interface BuildAppOptions {
   /** Override for tests; defaults to the real Supabase service client. */
@@ -153,6 +155,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
   const guard = (permissionKey: string) => requirePermission(getAuthorityRepository, permissionKey);
+
+  app.register(cors, {
+    origin: env.corsOrigins,
+    credentials: true,
+  });
 
   app.register(healthRoute, {
     getSupabaseClient: options.getSupabaseClient ?? createServiceClient,

@@ -15,6 +15,7 @@
     "import:catalogue": "tsx src/scripts/import-catalogue.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.1",
     "@supabase/supabase-js": "^2.45.4",
     "fastify": "^5.12.7"
   },
