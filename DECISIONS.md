@@ -775,3 +775,33 @@ approved (agent-autonomous or you).
   the agent's recommendation made under that delegation, recorded here
   per CLAUDE.md's rule that owner approvals affecting data deletion are
   documented in DECISIONS.md.
+
+## 2026-10-16 08:05 UTC - Phase 4 opened: M10 (Client, CRM & Sales Pipeline) filed and split into tickets 0090/0091/0092
+- Decision: Phase 3 (M04/M07/M08/M09/M35/M31) is now fully `testing`
+  (ticket 0080 closed out M35). Per `docs/PRD.md`'s build-order table,
+  the next module is M10, first in Phase 4. Filed parent ticket 0089,
+  surveyed the schema (no CRM-shaped table exists yet — additive, not
+  a rename of an existing one), and split it the same way every prior
+  module (M06/M07/M09/M31/M35) was split: 0090 (M10a — Client/Contact/
+  Lead/Opportunity core model, FR-CRM-001/002), 0091 (M10b — site
+  visits, tender deadline tracking, client communication log,
+  FR-CRM-003), 0092 (M10c — pipeline forecast reporting and the
+  won-opportunity handover checklist gate, FR-CRM-004, reusing the
+  M08 `request_approval` seam for its "authorized exception" path
+  rather than inventing a second approval mechanism). Explicitly
+  scoped Tender/Bid/Estimate/EstimateLine (also listed in BRD §6.2's
+  entity list) out of all three — those belong to M11 (Tendering,
+  Estimation & Commercials) per the module table and FR-BID-001/
+  FR-EST-00x, so M10 only tracks the tender *deadline* ("tender
+  calendar"), never the tender document or the bid/no-bid decision
+  itself. No sub-ticket auto-creates a `projects` row on handover —
+  FR-CRM-004 only requires the checklist gate, not an automatic
+  project-creation pipeline nothing asked for.
+- Why: same "don't build unrequested machinery," "reuse the existing
+  approval seam," and "survey before designing a new mechanism"
+  principles used throughout every M06-M10 decision so far; keeps M10
+  from drifting into M11's (tendering/estimation) or M09's (project
+  creation) scope.
+- Approved by: agent (ticket classification/ordering and internal
+  data-model split are explicitly agent-decidable per CLAUDE.md, same
+  weight as every prior module split recorded here).
