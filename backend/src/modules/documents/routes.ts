@@ -1,8 +1,10 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
 import type { DocumentsRepository } from "./repository.js";
 import {
   NotFoundError,
+  RevisionNotUnderReviewError,
   createDocument,
   createDocumentRevision,
   getDocument,
@@ -10,6 +12,8 @@ import {
   listDocumentRevisionHistory,
   listDocumentRevisions,
   listDocuments,
+  resolveRevisionApproval,
+  submitRevisionForRelease,
   updateDocument,
   updateDocumentRevision,
 } from "./service.js";
@@ -17,6 +21,7 @@ import type { DocumentRevisionStatus } from "./types.js";
 
 export interface DocumentsRouteOptions {
   getRepository: () => DocumentsRepository;
+  getWorkflowRepository: () => WorkflowRepository;
   /** Gates writes only (create document, create revision, edit metadata) — reads stay open to any permitted authenticated user. */
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
 }
@@ -224,4 +229,59 @@ export async function documentsRoutes(app: FastifyInstance, options: DocumentsRo
       throw error;
     }
   });
+
+  // FR-DOC-003: submit an under_review revision for IFC release via the
+  // request_approval workflow seam.
+  app.post<{
+    Params: { id: string };
+    Body: { definitionId: string };
+  }>("/documents/revisions/:id/submit-for-release", guard, async (request, reply) => {
+    const body = request.body ?? ({} as never);
+    if (!body.definitionId) {
+      reply.code(400);
+      return { error: "definitionId is required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+    try {
+      const revision = await submitRevisionForRelease(options.getRepository(), options.getWorkflowRepository(), token, {
+        revisionId: request.params.id,
+        definitionId: body.definitionId,
+        submittedBy: callerUserId,
+      });
+      return { revision };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      if (error instanceof RevisionNotUnderReviewError) {
+        reply.code(409);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
+
+  // The polling half: each call re-checks the linked workflow instance
+  // and applies the outcome exactly once (resolveRevisionApproval is
+  // idempotent once status leaves 'under_review'), same convention as
+  // ticket 0097's GET /estimates/:estimateId/approval-status.
+  app.post<{ Params: { id: string } }>(
+    "/documents/revisions/:id/resolve-approval",
+    guard,
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const revision = await resolveRevisionApproval(options.getRepository(), options.getWorkflowRepository(), token, request.params.id);
+        return { revision };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
 }

@@ -107,6 +107,8 @@ export class FakeDocumentsRepository implements DocumentsRepository {
       reviewer_id: input.reviewer_id ?? null,
       approver_id: input.approver_id ?? null,
       superseded_by_revision_id: null,
+      workflow_instance_id: null,
+      approved_at: null,
       created_by: input.created_by,
       created_at: nextTimestamp(),
     };

@@ -334,6 +334,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(documentsRoutes, {
     getRepository: options.getDocumentsRepository ?? defaultDocumentsRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
     requirePermission: guard,
   });
 

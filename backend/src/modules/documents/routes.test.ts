@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
 import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
 import { FakeDocumentsRepository } from "../../test/fakeDocumentsRepository.js";
+import { FakeWorkflowRepository } from "../../test/fakeWorkflowRepository.js";
+import {
+  addNodeToVersion,
+  addTransitionToVersion,
+  createWorkflowDefinition,
+  decideApprovalStep,
+  publishVersion,
+  recordApproval,
+  submitForApproval,
+  validateVersion,
+} from "../workflow/service.js";
+import type { NodeType } from "../workflow/types.js";
 
 const ADMIN_TOKEN = "admin-token";
 const ADMIN_USER = "admin-user";
@@ -11,6 +23,23 @@ const PLAIN_TOKEN = "plain-token";
 const PLAIN_USER = "plain-user";
 const OTHER_TENANT_TOKEN = "other-tenant-token";
 const OTHER_TENANT_USER = "other-tenant-user";
+const APPROVER = "approver-user";
+
+async function publishApprovalWorkflow(workflowRepo: FakeWorkflowRepository, key: string) {
+  const { definition, version } = await createWorkflowDefinition(workflowRepo, ADMIN_TOKEN, { key, name: key }, ADMIN_USER);
+  const approve = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, {
+    nodeKey: "approve",
+    nodeType: "request_approval" as NodeType,
+    config: { approverUserIds: [APPROVER] },
+  });
+  const end = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, { nodeKey: "end", nodeType: "complete" as NodeType, config: {} });
+  await addTransitionToVersion(workflowRepo, ADMIN_TOKEN, version.id, { fromNodeId: approve.id, toNodeId: end.id, orderIndex: 0 });
+  await validateVersion(workflowRepo, ADMIN_TOKEN, version.id, ADMIN_USER);
+  await submitForApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, ADMIN_USER);
+  await recordApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, APPROVER, "approved", null);
+  await publishVersion(workflowRepo, ADMIN_TOKEN, definition.id, version.id, APPROVER);
+  return definition;
+}
 
 function appWithFakeRepos() {
   const authorityRepo = new FakeAuthorityRepository();
@@ -42,11 +71,14 @@ function appWithFakeRepos() {
   documentsRepo.addSession(PLAIN_TOKEN, PLAIN_USER, TENANT_A);
   documentsRepo.addSession(OTHER_TENANT_TOKEN, OTHER_TENANT_USER, TENANT_B);
 
+  const workflowRepo = new FakeWorkflowRepository();
+
   const app = buildApp({
     getAuthorityRepository: () => authorityRepo,
     getDocumentsRepository: () => documentsRepo,
+    getWorkflowRepository: () => workflowRepo,
   });
-  return { app, documentsRepo };
+  return { app, documentsRepo, workflowRepo };
 }
 
 describe("POST /documents", () => {
@@ -449,5 +481,165 @@ describe("PATCH /documents/revisions/:revisionId", () => {
       payload: { status: "under_review" },
     });
     expect(response.statusCode).toBe(404);
+  });
+});
+
+describe("POST /documents/revisions/:id/submit-for-release and /resolve-approval — M13b IFC release gate (ticket 0105)", () => {
+  async function createUnderReviewRevision(app: ReturnType<typeof appWithFakeRepos>["app"]) {
+    const created = await app.inject({
+      method: "POST",
+      url: "/documents",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { documentType: "drawing", title: "Doc" },
+    });
+    const documentId = created.json().document.id;
+    const revisionResponse = await app.inject({
+      method: "POST",
+      url: `/documents/${documentId}/revisions`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { revisionCode: "A" },
+    });
+    const revisionId = revisionResponse.json().revision.id;
+    await app.inject({
+      method: "PATCH",
+      url: `/documents/revisions/${revisionId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { status: "under_review" },
+    });
+    return { documentId, revisionId };
+  }
+
+  it("403s without documents.register.manage, 401s with no token, 409s for a non-under_review revision", async () => {
+    const { app } = appWithFakeRepos();
+    const created = await app.inject({
+      method: "POST",
+      url: "/documents",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { documentType: "drawing", title: "Doc" },
+    });
+    const documentId = created.json().document.id;
+    const revisionResponse = await app.inject({
+      method: "POST",
+      url: `/documents/${documentId}/revisions`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { revisionCode: "A" },
+    });
+    const revisionId = revisionResponse.json().revision.id; // still draft, not under_review
+
+    const forbidden = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { definitionId: "some-definition" },
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const noToken = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      payload: { definitionId: "some-definition" },
+    });
+    expect(noToken.statusCode).toBe(401);
+
+    const { workflowRepo } = appWithFakeRepos();
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-conflict");
+    const conflict = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { definitionId: definition.id },
+    });
+    expect(conflict.statusCode).toBe(409);
+  });
+
+  it("400s without definitionId", async () => {
+    const { app } = appWithFakeRepos();
+    const { revisionId } = await createUnderReviewRevision(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {},
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("submit -> approve: resolve-approval sets status approved and stamps approved_at", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const { documentId, revisionId } = await createUnderReviewRevision(app);
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-approve");
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { definitionId: definition.id },
+    });
+    expect(submitted.statusCode).toBe(200);
+    const workflowInstanceId = submitted.json().revision.workflow_instance_id;
+    expect(workflowInstanceId).toBeTruthy();
+
+    const [step] = await workflowRepo.listStepInstances(ADMIN_TOKEN, workflowInstanceId);
+    await decideApprovalStep(workflowRepo, new FakeAuthorityRepository(), ADMIN_TOKEN, step!.id, APPROVER, "approved", null);
+
+    const resolved = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/resolve-approval`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(resolved.statusCode).toBe(200);
+    expect(resolved.json().revision.status).toBe("approved");
+    expect(resolved.json().revision.approved_at).toBeTruthy();
+
+    const documentAfter = await app.inject({
+      method: "GET",
+      url: `/documents/${documentId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(documentAfter.json().document.current_revision_id).toBe(revisionId);
+  });
+
+  it("submit -> reject: resolve-approval maps the decision onto the existing 'rejected' status", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const { revisionId } = await createUnderReviewRevision(app);
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-reject");
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { definitionId: definition.id },
+    });
+    const workflowInstanceId = submitted.json().revision.workflow_instance_id;
+    const [step] = await workflowRepo.listStepInstances(ADMIN_TOKEN, workflowInstanceId);
+    await decideApprovalStep(workflowRepo, new FakeAuthorityRepository(), ADMIN_TOKEN, step!.id, APPROVER, "rejected", "not compliant");
+
+    const resolved = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/resolve-approval`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(resolved.json().revision.status).toBe("rejected");
+  });
+
+  it("404s submitting/resolving another tenant's revision", async () => {
+    const { app } = appWithFakeRepos();
+    const { revisionId } = await createUnderReviewRevision(app);
+
+    const submit = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/submit-for-release`,
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+      payload: { definitionId: "some-definition" },
+    });
+    expect(submit.statusCode).toBe(404);
+
+    const resolve = await app.inject({
+      method: "POST",
+      url: `/documents/revisions/${revisionId}/resolve-approval`,
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+    });
+    expect(resolve.statusCode).toBe(404);
   });
 });

@@ -1,7 +1,7 @@
 ---
 id: 105
 title: "M13b — Approval stamps & IFC release gate"
-status: next
+status: in-progress
 roles: [backend-engineer]
 priority: 16
 created: 2026-10-16

@@ -38,6 +38,8 @@ export interface UpdateDocumentRevisionInput {
   reviewer_id?: string | null;
   approver_id?: string | null;
   superseded_by_revision_id?: string | null;
+  workflow_instance_id?: string | null;
+  approved_at?: string | null;
 }
 
 export interface ListRevisionsOptions {
@@ -153,6 +155,8 @@ export function createSupabaseDocumentsRepository(
           storage_reference: null,
           reviewer_id: null,
           approver_id: null,
+          workflow_instance_id: null,
+          approved_at: null,
           ...input,
         })
         .select("*")

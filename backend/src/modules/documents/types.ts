@@ -47,6 +47,15 @@ export interface DocumentRevision {
   approver_id: string | null;
   /** FR-DOC-002: set when a newer revision supersedes this one. */
   superseded_by_revision_id: string | null;
+  /**
+   * FR-DOC-003 (ticket 0105): which request_approval workflow instance is
+   * deciding this revision's "submit for IFC release" — same nullable
+   * shape ticket 0097 used on estimates.workflow_instance_id. Null until
+   * submitRevisionForRelease is called.
+   */
+  workflow_instance_id: string | null;
+  /** FR-DOC-003's "approval stamp" timestamp — set when the workflow resolves to "approved". */
+  approved_at: string | null;
   created_by: string | null;
   created_at: string;
 }

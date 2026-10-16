@@ -1,7 +1,21 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { FakeDocumentsRepository } from "../../test/fakeDocumentsRepository.js";
+import { FakeWorkflowRepository } from "../../test/fakeWorkflowRepository.js";
+import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
+import {
+  addNodeToVersion,
+  addTransitionToVersion,
+  createWorkflowDefinition,
+  decideApprovalStep,
+  publishVersion,
+  recordApproval,
+  submitForApproval,
+  validateVersion,
+} from "../workflow/service.js";
+import type { NodeType } from "../workflow/types.js";
 import {
   NotFoundError,
+  RevisionNotUnderReviewError,
   createDocument,
   createDocumentRevision,
   getDocument,
@@ -9,6 +23,8 @@ import {
   listDocumentRevisionHistory,
   listDocumentRevisions,
   listDocuments,
+  resolveRevisionApproval,
+  submitRevisionForRelease,
   updateDocument,
   updateDocumentRevision,
 } from "./service.js";
@@ -17,6 +33,31 @@ const TOKEN = "caller-token";
 const TENANT_ID = "tenant-a";
 const OTHER_TOKEN = "other-tenant-token";
 const OTHER_TENANT_ID = "tenant-b";
+const APPROVER = "approver-user";
+const PROCESS_OWNER = "process-owner";
+
+async function publishApprovalWorkflow(workflowRepo: FakeWorkflowRepository, key: string, config: Record<string, unknown>) {
+  const nodes: { key: string; type: NodeType; config?: Record<string, unknown> }[] = [
+    { key: "approve", type: "request_approval", config },
+    { key: "end", type: "complete" },
+  ];
+  const { definition, version } = await createWorkflowDefinition(workflowRepo, TOKEN, { key, name: key }, PROCESS_OWNER);
+  const nodeIdByKey = new Map<string, string>();
+  for (const n of nodes) {
+    const node = await addNodeToVersion(workflowRepo, TOKEN, version.id, { nodeKey: n.key, nodeType: n.type, config: n.config ?? {} });
+    nodeIdByKey.set(n.key, node.id);
+  }
+  await addTransitionToVersion(workflowRepo, TOKEN, version.id, {
+    fromNodeId: nodeIdByKey.get("approve")!,
+    toNodeId: nodeIdByKey.get("end")!,
+    orderIndex: 0,
+  });
+  await validateVersion(workflowRepo, TOKEN, version.id, PROCESS_OWNER);
+  await submitForApproval(workflowRepo, TOKEN, definition.id, version.id, PROCESS_OWNER);
+  await recordApproval(workflowRepo, TOKEN, definition.id, version.id, APPROVER, "approved", null);
+  await publishVersion(workflowRepo, TOKEN, definition.id, version.id, APPROVER);
+  return definition;
+}
 
 describe("document register", () => {
   let repo: FakeDocumentsRepository;
@@ -235,5 +276,127 @@ describe("revision list/history defaults", () => {
 
     expect(await listDocumentRevisions(repo, OTHER_TOKEN, document.id)).toHaveLength(0);
     expect(await listDocumentRevisionHistory(repo, OTHER_TOKEN, document.id)).toHaveLength(0);
+  });
+});
+
+describe("M13b: IFC release approval gate (ticket 0105)", () => {
+  let repo: FakeDocumentsRepository;
+  let workflowRepo: FakeWorkflowRepository;
+  let authorityRepo: FakeAuthorityRepository;
+
+  beforeEach(() => {
+    repo = new FakeDocumentsRepository();
+    repo.addSession(TOKEN, "user-1", TENANT_ID);
+    repo.addSession(OTHER_TOKEN, "user-2", OTHER_TENANT_ID);
+    workflowRepo = new FakeWorkflowRepository();
+    authorityRepo = new FakeAuthorityRepository();
+  });
+
+  async function createUnderReviewRevision() {
+    const document = await createDocument(repo, TOKEN, { document_type: "drawing", title: "Doc" });
+    const revision = await createDocumentRevision(repo, TOKEN, {
+      document_id: document.id,
+      revision_code: "A",
+      created_by: "user-1",
+    });
+    await updateDocumentRevision(repo, TOKEN, revision.id, { status: "under_review" });
+    return { document, revision };
+  }
+
+  it("only an under_review revision may be submitted for release", async () => {
+    const document = await createDocument(repo, TOKEN, { document_type: "drawing", title: "Doc" });
+    const draftRevision = await createDocumentRevision(repo, TOKEN, {
+      document_id: document.id,
+      revision_code: "A",
+      created_by: "user-1",
+    });
+
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-1", { approverUserIds: [APPROVER] });
+    await expect(
+      submitRevisionForRelease(repo, workflowRepo, TOKEN, {
+        revisionId: draftRevision.id,
+        definitionId: definition.id,
+        submittedBy: "user-1",
+      }),
+    ).rejects.toBeInstanceOf(RevisionNotUnderReviewError);
+  });
+
+  it("submit -> approve: sets status approved, stamps approved_at, and supersedes the prior approved revision", async () => {
+    const { document, revision: revisionA } = await createUnderReviewRevision();
+    // Approve A first via a direct PATCH (simulating an earlier approved current revision), then create B under_review.
+    await updateDocumentRevision(repo, TOKEN, revisionA.id, { status: "approved" });
+    const revisionB = await createDocumentRevision(repo, TOKEN, {
+      document_id: document.id,
+      revision_code: "B",
+      created_by: "user-1",
+    });
+    await updateDocumentRevision(repo, TOKEN, revisionB.id, { status: "under_review" });
+
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-2", { approverUserIds: [APPROVER] });
+    const submitted = await submitRevisionForRelease(repo, workflowRepo, TOKEN, {
+      revisionId: revisionB.id,
+      definitionId: definition.id,
+      submittedBy: "user-1",
+    });
+    expect(submitted.status).toBe("under_review");
+    expect(submitted.workflow_instance_id).not.toBeNull();
+
+    const [step] = await workflowRepo.listStepInstances(TOKEN, submitted.workflow_instance_id!);
+    await decideApprovalStep(workflowRepo, authorityRepo, TOKEN, step!.id, APPROVER, "approved", null);
+
+    const resolved = await resolveRevisionApproval(repo, workflowRepo, TOKEN, revisionB.id);
+    expect(resolved.status).toBe("approved");
+    expect(resolved.approved_at).not.toBeNull();
+
+    const refreshedDocument = await getDocument(repo, TOKEN, document.id);
+    expect(refreshedDocument.current_revision_id).toBe(revisionB.id);
+  });
+
+  it("submit -> reject: maps both 'rejected' and 'returned_for_correction' decisions onto the existing 'rejected' status", async () => {
+    const { revision } = await createUnderReviewRevision();
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-3", { approverUserIds: [APPROVER] });
+    const submitted = await submitRevisionForRelease(repo, workflowRepo, TOKEN, {
+      revisionId: revision.id,
+      definitionId: definition.id,
+      submittedBy: "user-1",
+    });
+
+    const [step] = await workflowRepo.listStepInstances(TOKEN, submitted.workflow_instance_id!);
+    await decideApprovalStep(workflowRepo, authorityRepo, TOKEN, step!.id, APPROVER, "returned_for_correction", "needs more detail");
+
+    const resolved = await resolveRevisionApproval(repo, workflowRepo, TOKEN, revision.id);
+    expect(resolved.status).toBe("rejected");
+  });
+
+  it("resolveRevisionApproval is idempotent once status has left under_review", async () => {
+    const { revision } = await createUnderReviewRevision();
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-4", { approverUserIds: [APPROVER] });
+    const submitted = await submitRevisionForRelease(repo, workflowRepo, TOKEN, {
+      revisionId: revision.id,
+      definitionId: definition.id,
+      submittedBy: "user-1",
+    });
+    const [step] = await workflowRepo.listStepInstances(TOKEN, submitted.workflow_instance_id!);
+    await decideApprovalStep(workflowRepo, authorityRepo, TOKEN, step!.id, APPROVER, "approved", null);
+    const first = await resolveRevisionApproval(repo, workflowRepo, TOKEN, revision.id);
+    expect(first.status).toBe("approved");
+
+    const second = await resolveRevisionApproval(repo, workflowRepo, TOKEN, revision.id);
+    expect(second.status).toBe("approved");
+    expect(second.approved_at).toBe(first.approved_at);
+  });
+
+  it("tenant-isolates submit and resolve: another tenant's revision is NotFoundError", async () => {
+    const { revision } = await createUnderReviewRevision();
+    const definition = await publishApprovalWorkflow(workflowRepo, "ifc-release-5", { approverUserIds: [APPROVER] });
+    await expect(
+      submitRevisionForRelease(repo, workflowRepo, OTHER_TOKEN, {
+        revisionId: revision.id,
+        definitionId: definition.id,
+        submittedBy: "user-2",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await expect(resolveRevisionApproval(repo, workflowRepo, OTHER_TOKEN, revision.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
