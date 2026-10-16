@@ -48,6 +48,8 @@ import {
   createSupabaseNotificationsRepository,
   type NotificationsRepository,
 } from "./modules/notifications/repository.js";
+import { crmRoutes } from "./modules/crm/routes.js";
+import { createSupabaseCrmRepository, type CrmRepository } from "./modules/crm/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -76,6 +78,8 @@ export interface BuildAppOptions {
   getAuditRepository?: () => AuditRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getNotificationsRepository?: () => NotificationsRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getCrmRepository?: () => CrmRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -170,6 +174,15 @@ function defaultNotificationsRepository(): NotificationsRepository {
   return cachedNotificationsRepository;
 }
 
+let cachedCrmRepository: CrmRepository | null = null;
+
+function defaultCrmRepository(): CrmRepository {
+  if (!cachedCrmRepository) {
+    cachedCrmRepository = createSupabaseCrmRepository(createUserScopedClient);
+  }
+  return cachedCrmRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -229,6 +242,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(notificationsRoutes, {
     getRepository: options.getNotificationsRepository ?? defaultNotificationsRepository,
+    requirePermission: guard,
+  });
+
+  app.register(crmRoutes, {
+    getRepository: options.getCrmRepository ?? defaultCrmRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
     requirePermission: guard,
   });
 

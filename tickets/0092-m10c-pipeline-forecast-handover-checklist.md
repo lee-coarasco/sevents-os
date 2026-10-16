@@ -1,7 +1,7 @@
 ---
 id: 92
 title: "M10c — Pipeline forecast & won-opportunity handover checklist (approval-gated)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 13
 created: 2026-10-16
@@ -48,15 +48,50 @@ BRD §8.5 FR-CRM-004.
 - Tender documents, bid/no-bid, estimates — M11.
 
 ## Acceptance
-- [ ] Pipeline forecast endpoint aggregates real stage/value/
+- [x] Pipeline forecast endpoint aggregates real stage/value/
       probability data from ticket 0090, tenant-scoped.
-- [ ] Handover checklist blocks completion while mandatory fields are
+- [x] Handover checklist blocks completion while mandatory fields are
       missing.
-- [ ] An authorized exception (via the M08 approval seam) can let
+- [x] An authorized exception (via the M08 approval seam) can let
       handover proceed despite a missing field, with a recorded reason.
-- [ ] Tests cover tenant isolation, permission gating, the blocking
+- [x] Tests cover tenant isolation, permission gating, the blocking
       checklist, and the exception-approval path.
 
 ## Progress
 - 2026-10-16: Filed as the third of three M10 sub-tickets (see ticket
   0089's split).
+- 2026-10-16 11:42 UTC: Built. Migration
+  `supabase/migrations/20261016000014_m10c_pipeline_forecast_handover_checklist.sql`
+  adds `opportunity_handover_checklists` (fixed four-item list —
+  `client_confirmation`, `commercial_terms_locked`,
+  `site_information_handed_over`, `technical_owner_assigned` — same
+  CLOSEOUT_ITEM_KEYS-style convention as ticket 0077, but this one IS a
+  gate, unlike that one) and `opportunity_handover_exceptions` (same
+  request/resolve-via-workflow-instance shape as ticket 0075/0080,
+  reusing the M08 `request_approval` seam), plus additive
+  `handover_completed_at`/`handover_completed_by` columns on
+  `opportunities`. New pure `backend/src/modules/crm/forecast.ts`
+  (`computePipelineForecast` — weighted value = expected_value *
+  probability, grouped by stage/owner/due-date-window, no DB access).
+  New service functions in `crm/service.ts`: `getPipelineForecast`,
+  `listHandoverChecklist`/`completeHandoverItem` (closeout-style),
+  `requestHandoverException`/`listHandoverExceptions`/
+  `resolveHandoverException` (baseline-change-request-style polling),
+  `completeHandover` (the actual FR-CRM-004 gate — blocks unless every
+  checklist item is complete or an approved exception is on file).
+  New routes: `GET /crm/pipeline/forecast?groupBy=`,
+  `GET`/`POST /crm/opportunities/:id/handover-checklist(...)`,
+  `POST`/`GET /crm/opportunities/:id/handover-exceptions`,
+  `GET /crm/handover-exceptions/:exceptionId` (poll), `POST
+  /crm/opportunities/:id/handover/complete`. All new routes reuse the
+  existing `crm.lead.manage` permission — a judgment call recorded in
+  DECISIONS.md (unlike ticket 0077's closeout, which split out its own
+  `project.closeout.manage`). No automatic project creation added, per
+  the ticket's own out-of-scope note. 19 new tests (5 in new
+  `forecast.test.ts`, 7 each added to `service.test.ts`/
+  `routes.test.ts`). `npm test`: 492/492 (473 prior + 19 new), `npm run
+  build`/`npm run lint` clean, `scripts/tickets.py check` clean. Not
+  yet applied to
+  the real Supabase project — still no reachable Supabase MCP tools in
+  this sandbox (see ticket 0094, filed this session). Status
+  `testing`, not `done`, pending that and the owner's review.

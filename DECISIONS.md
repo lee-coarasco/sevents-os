@@ -805,3 +805,80 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   data-model split are explicitly agent-decidable per CLAUDE.md, same
   weight as every prior module split recorded here).
+
+## 2026-10-16 11:40 UTC - M10a (ticket 0090): one `opportunities` table, not separate `leads`/`opportunities`
+- Decision: BRD §6.2 lists `Client, Contact, Lead, Opportunity` as four
+  entities, but §10.1's "Opportunity to project" step list and
+  FR-CRM-001's single field set (source, client, owner, stage, expected
+  value, probability, next action, due date) describe one thing
+  progressing through a `stage` enum — a "lead" is just an opportunity
+  at the `lead` stage, not a separate record a human promotes into a
+  second table. Modeled as one `opportunities` table with
+  `stage in ('lead','qualified','site_visit','tender','negotiation',
+  'won','lost')`, defaulting new rows to `lead`. The ticket's own text
+  explicitly left this choice open ("pick one name and be consistent"),
+  so this isn't a scope deviation, just recording the naming call for
+  the next session that builds M10b/M10c or M11/M12's later stages on
+  top of this enum.
+- Why: a second `leads` table would need its own promotion-to-
+  opportunity migration step nothing in FR-CRM-001/§10.1 asks for, and
+  would duplicate the source/client/owner fields across two tables for
+  no behavioral difference.
+- Approved by: agent (internal data-model detail, explicitly
+  agent-decidable per CLAUDE.md; the ticket text itself delegated the
+  naming choice to whoever built it).
+
+## 2026-10-16 11:42 UTC - M10c (ticket 0092): handover checklist/exception routes reuse `crm.lead.manage`, not a new permission
+- Decision: the new handover-checklist and handover-exception-request
+  endpoints are gated on the existing `crm.lead.manage` permission
+  (same as every other CRM route), not a new narrower permission —
+  unlike ticket 0077's closeout checklist, which split out its own
+  `project.closeout.manage` distinct from the broader
+  `tenancy.project.manage`.
+- Why: `tenancy.project.manage`/`project.closeout.manage` were already
+  two different permissions for two different actor classes (broad
+  project administration vs. a narrower closeout action) before ticket
+  0077 — splitting closeout out kept that existing narrowing
+  consistent. The CRM module (ticket 0090) deliberately has a single
+  permission covering its whole surface (clients, contacts,
+  opportunities, site visits, tender submissions, communications) for
+  the same named Sales/Marketing/Technical owners; handover is part of
+  the same opportunity lifecycle those roles already manage day to
+  day, so adding a second CRM permission here would be an
+  inconsistency with no actor-class boundary behind it, not extra
+  safety.
+- Also named the four fixed handover-checklist item keys
+  (`client_confirmation`, `commercial_terms_locked`,
+  `site_information_handed_over`, `technical_owner_assigned`) since the
+  ticket named the CLOSEOUT_ITEM_KEYS-style mechanism to reuse but left
+  the actual keys open — picked to match BRD §7's "sales-to-technical
+  handoff" framing of this module, not BRD §8.4's project-closeout
+  checklist (a separate, later gate owned by M09).
+- Approved by: agent (internal permission/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0077's own
+  permission-split decision).
+
+## 2026-10-16 11:44 UTC - Opened M11 (Tendering, Estimation & Commercials), split into three sub-tickets
+- Decision: with M10 now entirely `testing` (ticket 0092), filed ticket
+  0095 (M11 parent, closed with no code — survey + split only, same
+  shape as ticket 0089) and split the build into 0096 (M11a — tender
+  document register & scope matrix), 0097 (M11b — estimate versions &
+  cost build-up, FR-EST-001/002/003), 0098 (M11c — bid/no-bid decision
+  & quote/proposal approval, FR-BID-001). Order follows BRD §10.1 steps
+  5-8 exactly (tender documents → estimate → bid/no-bid → proposal
+  submission); step 9 onward (negotiation, contract/legal, award) is
+  explicitly left to M23, not pulled in here.
+- FR-EST-002 (AI-assisted quantity extraction/rate suggestion) is
+  scoped down to reserving `source`/`confidence` columns on
+  `estimate_lines` for M11b to build later, not an actual AI feature —
+  M28/M29 (the AI modules) haven't started, and CLAUDE.md is explicit
+  that agents must not invent AI features or authority limits ahead of
+  that module existing.
+- Why: same dependency-ordered-split precedent as every M06/M07/M09/
+  M10/M31/M35 module before it; BRD §10.1's own numbered step list
+  gives an unambiguous ordering so there's no new judgment call being
+  made about sequence, only about where to draw each sub-ticket's
+  boundary.
+- Approved by: agent (ticket classification/ordering and internal
+  data-model split are explicitly agent-decidable per CLAUDE.md, same
+  weight as every prior module split recorded here).

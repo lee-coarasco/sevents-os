@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "import:catalogue": "tsx src/scripts/import-catalogue.ts"
+    "import:catalogue": "tsx src/scripts/import-catalogue.ts",
+    "bootstrap:admin": "tsx src/scripts/bootstrap-first-admin.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
