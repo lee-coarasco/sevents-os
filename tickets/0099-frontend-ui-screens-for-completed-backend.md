@@ -1,7 +1,7 @@
 ---
 id: 99
 title: Frontend UI screens for completed backend modules (M04, M07, M08, M09, M10)" module: "M04/M07/M08/M09/M10
-status: next
+status: in-progress
 roles: [ui-designer]
 priority: 1
 created: 2026-10-16
@@ -59,3 +59,40 @@ header on every request.
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-16 17:05 UTC: Started. Found no `GET /employees` list endpoint
+  existed (only `/employees/me` and `/employees/:id`) — added
+  `listEmployeeRecords` across the workforce repository/fake-repository/
+  service/route layers (tenant-scoped via RLS, optional companyId/
+  departmentId filters, gated on the existing `employee.directory.manage`
+  permission), same precedent ticket 0088 set for tenancy/authority list
+  endpoints. Backend tests: 540/540 passing; build clean.
+  Built **screen 1/5, Employee Directory (M04)**:
+  `frontend/src/pages/EmployeesPage.tsx` — company/department filters,
+  employee table with status badge, add-employee form gated on
+  `employee.directory.manage`. Wired into `App.tsx`/`AppLayout.tsx` nav.
+  Built **screen 2/5, My Work / Task Inbox (M07)**:
+  `frontend/src/pages/TaskInboxPage.tsx` — tasks from `GET /tasks/my-work`
+  grouped into To do/In progress/Blocked/Done, detail drawer with
+  complete/block/unblock actions gated on `workflow.instance.act`. No
+  comment thread in the drawer — `POST /workflow/steps/:stepId/comments`
+  exists but there is no `GET` to list a step's comments yet; adding one
+  was out of scope for this pass (flagged below, not silently dropped).
+  Frontend tests for both new pages pass (6/6); `npm run build` clean.
+  Pre-existing, unrelated failures in `LoginPage.test.tsx`,
+  `OrgSetupPage.test.tsx` and `DepartmentsRolesPage.test.tsx` (stale
+  text-content assertions that don't match current component markup —
+  e.g. expects a label "Email" that the component renders as "Email
+  address") were confirmed present before this session's changes too
+  (verified via `git stash`); not fixed here since they're out of this
+  ticket's scope and not something this session's work touched — worth
+  their own quick ticket.
+  **Stopping here for this session** (budget checkpoint, not a blocker):
+  3/5 screens remain — Approval Queue (M08), Projects (M09, WBS tree +
+  milestone timeline), Clients & CRM (M10, opportunity kanban). Each of
+  those will likely need the same "check for a missing list endpoint
+  first" step M04 needed (e.g. M08's approval queue may want a list of
+  pending-approval tasks beyond the task-queue fields already shown
+  here; M09/M10 need to be checked against `modules/projects`/
+  `modules/crm`'s actual route surface before designing the screen).
+  Left `status: in-progress` rather than `blocked` — nothing here is
+  waiting on an answer, just unstarted.
