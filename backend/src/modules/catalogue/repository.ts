@@ -2,11 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MergedCatalogueRow } from "./importParser.js";
 import type {
   Disposition,
+  SourceWorkItem,
   WorkItemDefinition,
   WorkItemDefinitionVersion,
   WorkItemDetail,
   WorkItemFilters,
   WorkItemStatus,
+  WorkItemSummary,
 } from "./types.js";
 
 export interface ImportCatalogueInput {
@@ -47,7 +49,7 @@ export interface UpdateWorkItemFields {
  */
 export interface CatalogueRepository {
   importCatalogue(input: ImportCatalogueInput): Promise<ImportSummary>;
-  listWorkItems(accessToken: string, filters: WorkItemFilters): Promise<WorkItemDefinition[]>;
+  listWorkItems(accessToken: string, filters: WorkItemFilters): Promise<WorkItemSummary[]>;
   getWorkItemDetail(accessToken: string, id: string): Promise<WorkItemDetail | null>;
   updateWorkItemDefinition(
     accessToken: string,
@@ -85,6 +87,26 @@ function applyFilters(definitions: WorkItemDefinition[], filters: WorkItemFilter
     if (filters.department && definition.department_cluster !== filters.department) return false;
     return true;
   });
+}
+
+/** Joins each definition with its source row's name/description, ticket 0125. */
+function toSummary(definition: WorkItemDefinition, source: SourceWorkItem | undefined): WorkItemSummary {
+  return {
+    ...definition,
+    work_item_name: source?.work_item_name ?? "",
+    description: source?.description ?? null,
+    who_is_responsible: source?.who_is_responsible ?? "",
+    source_department: source?.department ?? "",
+  };
+}
+
+/** `search` matches against the joined name/description, not any `work_item_definitions` column. */
+function applySearch(summaries: WorkItemSummary[], search: string | undefined): WorkItemSummary[] {
+  if (!search) return summaries;
+  const needle = search.toLowerCase();
+  return summaries.filter(
+    (s) => s.work_item_name.toLowerCase().includes(needle) || (s.description ?? "").toLowerCase().includes(needle),
+  );
 }
 
 /**
@@ -270,7 +292,16 @@ export function createSupabaseCatalogueRepository(
       if (error) throw new Error(`listWorkItems: ${error.message}`);
       let rows = (data as WorkItemDefinition[]) ?? [];
       if (filters.missingData) rows = rows.filter(matchesMissingData);
-      return rows;
+
+      const sourceIds = rows.map((r) => r.source_work_item_id);
+      const { data: sources, error: sourcesError } = await client
+        .from("source_work_items")
+        .select("*")
+        .in("id", sourceIds.length > 0 ? sourceIds : [""]);
+      if (sourcesError) throw new Error(`listWorkItems (source join): ${sourcesError.message}`);
+      const sourceById = new Map(((sources as SourceWorkItem[]) ?? []).map((s) => [s.id, s]));
+      const summaries = rows.map((r) => toSummary(r, sourceById.get(r.source_work_item_id)));
+      return applySearch(summaries, filters.search);
     },
 
     async getWorkItemDetail(accessToken, id) {
@@ -336,4 +367,4 @@ export function createSupabaseCatalogueRepository(
   };
 }
 
-export { applyFilters as filterWorkItemsInMemory };
+export { applyFilters as filterWorkItemsInMemory, applySearch as applySearchInMemory, toSummary };

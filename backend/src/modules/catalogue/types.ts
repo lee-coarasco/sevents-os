@@ -113,6 +113,19 @@ export interface WorkItemDetail {
   versions: WorkItemDefinitionVersion[];
 }
 
+/**
+ * `listWorkItems`' row shape: a `WorkItemDefinition` plus the handful of
+ * joined `source_work_items` fields a browse list needs to be readable
+ * (the definition row alone has no name/description — those live on the
+ * source row). Ticket 0125.
+ */
+export interface WorkItemSummary extends WorkItemDefinition {
+  work_item_name: string;
+  description: string | null;
+  who_is_responsible: string;
+  source_department: string;
+}
+
 export interface WorkItemFilters {
   department?: string;
   canonicalRoleId?: string;

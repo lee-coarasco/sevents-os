@@ -1016,3 +1016,42 @@ approved (agent-autonomous or you).
   built.
 - Approved by: agent (internal API surface + UI scope decisions, all
   additive/non-destructive; explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-16 22:50 UTC - Ticket 0110 (M06 Configuration Studio UI + M05 catalogue admin UI) split into 0125/0126/0127; `GET /catalogue/work-items` gains a joined summary shape and a working `search` filter
+- Decision: Ticket 0110 is closed with no code of its own, split the
+  same way every oversized module ticket has been (M06/M07/M09/M10/M11/
+  M13/M31/M35): 0125 (M05 catalogue admin UI — browse/search/filter/
+  edit/archive, buildable entirely on the existing `catalogue` module
+  backend, picked up this session), 0126 (M05 item creation + bulk CSV
+  import/export over HTTP — needs an architect decision on how a
+  UI-created item gets a `source_work_item_id` given that table's
+  service-role-only trust model from ticket 0058), 0127 (M06
+  Configuration Studio UI — the full steps editor/version/validation/
+  simulation surface over the already-built workflow engine).
+- Survey found two real gaps fixed as part of 0125, not deferred: (1)
+  `GET /catalogue/work-items` only ever returned bare
+  `work_item_definitions` rows (disposition/status/priority/...), never
+  the item name/description that live on the joined `source_work_items`
+  row — no browse screen could show anything readable without an N+1
+  detail fetch per row, so the endpoint now embeds those joined fields
+  into a `WorkItemSummary` response shape; (2) `WorkItemFilters.search`
+  was declared in `types.ts` since ticket 0058 but never read by the
+  route, the Supabase query, or the in-memory filter fake used by every
+  test — dead code wired up now to do a case-insensitive substring
+  match against item name + description.
+- Also found, surveying `modules/workflow` for ticket 0127: no code in
+  that module calls `dispatchNotification` at all — submitting a
+  definition for approval, publishing a version, or an SLA escalation
+  firing notifies nobody today, despite M31's dispatch pipeline (ticket
+  0082) existing before this module's latest tickets (0066, 0081).
+  Logged in ticket 0127's own text as something its eventual sub-split
+  must fix, not silently carried forward again.
+- Why: same "too large for one ticket"/"survey before designing"
+  precedent as every prior module split; the catalogue list endpoint
+  fix is not scope creep — it's a precondition for ticket 0125's own
+  acceptance criteria (a usable browse table), the same class of
+  "found while building, fixed inline" call ticket 0077 made for its
+  cross-tenant closeout-checklist write.
+- Approved by: agent (ticket classification/ordering and internal API
+  design are explicitly agent-decidable per CLAUDE.md, same weight as
+  every prior module split recorded here).

@@ -35,6 +35,7 @@ export async function catalogueRoutes(app: FastifyInstance, options: CatalogueRo
       riskTier?: string;
       missingData?: string;
       sourceSerial?: string;
+      search?: string;
     };
   }>(
     "/catalogue/work-items",
@@ -50,6 +51,7 @@ export async function catalogueRoutes(app: FastifyInstance, options: CatalogueRo
         riskTier: q.riskTier,
         missingData: q.missingData === "true",
         sourceSerial: q.sourceSerial ? Number(q.sourceSerial) : undefined,
+        search: q.search,
       });
       return { workItems };
     },

@@ -4,13 +4,14 @@ import type {
   ImportSummary,
   UpdateWorkItemFields,
 } from "../modules/catalogue/repository.js";
-import { filterWorkItemsInMemory } from "../modules/catalogue/repository.js";
+import { applySearchInMemory, filterWorkItemsInMemory, toSummary } from "../modules/catalogue/repository.js";
 import type {
   SourceWorkItem,
   WorkItemDefinition,
   WorkItemDefinitionVersion,
   WorkItemDetail,
   WorkItemFilters,
+  WorkItemSummary,
 } from "../modules/catalogue/types.js";
 
 let idCounter = 0;
@@ -144,8 +145,10 @@ export class FakeCatalogueRepository implements CatalogueRepository {
     return { importId, totalRows: input.rows.length, created, updated, unchanged };
   }
 
-  async listWorkItems(_accessToken: string, filters: WorkItemFilters): Promise<WorkItemDefinition[]> {
-    return filterWorkItemsInMemory([...this.definitionsById.values()], filters);
+  async listWorkItems(_accessToken: string, filters: WorkItemFilters): Promise<WorkItemSummary[]> {
+    const filtered = filterWorkItemsInMemory([...this.definitionsById.values()], filters);
+    const summaries = filtered.map((d) => toSummary(d, this.sourceWorkItemsById.get(d.source_work_item_id)));
+    return applySearchInMemory(summaries, filters.search);
   }
 
   async getWorkItemDetail(_accessToken: string, id: string): Promise<WorkItemDetail | null> {

@@ -1,7 +1,7 @@
 import { mergeCatalogueRows, type MergeIssue } from "./importParser.js";
 import type { CatalogueRepository, ImportSummary, UpdateWorkItemFields } from "./repository.js";
 import { DISPOSITIONS } from "./types.js";
-import type { DispositionRow, RawCatalogueRow, WorkItemDefinition, WorkItemDetail, WorkItemFilters } from "./types.js";
+import type { DispositionRow, RawCatalogueRow, WorkItemDefinition, WorkItemDetail, WorkItemFilters, WorkItemSummary } from "./types.js";
 
 export class InvalidDispositionError extends Error {}
 export class WorkItemNotFoundError extends Error {}
@@ -36,7 +36,7 @@ export async function listWorkItems(
   repository: CatalogueRepository,
   accessToken: string,
   filters: WorkItemFilters,
-): Promise<WorkItemDefinition[]> {
+): Promise<WorkItemSummary[]> {
   return repository.listWorkItems(accessToken, filters);
 }
 

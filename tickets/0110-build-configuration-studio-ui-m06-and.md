@@ -1,7 +1,7 @@
 ---
 id: 110
 title: Build Configuration Studio UI (M06) and Work-Item Catalogue admin view (M05)
-status: next
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-16
@@ -32,3 +32,14 @@ One constraint worth keeping: an item that already has active workflow instances
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-16 22:50 UTC: closed with no code of its own, same pattern as
+  every other oversized module ticket (M06/M07/M09/M10/M11/M13/M31/M35
+  split precedent). Surveyed both backends
+  (`backend/src/modules/catalogue`, `backend/src/modules/workflow`) and
+  split into 0125 (M05 admin UI — buildable now on the existing
+  catalogue backend, picked up immediately), 0126 (M05 item creation +
+  bulk CSV import/export — needs an architect decision on the trust
+  model first), 0127 (M06 Configuration Studio UI — the full steps
+  editor/version/validation/simulation surface, flagged a missing
+  dispatchNotification wiring gap in the workflow module found during
+  the survey). See DECISIONS.md for the full reasoning.
