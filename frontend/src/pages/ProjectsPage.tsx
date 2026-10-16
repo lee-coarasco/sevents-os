@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
+import { usePermissions } from "../hooks/usePermissions";
+import { UserPicker } from "../components/UserPicker";
 
 type ProjectStatus = "active" | "on_hold" | "closed";
 
@@ -14,6 +16,11 @@ interface Project {
   location: string | null;
   contract_value: number | null;
   contract_currency: string | null;
+}
+
+interface Company {
+  id: string;
+  legal_name: string;
 }
 
 const statusColors: Record<ProjectStatus, string> = {
@@ -35,24 +42,147 @@ function formatAmount(amount: number | null, currency: string | null): string {
 
 export function ProjectsPage() {
   const { session } = useAuth();
+  const { has, loading: permissionsLoading } = usePermissions();
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [showForm, setShowForm] = useState(false);
+  const [companyId, setCompanyId] = useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [projectManagerId, setProjectManagerId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function load() {
     if (!session) return;
     apiFetch<{ projects: Project[] }>("/projects", session.access_token)
       .then((data) => setProjects(data.projects))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+  }
+
+  useEffect(load, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    apiFetch<{ companies: Company[] }>("/tenancy/companies", session.access_token)
+      .then((data) => setCompanies(data.companies))
+      .catch(() => setCompanies([]));
   }, [session]);
+
+  async function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !companyId || !name.trim()) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      await apiFetch("/projects", session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          companyId,
+          name: name.trim(),
+          code: code.trim() || undefined,
+          baselineStartDate: startDate || undefined,
+          baselineEndDate: endDate || undefined,
+          projectManagerId: projectManagerId || undefined,
+        }),
+      });
+      setName("");
+      setCode("");
+      setStartDate("");
+      setEndDate("");
+      setProjectManagerId("");
+      setShowForm(false);
+      load();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Could not create the project");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canManage = has("tenancy.project.manage");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-brand text-2xl font-bold text-zinc-900">Projects</h1>
-        <p className="mt-1 text-sm text-zinc-400">Project register</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-brand text-2xl font-bold text-zinc-900">Projects</h1>
+          <p className="mt-1 text-sm text-zinc-400">Project register</p>
+        </div>
+        {!permissionsLoading && canManage && (
+          <button
+            onClick={() => setShowForm((prev) => !prev)}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim"
+          >
+            {showForm ? "Cancel" : "New project"}
+          </button>
+        )}
       </div>
 
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      {showForm && (
+        <form onSubmit={handleCreate} className="space-y-3 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          {formError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <select
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            >
+              <option value="">Select company…</option>
+              {companies?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.legal_name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Project name"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Project code"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <UserPicker value={projectManagerId} onChange={setProjectManagerId} placeholder="Project manager…" />
+            <label className="flex flex-col gap-1 text-xs text-zinc-400">
+              Start date
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-zinc-400">
+              End date
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            disabled={saving || !companyId || !name.trim()}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+          >
+            {saving ? "Creating…" : "Create project"}
+          </button>
+        </form>
+      )}
+
       {projects === null && !error && <p className="text-sm text-zinc-400">Loading…</p>}
       {projects?.length === 0 && <p className="text-sm text-zinc-400">No projects yet.</p>}
 
