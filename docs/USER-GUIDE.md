@@ -132,9 +132,9 @@ Frontend: `TaskInboxPage`, nav label "My Work", at `/my-work`.
 
 **How to use it:** My Work groups your assigned tasks into To do / In
 progress / Blocked / Done. Click a task to open its detail drawer: mark it
-complete, block it with a reason, or unblock it. Reassign/delegate exist on
-the backend but aren't wired into this screen yet — only complete/block/
-unblock are.
+complete, block it with a reason, unblock it, reassign it to someone else,
+or delegate it — both reassign and delegate use the shared name/email
+`<UserPicker>` search, never a raw user ID.
 
 ## M08 — Approvals & Delegation
 
@@ -151,10 +151,9 @@ segregation-of-duties enforcement. Frontend: `ApprovalQueuePage`, nav label
 **How to use it:** Approvals shows every `request_approval` step currently
 assigned to you. Click one to see the request's context fields, any
 decisions already recorded, and whether it's within your authority limit.
-Approve or reject (reject requires a comment) or delegate it to another
-user by their raw user ID. "Returned for correction" and "approved with
-conditions" exist on the backend but this screen only exposes
-approve/reject, matching what ticket 0099 scoped for this screen.
+Approve, reject, approve with conditions, or return for correction (all but
+a clean approve require a comment), or delegate it to another user via the
+`<UserPicker>` search.
 
 ## M09 — Project & Portfolio Management
 
@@ -169,10 +168,13 @@ checklist. Frontend: `ProjectsPage` (register list) at `/projects`, and
 `ProjectDetailPage` at `/projects/:id`.
 
 **How to use it:** Projects lists every project with client, location,
-contract value and status; click one to see its full detail — a WBS tree
-and a milestone timeline with status badges. This screen is read-only
-(no create/edit forms yet): it was scoped as a register + detail view only,
-not a project-setup wizard.
+contract value and status; "New project" creates one (company, name, code,
+start/end dates, project manager via `<UserPicker>`). Click a project to see
+its full detail: "Edit project" updates the same fields plus status/client/
+location; the WBS tree, milestone timeline and a schedule-activities table
+each have their own add/edit forms (WBS node code+name+parent; milestone
+name/target date plus actual date + status once created; activity name/
+planned dates/percent complete).
 
 ## M10 — Client, CRM & Sales Pipeline
 
@@ -185,13 +187,14 @@ endpoint, client communications, and a won-opportunity handover checklist
 (with an exceptions process that itself needs approval). Frontend:
 `CrmPage`, nav label "Clients & CRM", at `/crm`.
 
-**How to use it:** Clients & CRM has three tabs: Clients (searchable list),
-Contacts (searchable list, each resolved to its client's name), and
-Pipeline — a Kanban board across all seven opportunity stages (lead,
-qualified, site visit, tender, negotiation, won, lost). Each card has a
-dropdown to move it to a different stage. No create-client/contact/
-opportunity forms yet — same read-only-plus-the-core-interaction scope
-decision as M09's screens.
+**How to use it:** Clients & CRM has three tabs. Clients: searchable list,
+"New client" form (name, trade license, registration country), per-row
+Edit. Contacts: searchable list resolved to each client's name, "New
+contact" form (client picked from a dropdown, name, title, email, phone,
+primary-contact checkbox), per-row Edit. Pipeline: a Kanban board across
+all seven opportunity stages — each card has a dropdown to move stages, an
+Edit for owner/value/probability, and "New opportunity" creates one (client,
+source, title, BD owner via `<UserPicker>`, estimated value, probability).
 
 ## M11 — Tendering, Estimation & Commercials (ahead of the official build order)
 
