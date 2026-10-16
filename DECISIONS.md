@@ -857,3 +857,28 @@ approved (agent-autonomous or you).
 - Approved by: agent (internal permission/data-model detail, explicitly
   agent-decidable per CLAUDE.md; same weight as ticket 0077's own
   permission-split decision).
+
+## 2026-10-16 13:25 UTC - Opened M11 (Tendering, Estimation & Commercials), split into three sub-tickets
+- Decision: with M10 now entirely `testing` (ticket 0092), filed ticket
+  0095 (M11 parent, closed with no code — survey + split only, same
+  shape as ticket 0089) and split the build into 0096 (M11a — tender
+  document register & scope matrix), 0097 (M11b — estimate versions &
+  cost build-up, FR-EST-001/002/003), 0098 (M11c — bid/no-bid decision
+  & quote/proposal approval, FR-BID-001). Order follows BRD §10.1 steps
+  5-8 exactly (tender documents → estimate → bid/no-bid → proposal
+  submission); step 9 onward (negotiation, contract/legal, award) is
+  explicitly left to M23, not pulled in here.
+- FR-EST-002 (AI-assisted quantity extraction/rate suggestion) is
+  scoped down to reserving `source`/`confidence` columns on
+  `estimate_lines` for M11b to build later, not an actual AI feature —
+  M28/M29 (the AI modules) haven't started, and CLAUDE.md is explicit
+  that agents must not invent AI features or authority limits ahead of
+  that module existing.
+- Why: same dependency-ordered-split precedent as every M06/M07/M09/
+  M10/M31/M35 module before it; BRD §10.1's own numbered step list
+  gives an unambiguous ordering so there's no new judgment call being
+  made about sequence, only about where to draw each sub-ticket's
+  boundary.
+- Approved by: agent (ticket classification/ordering and internal
+  data-model split are explicitly agent-decidable per CLAUDE.md, same
+  weight as every prior module split recorded here).
