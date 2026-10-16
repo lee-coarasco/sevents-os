@@ -117,6 +117,18 @@ export class FakeWorkforceRepository implements WorkforceRepository {
     return employee;
   }
 
+  async listEmployeeRecords(accessToken: string, filters: { companyId?: string; departmentId?: string }) {
+    const { tenantId } = this.contextOf(accessToken);
+    const results: EmployeeRecord[] = [];
+    for (const employee of this.employees.values()) {
+      if (employee.tenant_id !== tenantId) continue;
+      if (filters.companyId && employee.company_id !== filters.companyId) continue;
+      if (filters.departmentId && employee.department_id !== filters.departmentId) continue;
+      results.push(employee);
+    }
+    return results.sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }
+
   async getOwnEmployeeRecord(accessToken: string) {
     const { userId, tenantId } = this.contextOf(accessToken);
     for (const employee of this.employees.values()) {
