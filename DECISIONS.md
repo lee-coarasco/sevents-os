@@ -828,7 +828,7 @@ approved (agent-autonomous or you).
   agent-decidable per CLAUDE.md; the ticket text itself delegated the
   naming choice to whoever built it).
 
-## 2026-10-16 13:10 UTC - M10c (ticket 0092): handover checklist/exception routes reuse `crm.lead.manage`, not a new permission
+## 2026-10-16 11:42 UTC - M10c (ticket 0092): handover checklist/exception routes reuse `crm.lead.manage`, not a new permission
 - Decision: the new handover-checklist and handover-exception-request
   endpoints are gated on the existing `crm.lead.manage` permission
   (same as every other CRM route), not a new narrower permission —
@@ -858,7 +858,7 @@ approved (agent-autonomous or you).
   agent-decidable per CLAUDE.md; same weight as ticket 0077's own
   permission-split decision).
 
-## 2026-10-16 13:25 UTC - Opened M11 (Tendering, Estimation & Commercials), split into three sub-tickets
+## 2026-10-16 11:44 UTC - Opened M11 (Tendering, Estimation & Commercials), split into three sub-tickets
 - Decision: with M10 now entirely `testing` (ticket 0092), filed ticket
   0095 (M11 parent, closed with no code — survey + split only, same
   shape as ticket 0089) and split the build into 0096 (M11a — tender

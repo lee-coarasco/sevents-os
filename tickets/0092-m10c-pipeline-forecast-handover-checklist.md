@@ -60,7 +60,7 @@ BRD §8.5 FR-CRM-004.
 ## Progress
 - 2026-10-16: Filed as the third of three M10 sub-tickets (see ticket
   0089's split).
-- 2026-10-16 13:10 UTC: Built. Migration
+- 2026-10-16 11:42 UTC: Built. Migration
   `supabase/migrations/20261016000014_m10c_pipeline_forecast_handover_checklist.sql`
   adds `opportunity_handover_checklists` (fixed four-item list —
   `client_confirmation`, `commercial_terms_locked`,
