@@ -112,3 +112,21 @@ _Created by lee-coarasco in the AppYard dashboard._
   (`app_users_select_same_tenant` RLS policy) has not been applied
   live yet — Supabase MCP tools were unreachable again this session.
   Next session with MCP access should apply it.
+- 2026-10-16 22:15 UTC: M09 done. `ProjectsPage` gained a "New
+  project" form (company picker, name, code, start/end dates, project
+  manager via `<UserPicker>`). `ProjectDetailPage` gained an inline
+  project-edit form, WBS node add/edit, milestone add/edit, and a
+  brand new schedule-activities section (wasn't rendered at all
+  before this ticket) with its own add/edit form. All reuse existing
+  backend CRUD — no backend change needed for M09.
+  Frontend: 35 tests pass (30 before + 5 new), `tsc --noEmit`/`vite
+  build` clean.
+  Along the way found M10's ticket description was wrong: "backend
+  CRUD endpoints already exist for all three" undersold it — clients
+  and contacts only had create+read, no update. Added
+  `updateClient`/`updateContact` (service/repository/Supabase impl/
+  fake repo) and `PATCH /crm/clients/:id` + `PATCH /crm/contacts/
+  :contactId` first (591 backend tests pass, 586 + 5 new) so M10's
+  edit forms have somewhere to PATCH to.
+  Still open: M10 itself (client/contact/opportunity create+edit
+  forms in `CrmPage.tsx`) — picking that up next.
