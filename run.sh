@@ -89,6 +89,7 @@ _write_skip_until() {
   local skip_until
   skip_until="$(python3 "$PROJECT_DIR/scripts/smart_schedule.py" skip-until "$log_file" 2>/dev/null)" || return 0
   [ -z "$skip_until" ] && return 0
+  mkdir -p "$PROJECT_DIR/kit"
   echo "$skip_until" > "$PROJECT_DIR/kit/rate-limit-skip-until"
   git add kit/rate-limit-skip-until
   git diff --cached --quiet || git commit -m "Smart schedule: skip until $skip_until"
