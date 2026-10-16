@@ -11,6 +11,10 @@ import { ApprovalQueuePage } from "./pages/ApprovalQueuePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { CrmPage } from "./pages/CrmPage";
+import { OpportunityDetailPage } from "./pages/OpportunityDetailPage";
+import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { DocumentDetailPage } from "./pages/DocumentDetailPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -42,6 +46,10 @@ export function App() {
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:id" element={<ProjectDetailPage />} />
             <Route path="crm" element={<CrmPage />} />
+            <Route path="crm/opportunities/:id" element={<OpportunityDetailPage />} />
+            <Route path="tendering/tender-submissions/:id" element={<TenderSubmissionDetailPage />} />
+            <Route path="documents" element={<DocumentsPage />} />
+            <Route path="documents/:id" element={<DocumentDetailPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

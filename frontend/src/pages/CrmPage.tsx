@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
@@ -592,7 +593,9 @@ export function CrmPage() {
                       {items.map((opp) => (
                         <div key={opp.id} className="rounded-xl border border-zinc-100 bg-stone-50 p-3 text-sm">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-zinc-800">{opp.title}</p>
+                            <Link to={`/crm/opportunities/${opp.id}`} className="font-medium text-zinc-800 hover:text-brand-dim">
+                              {opp.title}
+                            </Link>
                             {!permissionsLoading && canManage && (
                               <button onClick={() => startOpportunityEdit(opp)} className="shrink-0 text-xs text-zinc-400 hover:text-brand-dim">
                                 Edit

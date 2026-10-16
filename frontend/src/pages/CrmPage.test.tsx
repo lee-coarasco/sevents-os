@@ -1,7 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { CrmPage } from "./CrmPage";
+
+function renderCrmPage() {
+  return render(
+    <MemoryRouter>
+      <CrmPage />
+    </MemoryRouter>,
+  );
+}
 
 const apiFetch = vi.fn();
 
@@ -49,13 +58,13 @@ describe("CrmPage", () => {
   });
 
   it("lists clients by default", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     expect(await screen.findByText("Al Futtaim")).toBeInTheDocument();
     expect(screen.getByText("TL-1")).toBeInTheDocument();
   });
 
   it("switches to the contacts tab and resolves the client name", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: "Contacts" }));
 
@@ -64,7 +73,7 @@ describe("CrmPage", () => {
   });
 
   it("switches to the pipeline tab and groups opportunities by stage", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: "Pipeline" }));
 
@@ -75,7 +84,7 @@ describe("CrmPage", () => {
   });
 
   it("moves an opportunity to a new stage", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: "Pipeline" }));
     await screen.findByText("Marina Tower fit-out");
@@ -93,7 +102,7 @@ describe("CrmPage", () => {
   });
 
   it("creates a client through the form", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: /new client/i }));
 
@@ -110,7 +119,7 @@ describe("CrmPage", () => {
   });
 
   it("edits a client through the form", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: /^edit$/i }));
 
@@ -129,7 +138,7 @@ describe("CrmPage", () => {
   });
 
   it("creates a contact through the form, picking the client and toggling primary", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: "Contacts" }));
     await screen.findByText("Sara");
@@ -150,7 +159,7 @@ describe("CrmPage", () => {
   });
 
   it("creates an opportunity through the form with a client, source and BD owner", async () => {
-    render(<CrmPage />);
+    renderCrmPage();
     await screen.findByText("Al Futtaim");
     await userEvent.click(screen.getByRole("button", { name: "Pipeline" }));
     await screen.findByText("Marina Tower fit-out");

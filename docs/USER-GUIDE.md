@@ -185,7 +185,8 @@ duplicate-detection search), opportunities (source/owner/value/
 probability/stage), site visits, tender submissions, a pipeline forecast
 endpoint, client communications, and a won-opportunity handover checklist
 (with an exceptions process that itself needs approval). Frontend:
-`CrmPage`, nav label "Clients & CRM", at `/crm`.
+`CrmPage`, nav label "Clients & CRM", at `/crm`; plus `OpportunityDetailPage`
+at `/crm/opportunities/:id` (ticket 0109).
 
 **How to use it:** Clients & CRM has three tabs. Clients: searchable list,
 "New client" form (name, trade license, registration country), per-row
@@ -195,31 +196,86 @@ primary-contact checkbox), per-row Edit. Pipeline: a Kanban board across
 all seven opportunity stages — each card has a dropdown to move stages, an
 Edit for owner/value/probability, and "New opportunity" creates one (client,
 source, title, BD owner via `<UserPicker>`, estimated value, probability).
+Clicking an opportunity's title opens its detail page: an overview card
+(client, source, owner, expected value, probability), a "Tender
+Submissions" tab (list + "New tender submission" form — deadline date,
+submitted-at, evidence reference, notes; each row links into M11's tender
+submission workspace), and a "Site Visits" tab (list + "Log site visit"
+form using `<UserPicker>`).
 
 ## M11 — Tendering, Estimation & Commercials (ahead of the official build order)
 
-**Status:** backend built, `testing` — not yet owner-verified (tickets
-0096/0097/0098); the umbrella ticket 0095 is `done` in the sense that its
-architect breakdown work is finished, not that the module is verified end
-to end.
+**Status:** backend + frontend built, `testing` — not yet owner-verified
+(tickets 0096/0097/0098 backend, 0109 frontend); the umbrella ticket 0095 is
+`done` in the sense that its architect breakdown work is finished, not that
+the module is verified end to end.
 
 **What's built:** Backend `tendering` module (tender document register,
-scope matrix, clarification log) and `bidding` module (estimate versions
-with cost build-up, bid/no-bid decisions with scored criteria, approval
-routing through M08). No frontend at all.
+scope matrix, clarification log), `estimating` module (versioned estimates
+with cost-build-up lines) and `bidding` module (bid/no-bid decisions with
+scored criteria, bid submissions) — approval routing through M08's
+`request_approval` seam. Frontend: `TenderSubmissionDetailPage` at
+`/tendering/tender-submissions/:id` (reached from an opportunity's Tender
+Submissions tab), with three tabs: Tender Documents, Estimates, Bid /
+No-Bid.
 
-**How to use it:** Nothing to click — backend only. Flagged here so this
-guide doesn't silently omit built code just because M11 comes later than
-M04-M10 in CLAUDE.md's official build order.
+**How to use it:**
+- **Tender Documents tab:** list of uploaded documents (type, title,
+  storage reference, uploaded date) and an "Upload document" form
+  (document type, title, document number, revision, received date,
+  storage reference — a pointer string, not a real file upload).
+- **Estimates tab:** list of estimate versions with a status badge
+  (draft/pending approval/approved/rejected/returned for
+  correction/superseded) and total amount. "New estimate version" form
+  captures assumptions/inclusions/exclusions text and taxes/overheads/
+  contingency/margin percentages (the backend has no separate "version
+  label" or "scope summary" field — version numbers are assigned
+  automatically and scope lives in inclusions/exclusions). "Manage lines"
+  on a row expands a line-items sub-table (item, qty, unit, unit rate,
+  cost category — add and remove; there is no per-line markup %, only the
+  estimate-level margin). "Submit for approval" picks a published
+  workflow definition from a dropdown (`GET
+  /workflow/definitions/published`, ticket 0109's addition — the existing
+  `GET /workflow/definitions` needs `workflow.definition.manage`, which
+  estimators don't hold) and starts the approval instance. A non-draft
+  estimate shows a "New version" button (FR-EST-003's only legal way to
+  change a locked estimate).
+- **Bid / No-Bid tab:** pick an estimate version from a dropdown, then
+  either create a decision (recommendation: bid/no bid) or manage the
+  existing one — score criteria (one of five fixed criteria, a score, a
+  rationale; add/remove while draft), "Submit for approval" (same
+  published-definition picker as Estimates), and once the decision is
+  approved, a "Bid submissions" section appears (submitted-to,
+  submitted-at, evidence reference).
 
 ---
 
 ## M13 — Documents, Drawings & Records
 
-**Status:** backend built, `testing` — not yet owner-verified (tickets
-0104/M13a and 0105/M13b). The umbrella ticket 0103 is `done` in the sense
-that its architect breakdown work is finished; M13c (transmittals/document
-requests, ticket 0106) is not built yet.
+**Status:** backend + frontend built, `testing` — not yet owner-verified
+(tickets 0104/M13a and 0105/M13b backend, 0109 frontend). The umbrella
+ticket 0103 is `done` in the sense that its architect breakdown work is
+finished; M13c (transmittals/document requests, ticket 0106) is not built
+yet.
+
+**Frontend (ticket 0109):** `DocumentsPage` at `/documents` (nav label
+"Documents & Drawings") — a filterable list (type, project, discipline)
+with a "New document" form (title, type, document number, project picker,
+discipline, access class). Each row opens `DocumentDetailPage` at
+`/documents/:id`: a metadata panel, a revisions list (revision code,
+status badge, reviewer, "Current" tag on the document's current
+revision), an "Add revision" form (revision code, storage reference,
+reviewer via `<UserPicker>`), a "Show superseded/rejected" checkbox, and
+per-revision actions — "Submit for IFC release" (pick a published
+workflow definition, same `GET /workflow/definitions/published` picker as
+M11) on an `under_review` revision, "Check approval status" once a
+submission is in flight, and "Supersede" on an older `approved` revision
+(PATCHes its status to `superseded` directly — manually pointing
+`superseded_by_revision_id` at a specific newer revision is not exposed by
+the API; that field is only ever set by the automatic create-a-new-
+revision and approval-resolution flows, so a manual supersede here is a
+status-only override, scoped out of this ticket rather than adding new
+backend surface for it).
 
 **What's built (M13a — document register & revision control):**
 Backend `documents` module: a general-purpose document-control spine

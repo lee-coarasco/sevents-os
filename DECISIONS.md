@@ -971,3 +971,48 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   data-model split are explicitly agent-decidable per CLAUDE.md, same
   weight as every prior module split recorded here).
+
+## 2026-10-16 22:20 UTC - Ticket 0109 (M11/M13 frontend): new permission-light `GET /workflow/definitions/published`, and three UI scope narrowings to match what the backend actually exposes
+- Decision 1 (backend addition): added `GET /workflow/definitions/published`
+  — no permission guard beyond authentication, returns only
+  `status: published` definitions' `id`/`key`/`name`/`capability_key`,
+  optionally filtered by `?capabilityKey=`. Needed because every
+  "submit for approval" button this ticket builds (M11b estimates, M11c
+  bid/no-bid, M13b document release) has to let the caller pick a
+  `definitionId`, but the existing `GET /workflow/definitions` is gated on
+  `workflow.definition.manage`, which only `role.platform_administrator`
+  holds by default (ticket 0060's migration) — estimators, document
+  controllers, CTO/CFO never held it. Without this, none of those buttons
+  could ever list a definition to submit against. Reads are not sensitive
+  (name/id of an already-published definition), so no new permission was
+  minted either.
+- Decision 2 (Estimates tab fields): built the create-estimate-version and
+  add-line forms against the real `estimating` module fields (assumptions/
+  inclusions/exclusions text + taxes/overheads/contingency/margin
+  percentages at the estimate level; item/quantity/unit/rate/costCategory
+  per line) rather than ticket 0109's prose ("version label, scope
+  summary" / "unit cost, markup %"), which don't exist as columns —
+  version numbers are assigned automatically (ticket 0097) and there is no
+  per-line markup, only the estimate-level margin.
+- Decision 3 (tender submission detail page): `TenderSubmissionDetailPage`
+  takes the tender submission id from the URL alone and drives M11a/b/c's
+  sub-resources (documents/estimates/bid-decisions), all of which are
+  keyed by that id directly. It does not fetch the tender submission's
+  own row (deadline/evidence/notes) because no `GET
+  /tendering/tender-submissions/:id` (singular) endpoint exists — only
+  `GET /crm/opportunities/:id/tender-submissions` (list). The opportunity
+  id is passed through as a `?opportunityId=` query param from the link
+  on `OpportunityDetailPage` so the back-link works; no backend change was
+  made for this since the page doesn't need the submission's own fields to
+  function.
+- Decision 4 (Supersede button, M13): PATCHes a revision's `status` to
+  `superseded` only — does not set `superseded_by_revision_id`, because
+  `PATCH /documents/revisions/:revisionId` never accepted that field (only
+  the automatic create-revision and resolve-approval flows in
+  `documents/service.ts` ever write it). Treated as an intentional scope
+  boundary rather than new backend surface: a manual "point this old
+  revision at that specific newer one" action isn't something any BRD
+  FR-DOC requirement asks for outside the two automatic paths already
+  built.
+- Approved by: agent (internal API surface + UI scope decisions, all
+  additive/non-destructive; explicitly agent-decidable per CLAUDE.md).
