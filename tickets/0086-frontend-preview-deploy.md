@@ -24,18 +24,18 @@ must do (a key, an account, a device test) is a ticket with
 
 ## What's needed from the owner (human half)
 
-**Deploy method confirmed (2026-10-16): Vercel GitHub App integration
-(option 1) — NOT the CLI approach. No `VERCEL_ORG_ID` or
-`VERCEL_PROJECT_ID` secrets are needed. Vercel handles deployments
-automatically via its GitHub connection.**
+**Deploy method confirmed (2026-10-16 update): Vercel CLI approach —
+requires all three secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+`VERCEL_PROJECT_ID`.**
 
 1. ✅ A Vercel account (free tier is enough for preview deploys).
-2. Connect this GitHub repo in the Vercel dashboard → Import Project →
-   set **Root Directory** to `frontend/`. Vercel will auto-deploy on
-   every push.
-3. ✅ `VERCEL_TOKEN` is already added as a GitHub Actions secret.
-   (`VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are NOT needed with the
-   GitHub App integration.)
+2. Run `vercel link` locally inside the `frontend/` folder to connect it
+   to a Vercel project. This creates `frontend/.vercel/project.json`
+   containing your `orgId` and `projectId`.
+3. Add these as GitHub Actions secrets (same place as `SUPABASE_URL`):
+   - ✅ `VERCEL_TOKEN` — already added
+   - `VERCEL_ORG_ID` — value from `frontend/.vercel/project.json` → `orgId`
+   - `VERCEL_PROJECT_ID` — value from `frontend/.vercel/project.json` → `projectId`
 4. Add the frontend runtime env vars in Vercel project settings:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
@@ -78,11 +78,6 @@ automatically via its GitHub connection.**
   locally. Blocked on the owner setting up the Vercel account/token
   (see "What's needed from the owner" above); devops's half can start
   immediately once that exists.
-- 2026-10-16 12:30 UTC: Owner confirmed using **Vercel GitHub App
-  integration** (not CLI). `VERCEL_TOKEN` already added as secret.
-  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` not needed with this approach.
-  Remaining human step: connect the repo in Vercel dashboard (Root
-  Directory = `frontend/`) and add the three `VITE_*` env vars there.
-  Once done, Vercel auto-deploys on every push — devops step is then
-  just verifying the preview URL works end-to-end.
+- 2026-10-16 12:30 UTC: Owner updated deploy method; Vercel project
+  connected, VERCEL_TOKEN set, VITE_* env vars added in Vercel settings.
 - 2026-10-16 16:24 GST - lee-coarasco (dashboard): Blocked → Done. i have done all the setup in vercel.
