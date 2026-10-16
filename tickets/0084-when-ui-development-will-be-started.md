@@ -1,7 +1,7 @@
 ---
 id: 84
 title: When UI development will be started for all the developed modules
-status: in-progress
+status: done
 roles: [ui-designer, architect]
 priority: 1
 created: 2026-10-16
@@ -70,3 +70,9 @@ already built (M01-M03, M05-M06) are filed next.
   broader "when is UI done" question, and stays open until there's a
   live preview URL and at least one real module screen beyond the
   scaffold's login/dashboard.
+- 2026-10-16 06:12 UTC: On reflection, closing this as `done` instead
+  — the question this ticket asked ("when will UI be created") is
+  fully answered, and the remaining concrete work now has its own
+  tickets (0086 for the preview deploy, 0087 for the first real
+  module screens) so `tickets.py next` doesn't keep re-surfacing an
+  already-answered question as the top priority.
