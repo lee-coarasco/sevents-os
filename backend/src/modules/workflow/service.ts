@@ -6,6 +6,8 @@ import type {
   AddConditionInput,
   AddNodeInput,
   AddTransitionInput,
+  CreateEscalationRungInput,
+  CreateSlaDefinitionInput,
   WorkflowRepository,
 } from "./repository.js";
 import {
@@ -19,6 +21,7 @@ import {
   resolveNextNodeIds,
 } from "./runtime.js";
 import { pickNextTransition, simulateGraph } from "./simulation.js";
+import { computeStepSlaState, type StepSlaState } from "./sla.js";
 import { NODE_TYPES } from "./types.js";
 import type {
   ApprovalChainDecision,
@@ -27,8 +30,10 @@ import type {
   ConfigurationSimulationRun,
   ConfigurationValidationRun,
   DefinitionFilters,
+  EscalationRung,
   GateException,
   SimulationTestCase,
+  SlaDefinition,
   TaskQueueEntry,
   WorkflowCondition,
   WorkflowDefinition,
@@ -63,6 +68,8 @@ export class MigrationVersionMismatchError extends Error {}
 export class MigrationNotPreviewedError extends Error {}
 export class MigrationNotApprovedError extends Error {}
 export class MigrationAlreadyFinalError extends Error {}
+/** Ticket 0081 (M31a): a step's node config references an sla_definitions key that doesn't exist in this tenant. */
+export class SlaDefinitionNotFoundError extends Error {}
 export class NotAnApprovalStepError extends Error {}
 export class NotAnEligibleApproverError extends Error {}
 export class MissingApprovalReasonError extends Error {}
@@ -1723,4 +1730,117 @@ export async function revokeApprovalDecision(
     payload: { approvalDecisionId, revokedBy, reason },
   });
   return decisionRecord;
+}
+
+// ---------------------------------------------------------------------------
+// SLA timers & escalation ladders (ticket 0081, M31a)
+// ---------------------------------------------------------------------------
+
+export async function createSlaDefinition(
+  repository: WorkflowRepository,
+  accessToken: string,
+  input: CreateSlaDefinitionInput,
+): Promise<SlaDefinition> {
+  return repository.createSlaDefinition(accessToken, input);
+}
+
+export async function listSlaDefinitions(repository: WorkflowRepository, accessToken: string): Promise<SlaDefinition[]> {
+  return repository.listSlaDefinitions(accessToken);
+}
+
+export async function createEscalationRung(
+  repository: WorkflowRepository,
+  accessToken: string,
+  input: CreateEscalationRungInput,
+): Promise<EscalationRung> {
+  return repository.createEscalationRung(accessToken, input);
+}
+
+export async function listEscalationRungs(
+  repository: WorkflowRepository,
+  accessToken: string,
+  slaDefinitionId: string,
+): Promise<EscalationRung[]> {
+  return repository.listEscalationRungs(accessToken, slaDefinitionId);
+}
+
+/**
+ * The read path a GET endpoint calls: computes this step's current SLA
+ * state from recorded data (its node's `config.slaDefinitionKey`, the
+ * matching `sla_definitions`/`escalation_rungs` rows, and its own
+ * `task_blocked`/`task_unblocked` events for pause time) and, exactly
+ * like ticket 0075's baseline-change-request GET, applies the outcome
+ * at most once per threshold: if this is the first time this step has
+ * been observed in `warning` or `breached`, or the first time a given
+ * escalation rung has been reached, it emits the already-declared-but-
+ * previously-unused `timer_fired`/`escalated` workflow_events. No
+ * background scheduler — SLA state only ever advances when something
+ * reads it.
+ */
+export async function evaluateStepSla(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+): Promise<StepSlaState> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  const instance = await requireInstance(repository, accessToken, step.workflow_instance_id);
+  const graph = await repository.getVersionGraph(accessToken, instance.workflow_version_id);
+  const indexed = indexGraph(graph);
+  const node = indexed.nodesById.get(step.node_id);
+  const slaDefinitionKey = node?.config?.slaDefinitionKey;
+
+  if (typeof slaDefinitionKey !== "string" || !slaDefinitionKey) {
+    return { status: "not_configured", elapsedSeconds: null, pausedSeconds: null, activeRungOrder: null };
+  }
+
+  const slaDefinition = await repository.getSlaDefinitionByKey(accessToken, slaDefinitionKey);
+  if (!slaDefinition) {
+    throw new SlaDefinitionNotFoundError(
+      `step instance ${stepInstanceId}'s node references sla_definitions key "${slaDefinitionKey}", which does not exist in this tenant`,
+    );
+  }
+
+  const [rungs, instanceEvents] = await Promise.all([
+    repository.listEscalationRungs(accessToken, slaDefinition.id),
+    repository.listEvents(accessToken, instance.id),
+  ]);
+  const stepEvents = instanceEvents.filter((e) => e.step_instance_id === step.id);
+  const pauseEvents = stepEvents.filter((e) => e.event_type === "task_blocked" || e.event_type === "task_unblocked");
+
+  const nowIso = new Date().toISOString();
+  const state = computeStepSlaState(step, slaDefinition, rungs, pauseEvents, nowIso);
+
+  if (state.status === "warning" || state.status === "breached") {
+    const alreadyFired = stepEvents.some((e) => e.event_type === "timer_fired");
+    if (!alreadyFired) {
+      await repository.insertEvent(accessToken, {
+        instanceId: instance.id,
+        stepInstanceId: step.id,
+        eventType: "timer_fired",
+        payload: { slaDefinitionKey, status: state.status },
+      });
+    }
+  }
+
+  if (state.status === "breached" && state.activeRungOrder !== null) {
+    const rung = rungs.find((r) => r.rung_order === state.activeRungOrder);
+    const alreadyEscalatedThisRung = stepEvents.some(
+      (e) => e.event_type === "escalated" && e.payload.rungOrder === state.activeRungOrder,
+    );
+    if (!alreadyEscalatedThisRung) {
+      await repository.insertEvent(accessToken, {
+        instanceId: instance.id,
+        stepInstanceId: step.id,
+        eventType: "escalated",
+        payload: {
+          slaDefinitionKey,
+          rungOrder: state.activeRungOrder,
+          actionType: rung?.action_type ?? null,
+          actionRoleId: rung?.action_role_id ?? null,
+        },
+      });
+    }
+  }
+
+  return state;
 }

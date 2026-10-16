@@ -29,6 +29,9 @@ import type {
   ValidationFinding,
   ValidationResult,
   VersionStatus,
+  EscalationActionType,
+  EscalationRung,
+  SlaDefinition,
   WorkflowCondition,
   WorkflowDefinition,
   WorkflowEvent,
@@ -42,6 +45,22 @@ import type {
   WorkflowVersion,
   WorkflowVersionGraph,
 } from "./types.js";
+
+export interface CreateSlaDefinitionInput {
+  key: string;
+  name: string;
+  warningThresholdSeconds: number;
+  breachThresholdSeconds: number;
+  createdBy: string | null;
+}
+
+export interface CreateEscalationRungInput {
+  slaDefinitionId: string;
+  rungOrder: number;
+  delayAfterBreachSeconds: number;
+  actionType: EscalationActionType;
+  actionRoleId?: string | null;
+}
 
 export interface CreateDefinitionInput {
   key: string;
@@ -337,6 +356,14 @@ export interface WorkflowRepository {
   /** FR-APP-006's compensating record — never an update/delete on approval_decisions itself. */
   insertApprovalRevocation(accessToken: string, input: InsertApprovalRevocationInput): Promise<ApprovalRevocation>;
   listApprovalRevocations(accessToken: string, approvalDecisionId: string): Promise<ApprovalRevocation[]>;
+
+  /** Ticket 0081 (M31a): SLA definitions & escalation ladders — tenant-scoped admin config, gated on workflow.sla.manage. */
+  createSlaDefinition(accessToken: string, input: CreateSlaDefinitionInput): Promise<SlaDefinition>;
+  listSlaDefinitions(accessToken: string): Promise<SlaDefinition[]>;
+  /** Resolves a `workflow_nodes.config.slaDefinitionKey` reference — null if no such key exists in this tenant. */
+  getSlaDefinitionByKey(accessToken: string, key: string): Promise<SlaDefinition | null>;
+  createEscalationRung(accessToken: string, input: CreateEscalationRungInput): Promise<EscalationRung>;
+  listEscalationRungs(accessToken: string, slaDefinitionId: string): Promise<EscalationRung[]>;
 }
 
 const OPEN_STEP_STATUSES: StepInstanceStatus[] = ["waiting", "active"];
@@ -1029,6 +1056,65 @@ export function createSupabaseWorkflowRepository(
         .order("created_at", { ascending: true });
       if (error) throw new Error(`listApprovalRevocations: ${error.message}`);
       return (data as ApprovalRevocation[]) ?? [];
+    },
+
+    async createSlaDefinition(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("sla_definitions")
+        .insert({
+          key: input.key,
+          name: input.name,
+          warning_threshold_seconds: input.warningThresholdSeconds,
+          breach_threshold_seconds: input.breachThresholdSeconds,
+          created_by: input.createdBy,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createSlaDefinition: ${error?.message ?? "no row returned"}`);
+      return data as SlaDefinition;
+    },
+
+    async listSlaDefinitions(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("sla_definitions").select("*").order("created_at", { ascending: true });
+      if (error) throw new Error(`listSlaDefinitions: ${error.message}`);
+      return (data as SlaDefinition[]) ?? [];
+    },
+
+    async getSlaDefinitionByKey(accessToken, key) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("sla_definitions").select("*").eq("key", key).maybeSingle();
+      if (error) throw new Error(`getSlaDefinitionByKey: ${error.message}`);
+      return (data as SlaDefinition | null) ?? null;
+    },
+
+    async createEscalationRung(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("escalation_rungs")
+        .insert({
+          sla_definition_id: input.slaDefinitionId,
+          rung_order: input.rungOrder,
+          delay_after_breach_seconds: input.delayAfterBreachSeconds,
+          action_type: input.actionType,
+          action_role_id: input.actionRoleId ?? null,
+        })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createEscalationRung: ${error?.message ?? "no row returned"}`);
+      return data as EscalationRung;
+    },
+
+    async listEscalationRungs(accessToken, slaDefinitionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("escalation_rungs")
+        .select("*")
+        .eq("sla_definition_id", slaDefinitionId)
+        .order("rung_order", { ascending: true });
+      if (error) throw new Error(`listEscalationRungs: ${error.message}`);
+      return (data as EscalationRung[]) ?? [];
     },
   };
 }

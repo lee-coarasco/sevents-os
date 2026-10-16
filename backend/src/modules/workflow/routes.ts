@@ -28,6 +28,7 @@ import {
   NotAnEligibleApproverError,
   RollbackTargetNotPublishedError,
   SegregationOfDutiesViolationError,
+  SlaDefinitionNotFoundError,
   StepInstanceNotActionableError,
   StepInstanceNotFoundError,
   UnregisteredServiceError,
@@ -48,19 +49,24 @@ import {
   completedQueue,
   completeStepInstance,
   createDraftVersion,
+  createEscalationRung,
   createMigration,
+  createSlaDefinition,
   createWorkflowDefinition,
   CrossTenantError,
   decideApprovalStep,
   delegateTask,
   dueSoonQueue,
+  evaluateStepSla,
   executeMigration,
   getApprovalDetail,
   getVersionGraph,
   getWorkflowDefinition,
   getWorkflowInstance,
   getWorkflowMigration,
+  listEscalationRungs,
   listMigrationInstanceResults,
+  listSlaDefinitions,
   listVersions,
   listWorkflowDefinitions,
   myWorkQueue,
@@ -83,7 +89,7 @@ import {
 } from "./service.js";
 import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions } from "./service.js";
 import { normalizeApprovalChainConfig } from "./approvals.js";
-import type { ApprovalChainDecision, ApprovalDecision, DefinitionStatus, SimulationTestCase } from "./types.js";
+import type { ApprovalChainDecision, ApprovalDecision, DefinitionStatus, EscalationActionType, SimulationTestCase } from "./types.js";
 
 export interface WorkflowRouteOptions {
   getRepository: () => WorkflowRepository;
@@ -111,7 +117,8 @@ function handleServiceError(error: unknown, reply: { code: (n: number) => void }
     error instanceof InstanceNotFoundError ||
     error instanceof StepInstanceNotFoundError ||
     error instanceof MigrationNotFoundError ||
-    error instanceof ApprovalDecisionNotFoundError
+    error instanceof ApprovalDecisionNotFoundError ||
+    error instanceof SlaDefinitionNotFoundError
   ) {
     reply.code(404);
     return { error: error.message };
@@ -1013,6 +1020,97 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
       try {
         const decision = await revokeApprovalDecision(options.getRepository(), token, request.params.decisionId, callerUserId ?? "", reason);
         return { decision };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // SLA timers & escalation ladders (ticket 0081, M31a)
+  // ---------------------------------------------------------------------
+
+  app.post<{
+    Body: { key: string; name: string; warningThresholdSeconds: number; breachThresholdSeconds: number };
+  }>(
+    "/workflow/sla-definitions",
+    { preHandler: options.requirePermission("workflow.sla.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.key || !body.name || !body.warningThresholdSeconds || !body.breachThresholdSeconds) {
+        reply.code(400);
+        return { error: "key, name, warningThresholdSeconds and breachThresholdSeconds are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      const slaDefinition = await createSlaDefinition(options.getRepository(), token, {
+        key: body.key,
+        name: body.name,
+        warningThresholdSeconds: body.warningThresholdSeconds,
+        breachThresholdSeconds: body.breachThresholdSeconds,
+        createdBy: callerUserId,
+      });
+      reply.code(201);
+      return { slaDefinition };
+    },
+  );
+
+  app.get(
+    "/workflow/sla-definitions",
+    { preHandler: options.requirePermission("workflow.sla.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const slaDefinitions = await listSlaDefinitions(options.getRepository(), token);
+      return { slaDefinitions };
+    },
+  );
+
+  app.post<{
+    Params: { slaDefinitionId: string };
+    Body: { rungOrder: number; delayAfterBreachSeconds: number; actionType: EscalationActionType; actionRoleId?: string };
+  }>(
+    "/workflow/sla-definitions/:slaDefinitionId/rungs",
+    { preHandler: options.requirePermission("workflow.sla.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.rungOrder || body.delayAfterBreachSeconds === undefined || !body.actionType) {
+        reply.code(400);
+        return { error: "rungOrder, delayAfterBreachSeconds and actionType are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const rung = await createEscalationRung(options.getRepository(), token, {
+        slaDefinitionId: request.params.slaDefinitionId,
+        rungOrder: body.rungOrder,
+        delayAfterBreachSeconds: body.delayAfterBreachSeconds,
+        actionType: body.actionType,
+        actionRoleId: body.actionRoleId ?? null,
+      });
+      reply.code(201);
+      return { rung };
+    },
+  );
+
+  app.get<{ Params: { slaDefinitionId: string } }>(
+    "/workflow/sla-definitions/:slaDefinitionId/rungs",
+    { preHandler: options.requirePermission("workflow.sla.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const rungs = await listEscalationRungs(options.getRepository(), token, request.params.slaDefinitionId);
+      return { rungs };
+    },
+  );
+
+  // GET is the evaluation: same "read re-checks and applies the
+  // outcome exactly once" shape as the baseline-change-request poll
+  // (ticket 0075) — see evaluateStepSla's own doc comment.
+  app.get<{ Params: { stepId: string } }>(
+    "/workflow/steps/:stepId/sla-state",
+    { preHandler: options.requirePermission("workflow.instance.act") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const state = await evaluateStepSla(options.getRepository(), token, request.params.stepId);
+        return { state };
       } catch (error) {
         return handleServiceError(error, reply);
       }

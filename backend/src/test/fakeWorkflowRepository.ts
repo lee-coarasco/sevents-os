@@ -3,8 +3,10 @@ import type {
   AddNodeInput,
   AddTransitionInput,
   CreateDefinitionInput,
+  CreateEscalationRungInput,
   CreateInstanceInput,
   CreateMigrationInput,
+  CreateSlaDefinitionInput,
   CreateStepInstanceInput,
   CreateTaskCommentInput,
   InsertApprovalDecisionInput,
@@ -33,7 +35,9 @@ import type {
   ConfigurationValidationRun,
   DefinitionFilters,
   DefinitionStatus,
+  EscalationRung,
   PublishedConfiguration,
+  SlaDefinition,
   WorkflowCondition,
   WorkflowDefinition,
   WorkflowEvent,
@@ -94,6 +98,8 @@ export class FakeWorkflowRepository implements WorkflowRepository {
   userTenants = new Map<string, string>();
   approvalDecisions: ApprovalDecisionRecord[] = [];
   approvalRevocations: ApprovalRevocation[] = [];
+  slaDefinitionsById = new Map<string, SlaDefinition>();
+  escalationRungsById = new Map<string, EscalationRung>();
 
   addSession(accessToken: string, userId: string, tenantId?: string) {
     this.sessions.set(accessToken, userId);
@@ -647,5 +653,49 @@ export class FakeWorkflowRepository implements WorkflowRepository {
 
   async listApprovalRevocations(_accessToken: string, approvalDecisionId: string): Promise<ApprovalRevocation[]> {
     return this.approvalRevocations.filter((r) => r.approval_decision_id === approvalDecisionId);
+  }
+
+  async createSlaDefinition(_accessToken: string, input: CreateSlaDefinitionInput): Promise<SlaDefinition> {
+    const definition: SlaDefinition = {
+      id: nextId("sla-definition"),
+      tenant_id: TENANT_ID,
+      key: input.key,
+      name: input.name,
+      warning_threshold_seconds: input.warningThresholdSeconds,
+      breach_threshold_seconds: input.breachThresholdSeconds,
+      created_by: input.createdBy,
+      created_at: new Date(0).toISOString(),
+    };
+    this.slaDefinitionsById.set(definition.id, definition);
+    return definition;
+  }
+
+  async listSlaDefinitions(_accessToken: string): Promise<SlaDefinition[]> {
+    return [...this.slaDefinitionsById.values()];
+  }
+
+  async getSlaDefinitionByKey(_accessToken: string, key: string): Promise<SlaDefinition | null> {
+    return [...this.slaDefinitionsById.values()].find((d) => d.key === key) ?? null;
+  }
+
+  async createEscalationRung(_accessToken: string, input: CreateEscalationRungInput): Promise<EscalationRung> {
+    const rung: EscalationRung = {
+      id: nextId("escalation-rung"),
+      tenant_id: TENANT_ID,
+      sla_definition_id: input.slaDefinitionId,
+      rung_order: input.rungOrder,
+      delay_after_breach_seconds: input.delayAfterBreachSeconds,
+      action_type: input.actionType,
+      action_role_id: input.actionRoleId ?? null,
+      created_at: new Date(0).toISOString(),
+    };
+    this.escalationRungsById.set(rung.id, rung);
+    return rung;
+  }
+
+  async listEscalationRungs(_accessToken: string, slaDefinitionId: string): Promise<EscalationRung[]> {
+    return [...this.escalationRungsById.values()]
+      .filter((r) => r.sla_definition_id === slaDefinitionId)
+      .sort((a, b) => a.rung_order - b.rung_order);
   }
 }

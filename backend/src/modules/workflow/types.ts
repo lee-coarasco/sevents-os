@@ -344,6 +344,33 @@ export interface GateException {
   reason: string;
 }
 
+/** Ticket 0081 (M31a): a named SLA policy. Every threshold is caller-supplied — see the migration's header comment for why there is no default. */
+export interface SlaDefinition {
+  id: string;
+  tenant_id: string;
+  key: string;
+  name: string;
+  warning_threshold_seconds: number;
+  breach_threshold_seconds: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export const ESCALATION_ACTION_TYPES = ["notify_owner", "notify_role"] as const;
+export type EscalationActionType = (typeof ESCALATION_ACTION_TYPES)[number];
+
+/** Ticket 0081 (M31a): one ordered rung of an SLA's escalation ladder. */
+export interface EscalationRung {
+  id: string;
+  tenant_id: string;
+  sla_definition_id: string;
+  rung_order: number;
+  delay_after_breach_seconds: number;
+  action_type: EscalationActionType;
+  action_role_id: string | null;
+  created_at: string;
+}
+
 /** Ticket 0063 (M06d): explicit, audited migration of running instances from one published version to another. */
 
 export const MIGRATION_STATUSES = ["draft", "previewed", "approved", "executed", "cancelled"] as const;

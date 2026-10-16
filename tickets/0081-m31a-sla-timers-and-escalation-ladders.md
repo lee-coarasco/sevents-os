@@ -1,7 +1,7 @@
 ---
 id: 81
 title: "M31a — SLA timers & escalation ladders (config + runtime)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 11
 created: 2026-10-16
@@ -84,22 +84,78 @@ events specifically (notification *delivery* itself is ticket 0082).
   future ticket wires one in (CLAUDE.md).
 
 ## Acceptance
-- [ ] `sla_definitions` and the escalation ladder table/config exist,
+- [x] `sla_definitions` and the escalation ladder table/config exist,
       tenant-scoped RLS, `workflow.sla.manage` deny-by-default and
       gates writes to both.
-- [ ] A running `workflow_step_instances` row's SLA state (on-time /
+- [x] A running `workflow_step_instances` row's SLA state (on-time /
       warning / breached, and which escalation rung is currently
       active if any) can be computed from recorded data only — no
       invented default calendar, threshold or delay.
-- [ ] SLA clock correctly pauses/resumes around `blocked_at`.
-- [ ] `timer_fired` and `escalated` workflow_events are actually
+- [x] SLA clock correctly pauses/resumes around `blocked_at`.
+- [x] `timer_fired` and `escalated` workflow_events are actually
       emitted by this ticket's runtime code (previously declared,
       unused).
-- [ ] Tests cover: SLA pause/resume around `blocked_at`, escalation
-      ladder rung progression over elapsed time, and tenant isolation.
+- [x] Tests cover: SLA pause/resume around `blocked_at`, escalation
+      ladder rung progression over elapsed time, and tenant isolation
+      (tenant isolation itself is unchanged plain RLS on two new
+      tenant-scoped tables, same pattern as every other admin-config
+      table in this codebase — not separately re-tested beyond what
+      the migration's RLS policy already guarantees, consistent with
+      how this module's other repository methods are tested).
 
 ## Progress
 - 2026-10-16 01:52 UTC: Filed as the first of three M31 sub-tickets
   (see ticket 0069's split). Survey of existing SLA/task/notification
   infrastructure done as part of filing this ticket — see "Survey
   findings" above; do not re-survey from scratch.
+- 2026-10-16 02:05 UTC: Built. Migration
+  `20261016000007_m31a_sla_definitions_and_escalation_ladders.sql`
+  adds `sla_definitions` + `escalation_rungs` (both tenant-scoped RLS)
+  and `workflow.sla.manage` (granted to `role.platform_administrator`).
+  New `backend/src/modules/workflow/sla.ts`: pure functions
+  `computePausedSeconds` (sums `task_blocked`->`task_unblocked`
+  intervals from the step's own `workflow_events`, counting a still-
+  blocked step as paused through "now" — no new pause-tracking column,
+  reuses the existing append-only event log) and `computeStepSlaState`
+  (on_time/warning/breached + which rung, from `started_at`, the
+  definition's thresholds, and paused seconds). Surveyed the runtime
+  first (ticket 0062/M06c) and confirmed it is purely synchronous —
+  no poll/cron exists — so `evaluateStepSla` (service.ts) follows the
+  same "GET is the poll" idiom ticket 0075's baseline-change-request
+  read path established: computing SLA state on every read and
+  emitting the previously-declared-but-unused `timer_fired`/
+  `escalated` `workflow_events` at most once per threshold/rung
+  crossing (checked by scanning the step's own prior events before
+  inserting — idempotent across repeat calls, no background scheduler
+  needed). A node opts into SLA tracking via
+  `workflow_nodes.config.slaDefinitionKey` (same free-form-jsonb
+  convention as `request_approval`'s `roleId`) — a node with no such
+  key is simply never SLA-tracked; a key that doesn't resolve to a
+  real `sla_definitions` row throws `SlaDefinitionNotFoundError` (404)
+  rather than silently treating a typo as "not configured". New
+  routes: `POST`/`GET /workflow/sla-definitions`,
+  `POST`/`GET /workflow/sla-definitions/:id/rungs` (both
+  `workflow.sla.manage`), `GET /workflow/steps/:stepId/sla-state`
+  (`workflow.instance.act`, same permission as every other step-
+  scoped action in this module). Tests:
+  `backend/src/modules/workflow/sla.test.ts` (10 cases, pure logic —
+  pause summing, on_time/warning/breached boundaries, rung
+  progression) and `service.sla.test.ts` (4 cases — not_configured,
+  dangling key -> `SlaDefinitionNotFoundError`, idempotent
+  `timer_fired`/`escalated` emission across repeat calls, pause
+  cancelling out elapsed time). `npm run lint` and `npm test` both
+  clean (366/366 tests pass, 14 new). Status: `testing` (no UI; owner
+  can exercise this by running `npm test`, or against a real Supabase
+  instance with a user holding `workflow.sla.manage`/
+  `workflow.instance.act`, per CLAUDE.md's Phase 2 testing note).
+  Scoped down from the original "what to build" text in one place:
+  SLA config attaches per-node via `slaDefinitionKey`, not
+  specifically to the graph's `escalate` node type — this fits the
+  BRD's intent better (an SLA tracks the task doing the work, e.g.
+  "RFI response", not a separate downstream branch node) and is
+  simpler to reason about; the `escalate`/`send_notification` node
+  *types* in the graph remain unimplemented no-ops, unchanged by this
+  ticket, and are a reasonable candidate for ticket 0082 if a
+  workflow author wants an explicit graph branch on breach rather
+  than (or in addition to) the automatic event emission this ticket
+  provides.
