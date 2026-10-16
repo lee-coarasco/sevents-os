@@ -30,6 +30,9 @@ function mockDefaultResponses() {
     if (path === "/projects") {
       return Promise.resolve({ projects: [] });
     }
+    if (path.startsWith("/tenancy/branches?companyId=")) {
+      return Promise.resolve({ branches: [] });
+    }
     if (path === "/authority/effective-permissions") {
       return Promise.resolve({
         permissions: ["tenancy.branch.manage", "tenancy.project.manage"],
@@ -63,13 +66,16 @@ describe("OrgSetupPage", () => {
     expect(screen.getByText("You don't have permission to create companies.")).toBeInTheDocument();
   });
 
-  it("creates a branch and shows it in the session list", async () => {
+  it("creates a branch and shows it in the list", async () => {
     apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
       if (path === "/tenancy/companies") {
         return Promise.resolve({ companies: [{ id: "c1", legal_name: "Acme Construction" }] });
       }
       if (path === "/projects") {
         return Promise.resolve({ projects: [] });
+      }
+      if (path.startsWith("/tenancy/branches?companyId=")) {
+        return Promise.resolve({ branches: [] });
       }
       if (path === "/authority/effective-permissions") {
         return Promise.resolve({ permissions: ["tenancy.branch.manage"] });

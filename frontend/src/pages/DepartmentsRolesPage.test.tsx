@@ -29,6 +29,15 @@ describe("DepartmentsRolesPage", () => {
       if (path === "/tenancy/companies") {
         return Promise.resolve({ companies: [{ id: "c1", legal_name: "Acme Construction" }] });
       }
+      if (path === "/authority/roles") {
+        return Promise.resolve({ roles: [{ id: "role.storekeeper", label: "Storekeeper", is_platform_role: false }] });
+      }
+      if (path === "/authority/role-assignments" && !init) {
+        return Promise.resolve({ roleAssignments: [] });
+      }
+      if (path.startsWith("/authority/departments?companyId=")) {
+        return Promise.resolve({ departments: [] });
+      }
       if (path === "/authority/effective-permissions") {
         return Promise.resolve({
           permissions: ["authority.department.manage", "authority.role_assignment.manage"],
@@ -39,31 +48,31 @@ describe("DepartmentsRolesPage", () => {
       }
       if (path === "/authority/role-assignments" && init?.method === "POST") {
         return Promise.resolve({
-          roleAssignment: { id: "ra1", user_id: "u1", role_id: "r1", department_id: null },
+          roleAssignment: { id: "ra1", user_id: "u1", role_id: "role.storekeeper", department_id: null },
         });
       }
       return Promise.resolve({});
     });
   });
 
-  it("creates a department and shows it in the session list", async () => {
+  it("creates a department and shows it in the list", async () => {
     render(<DepartmentsRolesPage />);
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
 
     await userEvent.type(screen.getByPlaceholderText("Department name"), "Engineering");
     await userEvent.click(screen.getByRole("button", { name: /add department/i }));
 
-    expect(await screen.findByText("Engineering")).toBeInTheDocument();
+    expect(await screen.findByText("Engineering", { selector: "li" })).toBeInTheDocument();
   });
 
-  it("creates a role assignment from raw user/role ids", async () => {
+  it("creates a role assignment by picking a role from the fetched list", async () => {
     render(<DepartmentsRolesPage />);
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
 
     await userEvent.type(screen.getByPlaceholderText("User id"), "u1");
-    await userEvent.type(screen.getByPlaceholderText("Role id"), "r1");
+    await userEvent.selectOptions(screen.getByDisplayValue("Select a role…"), "role.storekeeper");
     await userEvent.click(screen.getByRole("button", { name: /assign role/i }));
 
-    expect(await screen.findByText(/user u1 → role r1/)).toBeInTheDocument();
+    expect(await screen.findByText(/user u1 → role Storekeeper/)).toBeInTheDocument();
   });
 });

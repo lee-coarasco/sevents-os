@@ -5,6 +5,7 @@ import type {
   Delegation,
   DepartmentDefinition,
   RoleAssignment,
+  RoleDefinition,
 } from "./types.js";
 
 export interface CreateDepartmentInput {
@@ -47,6 +48,10 @@ export interface ApprovalLimitFilter {
   atIso: string;
 }
 
+export interface ListRoleAssignmentsFilter {
+  userId?: string | null;
+}
+
 /**
  * Everything the authority service needs. Mutating methods take the
  * caller's own access token and go through the user-scoped client, same
@@ -63,7 +68,12 @@ export interface AuthorityRepository {
   resolveCallerContext(accessToken: string): Promise<{ userId: string; tenantId: string } | null>;
   getUserTenantId(userId: string): Promise<string | null>;
   createDepartment(accessToken: string, input: CreateDepartmentInput): Promise<DepartmentDefinition>;
+  /** Self-service read, same "visible to anyone with a session in this tenant" precedent as GET /tenancy/companies — no extra permission. */
+  listDepartments(accessToken: string, companyId: string): Promise<DepartmentDefinition[]>;
+  /** RLS (role_definitions_select) already returns platform-wide rows plus the caller's own tenant's rows; this goes through the user-scoped client so that filter applies for free. */
+  listRoleDefinitions(accessToken: string): Promise<RoleDefinition[]>;
   createRoleAssignment(accessToken: string, input: CreateRoleAssignmentInput): Promise<RoleAssignment>;
+  listRoleAssignments(accessToken: string, filter?: ListRoleAssignmentsFilter): Promise<RoleAssignment[]>;
   getRoleAssignment(roleAssignmentId: string): Promise<RoleAssignment | null>;
   createDelegation(accessToken: string, input: CreateDelegationInput): Promise<Delegation>;
   createApprovalLimit(accessToken: string, input: CreateApprovalLimitInput): Promise<ApprovalLimit>;
@@ -126,6 +136,23 @@ export function createSupabaseAuthorityRepository(
       return data as DepartmentDefinition;
     },
 
+    async listDepartments(accessToken, companyId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("department_definitions")
+        .select("*")
+        .eq("company_id", companyId);
+      if (error) throw new Error(`listDepartments: ${error.message}`);
+      return (data as DepartmentDefinition[]) ?? [];
+    },
+
+    async listRoleDefinitions(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("role_definitions").select("*");
+      if (error) throw new Error(`listRoleDefinitions: ${error.message}`);
+      return (data as RoleDefinition[]) ?? [];
+    },
+
     async createRoleAssignment(accessToken, input) {
       const client = userScopedClientFactory(accessToken);
       const { data, error } = await client
@@ -137,6 +164,15 @@ export function createSupabaseAuthorityRepository(
         throw new Error(`createRoleAssignment: ${error?.message ?? "no row returned"}`);
       }
       return data as RoleAssignment;
+    },
+
+    async listRoleAssignments(accessToken, filter) {
+      const client = userScopedClientFactory(accessToken);
+      let query = client.from("role_assignments").select("*");
+      if (filter?.userId) query = query.eq("user_id", filter.userId);
+      const { data, error } = await query;
+      if (error) throw new Error(`listRoleAssignments: ${error.message}`);
+      return (data as RoleAssignment[]) ?? [];
     },
 
     async getRoleAssignment(roleAssignmentId) {

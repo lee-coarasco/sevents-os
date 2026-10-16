@@ -34,9 +34,7 @@ export function OrgSetupPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Branches created this session, keyed by company: GET /tenancy/branches does not exist yet
-  // (see ticket 0087 Progress / the follow-on backend ticket it filed), so this is not a real list.
-  const [sessionBranches, setSessionBranches] = useState<Record<string, Branch[]>>({});
+  const [branches, setBranches] = useState<Branch[] | null>(null);
 
   const [newCompanyName, setNewCompanyName] = useState("");
   const [creatingCompany, setCreatingCompany] = useState(false);
@@ -57,6 +55,19 @@ export function OrgSetupPage() {
       .then((data) => setProjects(data.projects))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }, [session]);
+
+  useEffect(() => {
+    if (!session || !selectedCompanyId) {
+      setBranches(null);
+      return;
+    }
+    apiFetch<{ branches: Branch[] }>(
+      `/tenancy/branches?companyId=${selectedCompanyId}`,
+      session.access_token,
+    )
+      .then((data) => setBranches(data.branches))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+  }, [session, selectedCompanyId]);
 
   async function handleCreateCompany(event: FormEvent) {
     event.preventDefault();
@@ -87,10 +98,7 @@ export function OrgSetupPage() {
         method: "POST",
         body: JSON.stringify({ companyId: selectedCompanyId, name: newBranchName.trim() }),
       });
-      setSessionBranches((prev) => ({
-        ...prev,
-        [selectedCompanyId]: [...(prev[selectedCompanyId] ?? []), branch],
-      }));
+      setBranches((prev) => [...(prev ?? []), branch]);
       setNewBranchName("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create branch");
@@ -124,7 +132,6 @@ export function OrgSetupPage() {
   }
 
   const selectedCompany = companies?.find((c) => c.id === selectedCompanyId) ?? null;
-  const branchesForSelected = selectedCompanyId ? sessionBranches[selectedCompanyId] ?? [] : [];
   const projectsForSelected = selectedCompanyId
     ? (projects ?? []).filter((p) => p.company_id === selectedCompanyId)
     : [];
@@ -184,16 +191,13 @@ export function OrgSetupPage() {
             <h3 className="mb-3 text-sm font-medium text-slate-500">
               Branches — {selectedCompany.legal_name}
             </h3>
-            <p className="mb-3 text-xs text-slate-400">
-              Showing branches created this session only — there is no branch list endpoint yet
-              (filed as a follow-on backend ticket).
-            </p>
-            {branchesForSelected.length === 0 && (
-              <p className="mb-3 text-sm text-slate-500">No branches created this session.</p>
+            {branches === null && <p className="mb-3 text-sm text-slate-500">Loading…</p>}
+            {branches?.length === 0 && (
+              <p className="mb-3 text-sm text-slate-500">No branches yet.</p>
             )}
-            {branchesForSelected.length > 0 && (
+            {branches && branches.length > 0 && (
               <ul className="mb-4 space-y-2">
-                {branchesForSelected.map((branch) => (
+                {branches.map((branch) => (
                   <li key={branch.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
                     {branch.name}
                     {branch.operating_region ? ` — ${branch.operating_region}` : ""}

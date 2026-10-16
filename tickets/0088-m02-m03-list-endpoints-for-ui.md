@@ -1,7 +1,7 @@
 ---
 id: 88
 title: "Add missing list endpoints for M02/M03 (branches, departments, roles, role assignments)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 2
 created: 2026-10-16
@@ -72,17 +72,44 @@ feature.
   a third ticket for it unless it turns out to be non-trivial).
 
 ## Acceptance
-- [ ] `GET /tenancy/branches?companyId=` returns branches for that
+- [x] `GET /tenancy/branches?companyId=` returns branches for that
       company, tenant-isolated like every other tenancy read.
-- [ ] `GET /authority/departments?companyId=` returns departments for
+- [x] `GET /authority/departments?companyId=` returns departments for
       that company.
-- [ ] `GET /authority/roles` returns visible role definitions.
-- [ ] `GET /authority/role-assignments` (scoped as decided above)
+- [x] `GET /authority/roles` returns visible role definitions.
+- [x] `GET /authority/role-assignments` (scoped as decided above)
       returns assignments.
-- [ ] Tests for all four, following this codebase's existing
+- [x] Tests for all four, following this codebase's existing
       fake-repository-backed route test pattern.
 
 ## Progress
 - 2026-10-16 06:21 UTC: Filed while building ticket 0087 — the UI
   ticket's "out of scope: any new backend endpoint" rule meant these
   gaps get written up here instead of being added inline.
+- 2026-10-16 07:10 UTC: Built all four endpoints.
+  `GET /tenancy/branches?companyId=` wraps the existing
+  `listBranches` repository method (no new repository code needed).
+  `AuthorityRepository` gained `listDepartments`, `listRoleDefinitions`
+  and `listRoleAssignments`, each implemented against the real
+  user-scoped Supabase client (RLS does the tenant/platform filtering)
+  and against `FakeAuthorityRepository` for tests. All four routes
+  require only a valid session, no extra permission — see
+  DECISIONS.md for why (matches `GET /tenancy/companies`'s existing
+  no-permission precedent). `listRoleAssignments` filters by `userId`
+  only, not `companyId` (`role_assignments` has no company column —
+  see DECISIONS.md). Added route tests for all four
+  (`tenancy/routes.test.ts`, `authority/routes.test.ts`) covering
+  the 400/401 cases and tenant isolation. Full backend suite: 375/375
+  passing.
+  As a same-session follow-up (pre-approved by this ticket's own "tiny
+  addendum" note), updated ticket 0087's `OrgSetupPage.tsx` and
+  `DepartmentsRolesPage.tsx` to fetch these real lists instead of
+  session-only state, and turned the role-assignment form's free-text
+  role/department id inputs into `<select>`s populated from
+  `GET /authority/roles` / the company's departments. Updated both
+  pages' tests to match (frontend suite: 6/6 passing, typecheck clean).
+  Set to `testing` — this is user-visible in the UI: reload
+  `/org-setup` or `/departments-roles` after creating a branch/
+  department/role assignment and it should now still be there, and the
+  role-assignment form should show a dropdown of real role names
+  instead of a blank text box.

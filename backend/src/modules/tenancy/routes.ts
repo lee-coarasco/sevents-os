@@ -67,4 +67,14 @@ export async function tenancyRoutes(app: FastifyInstance, options: TenancyRouteO
     },
   );
 
+  app.get<{ Querystring: { companyId?: string } }>("/tenancy/branches", async (request, reply) => {
+    const { companyId } = request.query ?? {};
+    if (!companyId) {
+      reply.code(400);
+      return { error: "companyId is required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const branches = await options.getRepository().listBranches(token, companyId);
+    return { branches };
+  });
 }

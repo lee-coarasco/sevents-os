@@ -129,6 +129,66 @@ export async function authorityRoutes(app: FastifyInstance, options: AuthorityRo
     },
   );
 
+  // Ticket 0088: self-service reads, no permission required beyond a
+  // valid session — same "visible to anyone with a session in this
+  // tenant" precedent GET /tenancy/companies already set (no
+  // requirePermission on that GET either). A caller deciding what
+  // department/role/assignment to pick needs to see what already
+  // exists, same reasoning as GET /authority/effective-permissions.
+  app.get<{ Querystring: { companyId?: string } }>("/authority/departments", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    const repo = options.getRepository();
+    const context = await repo.resolveCallerContext(token);
+    if (!context) {
+      reply.code(401);
+      return { error: "invalid session" };
+    }
+    const { companyId } = request.query ?? {};
+    if (!companyId) {
+      reply.code(400);
+      return { error: "companyId is required" };
+    }
+    const departments = await repo.listDepartments(token, companyId);
+    return { departments };
+  });
+
+  app.get("/authority/roles", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    const repo = options.getRepository();
+    const context = await repo.resolveCallerContext(token);
+    if (!context) {
+      reply.code(401);
+      return { error: "invalid session" };
+    }
+    const roles = await repo.listRoleDefinitions(token);
+    return { roles };
+  });
+
+  app.get<{ Querystring: { userId?: string } }>("/authority/role-assignments", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    const repo = options.getRepository();
+    const context = await repo.resolveCallerContext(token);
+    if (!context) {
+      reply.code(401);
+      return { error: "invalid session" };
+    }
+    const { userId } = request.query ?? {};
+    const roleAssignments = await repo.listRoleAssignments(token, { userId });
+    return { roleAssignments };
+  });
+
   // Self-service only — no permission required beyond having a valid
   // session, same "is this your own row" exemption ticket 0054 used for
   // GET /identity/audit-log.

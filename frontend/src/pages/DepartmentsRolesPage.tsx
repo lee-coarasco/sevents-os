@@ -15,6 +15,12 @@ interface Department {
   parent_id: string | null;
 }
 
+interface RoleDefinition {
+  id: string;
+  label: string;
+  is_platform_role: boolean;
+}
+
 interface RoleAssignment {
   id: string;
   user_id: string;
@@ -30,11 +36,9 @@ export function DepartmentsRolesPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
-  // No list endpoint exists for departments or role assignments yet (see
-  // ticket 0087 Progress / the follow-on backend ticket) — these only show
-  // what was created this session.
-  const [sessionDepartments, setSessionDepartments] = useState<Department[]>([]);
-  const [sessionRoleAssignments, setSessionRoleAssignments] = useState<RoleAssignment[]>([]);
+  const [departments, setDepartments] = useState<Department[] | null>(null);
+  const [roles, setRoles] = useState<RoleDefinition[] | null>(null);
+  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[] | null>(null);
 
   const [newDepartmentName, setNewDepartmentName] = useState("");
   const [creatingDepartment, setCreatingDepartment] = useState(false);
@@ -52,7 +56,26 @@ export function DepartmentsRolesPage() {
         if (data.companies.length > 0) setSelectedCompanyId((prev) => prev || data.companies[0].id);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+    apiFetch<{ roles: RoleDefinition[] }>("/authority/roles", session.access_token)
+      .then((data) => setRoles(data.roles))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+    apiFetch<{ roleAssignments: RoleAssignment[] }>("/authority/role-assignments", session.access_token)
+      .then((data) => setRoleAssignments(data.roleAssignments))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }, [session]);
+
+  useEffect(() => {
+    if (!session || !selectedCompanyId) {
+      setDepartments(null);
+      return;
+    }
+    apiFetch<{ departments: Department[] }>(
+      `/authority/departments?companyId=${selectedCompanyId}`,
+      session.access_token,
+    )
+      .then((data) => setDepartments(data.departments))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+  }, [session, selectedCompanyId]);
 
   async function handleCreateDepartment(event: FormEvent) {
     event.preventDefault();
@@ -68,7 +91,7 @@ export function DepartmentsRolesPage() {
           body: JSON.stringify({ companyId: selectedCompanyId, name: newDepartmentName.trim() }),
         },
       );
-      setSessionDepartments((prev) => [...prev, department]);
+      setDepartments((prev) => [...(prev ?? []), department]);
       setNewDepartmentName("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create department");
@@ -79,7 +102,7 @@ export function DepartmentsRolesPage() {
 
   async function handleCreateRoleAssignment(event: FormEvent) {
     event.preventDefault();
-    if (!session || !assignUserId.trim() || !assignRoleId.trim()) return;
+    if (!session || !assignUserId.trim() || !assignRoleId) return;
     setCreatingAssignment(true);
     setError(null);
     try {
@@ -90,12 +113,12 @@ export function DepartmentsRolesPage() {
           method: "POST",
           body: JSON.stringify({
             userId: assignUserId.trim(),
-            roleId: assignRoleId.trim(),
-            departmentId: assignDepartmentId.trim() || undefined,
+            roleId: assignRoleId,
+            departmentId: assignDepartmentId || undefined,
           }),
         },
       );
-      setSessionRoleAssignments((prev) => [...prev, roleAssignment]);
+      setRoleAssignments((prev) => [...(prev ?? []), roleAssignment]);
       setAssignUserId("");
       setAssignRoleId("");
       setAssignDepartmentId("");
@@ -106,6 +129,12 @@ export function DepartmentsRolesPage() {
     }
   }
 
+  function roleLabel(roleId: string): string {
+    return roles?.find((r) => r.id === roleId)?.label ?? roleId;
+  }
+
+  const departmentsForSelected = departments ?? [];
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-slate-900">Departments & Roles</h2>
@@ -113,10 +142,6 @@ export function DepartmentsRolesPage() {
 
       <section className="rounded-lg bg-white p-6 shadow">
         <h3 className="mb-3 text-sm font-medium text-slate-500">Departments</h3>
-        <p className="mb-3 text-xs text-slate-400">
-          Showing departments created this session only — there is no department list endpoint
-          yet (filed as a follow-on backend ticket).
-        </p>
         {companies === null && <p className="text-sm text-slate-500">Loading companies…</p>}
         {companies && companies.length > 0 && (
           <label className="mb-3 block text-sm">
@@ -134,15 +159,19 @@ export function DepartmentsRolesPage() {
             </select>
           </label>
         )}
-        {sessionDepartments.filter((d) => d.company_id === selectedCompanyId).length > 0 && (
+        {departments === null && selectedCompanyId && (
+          <p className="mb-3 text-sm text-slate-500">Loading departments…</p>
+        )}
+        {departments !== null && departmentsForSelected.length === 0 && (
+          <p className="mb-3 text-sm text-slate-500">No departments yet.</p>
+        )}
+        {departmentsForSelected.length > 0 && (
           <ul className="mb-4 space-y-2">
-            {sessionDepartments
-              .filter((d) => d.company_id === selectedCompanyId)
-              .map((department) => (
-                <li key={department.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                  {department.name}
-                </li>
-              ))}
+            {departmentsForSelected.map((department) => (
+              <li key={department.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+                {department.name}
+              </li>
+            ))}
           </ul>
         )}
         {!permissionsLoading && has("authority.department.manage") && companies && companies.length > 0 && (
@@ -170,15 +199,17 @@ export function DepartmentsRolesPage() {
       <section className="rounded-lg bg-white p-6 shadow">
         <h3 className="mb-3 text-sm font-medium text-slate-500">Role assignments</h3>
         <p className="mb-3 text-xs text-slate-400">
-          There is no endpoint yet to list users, roles or existing assignments (filed as a
-          follow-on backend ticket) — user/role are entered by id until one exists. Showing
-          assignments created this session only.
+          There is still no endpoint to list users by name — enter the user id directly.
         </p>
-        {sessionRoleAssignments.length > 0 && (
+        {roleAssignments === null && <p className="mb-3 text-sm text-slate-500">Loading…</p>}
+        {roleAssignments?.length === 0 && (
+          <p className="mb-3 text-sm text-slate-500">No role assignments yet.</p>
+        )}
+        {roleAssignments && roleAssignments.length > 0 && (
           <ul className="mb-4 space-y-2">
-            {sessionRoleAssignments.map((assignment) => (
+            {roleAssignments.map((assignment) => (
               <li key={assignment.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                user {assignment.user_id} → role {assignment.role_id}
+                user {assignment.user_id} → role {roleLabel(assignment.role_id)}
                 {assignment.department_id ? ` (dept ${assignment.department_id})` : ""}
               </li>
             ))}
@@ -193,22 +224,34 @@ export function DepartmentsRolesPage() {
                 placeholder="User id"
                 className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
               />
-              <input
+              <select
                 value={assignRoleId}
                 onChange={(e) => setAssignRoleId(e.target.value)}
-                placeholder="Role id"
                 className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
+              >
+                <option value="">Select a role…</option>
+                {(roles ?? []).map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={assignDepartmentId}
                 onChange={(e) => setAssignDepartmentId(e.target.value)}
-                placeholder="Department id (optional)"
                 className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+              >
+                <option value="">No department</option>
+                {departmentsForSelected.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <button
               type="submit"
-              disabled={creatingAssignment || !assignUserId.trim() || !assignRoleId.trim()}
+              disabled={creatingAssignment || !assignUserId.trim() || !assignRoleId}
               className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
             >
               {creatingAssignment ? "Creating…" : "Assign role"}

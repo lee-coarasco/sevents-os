@@ -595,3 +595,58 @@ approved (agent-autonomous or you).
   under what needs no owner approval; recorded here, not in
   NEEDS_APPROVAL.md, because it is agent-decidable, same weight as
   the Fastify framework choice in ticket 0053).
+
+## 2026-10-16 07:10 UTC - M02/M03 list endpoints (ticket 0088) are self-service reads, no permission gate; role-assignment listing has no company filter
+- Decision: The four new GET endpoints ticket 0088 asked for —
+  `/tenancy/branches?companyId=`, `/authority/departments?companyId=`,
+  `/authority/roles`, `/authority/role-assignments?userId=` — require
+  only a valid bearer session, not a `*.manage` permission. Ticket 0088
+  explicitly left this as a judgment call ("a lighter read-scoped
+  permission — architect/backend-engineer judgment call"). Matched to
+  the precedent `GET /tenancy/companies` already set (no
+  `requirePermission` on that route either) and
+  `GET /authority/effective-permissions`'s "self-service, own session is
+  enough" reasoning. `listRoleDefinitions` goes through the user-scoped
+  Supabase client so `role_definitions_select`'s RLS policy (tenant_id is
+  null or = current tenant) does the platform-vs-tenant filtering for
+  free, same pattern as every other read in this module. Separately,
+  `listRoleAssignments` filters only by `userId`, not `companyId` —
+  `role_assignments` has no `company_id` column (only `department_id`,
+  and a department belongs to a company, not vice versa via the
+  assignment row), so a company filter would require joining through
+  `department_definitions`; ticket 0088 flagged company-or-user as "makes
+  sense once you've read how role_assignments rows are stored," and the
+  simpler, schema-true answer is user-id-or-nothing (nothing returns
+  every assignment in the caller's tenant).
+- Why: avoids inventing a new "read" permission tier with no caller yet
+  that needs it gated tighter than self-service (same
+  "don't build unrequested machinery" principle used throughout
+  M06-M09's decisions), and avoids a cross-table join that the ticket
+  didn't ask for and the schema doesn't support directly.
+- Approved by: agent (ticket 0088 — internal API design, explicitly
+  agent-decidable per CLAUDE.md; recorded here because the ticket itself
+  flagged this as a decision worth documenting, not just an
+  implementation detail).
+
+## 2026-10-16 07:10 UTC - Ticket 0087's UI pages switched from session-only lists to the real list endpoints, including a role-id select populated from GET /authority/roles
+- Decision: Updated `frontend/src/pages/OrgSetupPage.tsx` and
+  `frontend/src/pages/DepartmentsRolesPage.tsx` (built in ticket 0087)
+  to fetch real data from ticket 0088's new endpoints instead of only
+  showing what was created in the current browser tab: branches now
+  refetch per selected company from `GET /tenancy/branches`,
+  departments from `GET /authority/departments`, and role assignments
+  from `GET /authority/role-assignments` (tenant-wide, no company
+  filter — matches the decision above). The role-assignment form's
+  free-text "Role id" input became a `<select>` populated from
+  `GET /authority/roles`, and a department `<select>` populated from the
+  selected company's departments replaced the free-text department-id
+  input, since both lists now exist to populate pickers from.
+- Why: ticket 0088's own "out of scope" section pre-approved this as a
+  "tiny addendum" to do inline rather than opening a third ticket,
+  explicitly calling out that the role picker was blocked only by the
+  missing list endpoint. Done in the same session since the backend
+  change was small and the UI follow-up was the whole reason the
+  backend ticket existed.
+- Approved by: agent (ticket 0088's own text pre-authorized this
+  follow-up without a new ticket; UI component structure is
+  agent-decidable per CLAUDE.md).

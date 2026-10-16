@@ -108,3 +108,44 @@ describe("tenancy routes", () => {
     expect(companies[0].legal_name).toBe("Tenant A Co");
   });
 });
+
+describe("GET /tenancy/branches", () => {
+  it("400s without companyId", async () => {
+    const { app } = appWithFakeRepo();
+    const response = await app.inject({
+      method: "GET",
+      url: "/tenancy/branches",
+      headers: { authorization: "Bearer token-a" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("lists branches for a company, isolated by tenant", async () => {
+    const { app } = appWithFakeRepo();
+    const createA = await app.inject({
+      method: "POST",
+      url: "/tenancy/branches",
+      headers: { authorization: "Bearer token-a" },
+      payload: { companyId: "company-1", name: "Dubai Branch" },
+    });
+    expect(createA.statusCode).toBe(201);
+
+    await app.inject({
+      method: "POST",
+      url: "/tenancy/branches",
+      headers: { authorization: "Bearer token-b" },
+      payload: { companyId: "company-1", name: "Should not be visible to tenant A" },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/tenancy/branches?companyId=company-1",
+      headers: { authorization: "Bearer token-a" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const branches = response.json().branches;
+    expect(branches).toHaveLength(1);
+    expect(branches[0].name).toBe("Dubai Branch");
+  });
+});

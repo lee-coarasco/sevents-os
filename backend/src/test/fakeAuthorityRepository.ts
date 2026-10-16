@@ -5,6 +5,7 @@ import type {
   CreateDelegationInput,
   CreateDepartmentInput,
   CreateRoleAssignmentInput,
+  ListRoleAssignmentsFilter,
 } from "../modules/authority/repository.js";
 import type {
   ApprovalLimit,
@@ -12,6 +13,7 @@ import type {
   Delegation,
   DepartmentDefinition,
   RoleAssignment,
+  RoleDefinition,
 } from "../modules/authority/types.js";
 
 let idCounter = 0;
@@ -31,6 +33,7 @@ export class FakeAuthorityRepository implements AuthorityRepository {
   sessions = new Map<string, { userId: string; tenantId: string }>();
   userTenants = new Map<string, string>();
   departments = new Map<string, DepartmentDefinition>();
+  roleDefinitions = new Map<string, RoleDefinition>();
   roleAssignments = new Map<string, RoleAssignment>();
   delegations = new Map<string, Delegation>();
   approvalLimits = new Map<string, ApprovalLimit>();
@@ -79,6 +82,20 @@ export class FakeAuthorityRepository implements AuthorityRepository {
     return department;
   }
 
+  async listDepartments(accessToken: string, companyId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.departments.values()].filter(
+      (d) => d.tenant_id === tenantId && d.company_id === companyId,
+    );
+  }
+
+  async listRoleDefinitions(accessToken: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.roleDefinitions.values()].filter(
+      (r) => r.tenant_id === null || r.tenant_id === tenantId,
+    );
+  }
+
   async createRoleAssignment(accessToken: string, input: CreateRoleAssignmentInput) {
     const { tenantId } = this.contextOf(accessToken);
     const assignment: RoleAssignment = {
@@ -92,6 +109,13 @@ export class FakeAuthorityRepository implements AuthorityRepository {
     };
     this.roleAssignments.set(assignment.id, assignment);
     return assignment;
+  }
+
+  async listRoleAssignments(accessToken: string, filter?: ListRoleAssignmentsFilter) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.roleAssignments.values()].filter(
+      (a) => a.tenant_id === tenantId && (!filter?.userId || a.user_id === filter.userId),
+    );
   }
 
   async getRoleAssignment(roleAssignmentId: string) {
