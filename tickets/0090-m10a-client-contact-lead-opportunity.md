@@ -37,11 +37,18 @@ Lead, Opportunity`.
   for a human to resolve, not a fuzzy-matching ML feature nobody
   asked for. Do not invent an automatic merge; surfacing duplicates for
   a human decision satisfies the FR.
-- Permission: a new `crm.lead.manage` (or similar) permission,
-  deny-by-default to `role.platform_administrator` only at bootstrap,
-  same pattern as every other permission this project seeds — widen to
-  a Sales role once one exists in the role catalogue (none does yet;
-  do not invent one here).
+- Permission: a new `crm.lead.manage` (or similar) permission. BRD
+  §7's module row names "Sales; Marketing; Technical" as this
+  module's owners, and `docs/canonical-role-map.md`/ticket 0056's
+  seed already has real roles for two of those three —
+  `role.business_development_executive`, `role.marketing_manager_lead`,
+  `role.cmo` (Marketing & Sales cluster). Grant the new permission to
+  those three roles at bootstrap (plus `role.platform_administrator`,
+  same as every permission), not just platform_administrator-only —
+  unlike this project's compliance-sensitive permissions
+  (audit/retention/data-request), this is an ordinary departmental
+  CRUD action with real named owners already in the role catalogue, so
+  deny-to-everyone-but-admin would just be unrequested friction.
 
 ## Out of scope
 - Tender documents, bid/no-bid decisions, estimates — M11.
