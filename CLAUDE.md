@@ -73,6 +73,28 @@ Build in this sequence. Each module depends on those before it. Do not start a m
 
 ---
 
+## Frontend design system (locked 2026-10-16)
+
+Every new frontend screen must follow this design system — do not revert to plain slate Tailwind classes.
+
+| Token | Value | Usage |
+|---|---|---|
+| `bg-brand` / `text-brand` | `#F5B800` amber | Primary CTA buttons, active nav, selected state |
+| `bg-brand-dim` | `#C49200` | Hover state on brand buttons |
+| `bg-brand-soft` | `#FFF7E0` | Tint backgrounds, selected list items |
+| `font-brand` | Syne | All headings (`h1`, `h2`, section titles) |
+| `font-body` | Inter | All body text, labels, inputs — also the default `body` font |
+| Sidebar | `bg-zinc-900` | Dark sidebar, `text-zinc-400` inactive nav, `bg-brand text-zinc-900` active nav |
+| Cards | `rounded-2xl border border-zinc-100 bg-white shadow-sm` | Page section cards |
+| Page background | `bg-stone-50` | Outer page wrapper |
+| Inputs | `rounded-lg border border-zinc-200 focus:border-brand focus:ring-2 focus:ring-brand/20` | All text inputs and selects |
+| Section labels | `text-xs font-semibold uppercase tracking-wide text-zinc-400` | Column headers, field labels |
+| Error | `rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700` | Inline error messages |
+
+Reference implementation: `frontend/src/components/AppLayout.tsx`, `frontend/src/pages/LoginPage.tsx`.
+
+---
+
 ## Tech stack (owner-approved 2026-10-15)
 
 **Approved. Do not re-litigate. Do not write to NEEDS_APPROVAL.md for these choices — they are final.**
