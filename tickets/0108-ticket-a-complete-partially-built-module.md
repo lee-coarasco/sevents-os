@@ -1,7 +1,7 @@
 ---
 id: 108
 title: Ticket A — Complete partially-built module UIs (M03, M04, M07, M08, M09, M10)
-status: in-progress
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-16
@@ -130,3 +130,40 @@ _Created by lee-coarasco in the AppYard dashboard._
   edit forms have somewhere to PATCH to.
   Still open: M10 itself (client/contact/opportunity create+edit
   forms in `CrmPage.tsx`) — picking that up next.
+- 2026-10-16 22:25 UTC: M10 done — `CrmPage.tsx` gained, all gated on
+  `crm.lead.manage`: a "New client" form + per-row Edit (PATCHing the
+  new `/crm/clients/:id`); a "New contact" form (client picked from a
+  select backed by the already-loaded client list, name/title/email/
+  phone, primary-contact checkbox) + per-row Edit (PATCHing the new
+  `/crm/contacts/:contactId`); a "New opportunity" form (client
+  select, source, title, BD owner via `<UserPicker>`, estimated
+  value, probability) + a per-card Edit for owner/value/probability
+  alongside the existing stage-change select.
+  Frontend: 39 tests pass (35 before + 8 new, swapping 1), `tsc
+  --noEmit`/`vite build` clean.
+  All six scoped gaps (M03, M04, M07, M08, M09, M10) are now closed:
+  every screen the ticket named has a working create and/or edit
+  path, `<UserPicker>` is reused across M03/M04/M07/M08/M09/M10, and
+  no form field anywhere in this ticket's scope takes a raw UUID
+  (client/project-manager/BD-owner references are all a picker or a
+  labelled `<select>` backed by a real list endpoint, same pattern as
+  `ProjectsPage`'s company picker and `OrgSetupPage`'s existing
+  precedent — not a new generic `<EntityPicker>` component, which
+  would have been scope creep beyond what this ticket's six gaps
+  needed).
+  Setting `status: testing` — ready for the owner to try against a
+  preview deploy.
+  Follow-on gaps noticed but out of scope for this ticket (filing
+  separately rather than silently leaving them): (1) the project-wide
+  `<PermissionGate>`/`<DatePicker>`/`<CurrencyInput>` shared
+  components CLAUDE.md's Definition of Done calls for don't exist
+  anywhere yet — every module built so far (including this one) uses
+  inline `has()` checks and native date/number inputs instead; a
+  retrofit touches every module, not just this ticket's six, so it
+  needs its own ticket rather than a partial fix here. (2) migration
+  `20261016000020` (`app_users_select_same_tenant` RLS policy, needed
+  for `<UserPicker>`/`GET /admin/users` to actually return other
+  tenant members once a live Supabase project backs this) still
+  hasn't been applied — Supabase MCP tools were unreachable in every
+  session that touched this ticket, same intermittent gap as ticket
+  0094.
