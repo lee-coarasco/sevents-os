@@ -150,6 +150,7 @@ export interface ConfigurationRollbackEvent {
 export interface DefinitionFilters {
   status?: DefinitionStatus;
   key?: string;
+  capabilityKey?: string;
 }
 
 export const VALIDATION_RESULTS = ["pass", "fail"] as const;

@@ -484,6 +484,7 @@ export function createSupabaseWorkflowRepository(
       let query = client.from("workflow_definitions").select("*");
       if (filters.status) query = query.eq("status", filters.status);
       if (filters.key) query = query.eq("key", filters.key);
+      if (filters.capabilityKey) query = query.eq("capability_key", filters.capabilityKey);
       const { data, error } = await query;
       if (error) throw new Error(`listDefinitions: ${error.message}`);
       return (data as WorkflowDefinition[]) ?? [];

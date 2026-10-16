@@ -175,6 +175,110 @@ describe("workflow node/publish lifecycle via routes", () => {
   });
 });
 
+describe("GET /workflow/definitions/published", () => {
+  async function publishDefinitionWithCapability(app: ReturnType<typeof appWithFakeRepos>["app"], capabilityKey: string) {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/workflow/definitions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { key: `${capabilityKey}_def`, name: capabilityKey, capabilityKey },
+    });
+    const { definition, version } = createResponse.json();
+    const startNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "start", nodeType: "create_task" },
+    });
+    const endNode = await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/nodes`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { nodeKey: "end", nodeType: "complete" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/transitions`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { fromNodeId: startNode.json().node.id, toNodeId: endNode.json().node.id },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/versions/${version.id}/validate`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/submit`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/approve`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id, decision: "approved" },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/workflow/definitions/${definition.id}/publish`,
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { versionId: version.id },
+    });
+    return definition.id as string;
+  }
+
+  it("200s for a caller without workflow.definition.manage, returning only published definitions", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    const definitionId = await publishDefinitionWithCapability(app, "estimate_approval");
+
+    authorityRepo.addSession("estimator-token", "estimator-user", TENANT_ID);
+    authorityRepo.roleAssignments.set("estimator-seed", {
+      id: "estimator-seed",
+      tenant_id: TENANT_ID,
+      user_id: "estimator-user",
+      role_id: "role.civil_estimator",
+      department_id: null,
+      valid_from: "2000-01-01T00:00:00.000Z",
+      valid_to: null,
+    });
+    authorityRepo.grantPermission("role.civil_estimator", "tendering.document.manage");
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/workflow/definitions/published",
+      headers: { authorization: "Bearer estimator-token" },
+    });
+    expect(response.statusCode).toBe(200);
+    const { definitions } = response.json();
+    expect(definitions).toEqual([
+      expect.objectContaining({ id: definitionId, capability_key: "estimate_approval" }),
+    ]);
+  });
+
+  it("filters by capabilityKey", async () => {
+    const { app } = appWithFakeRepos();
+    await publishDefinitionWithCapability(app, "estimate_approval");
+    await publishDefinitionWithCapability(app, "bid_no_bid_approval");
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/workflow/definitions/published?capabilityKey=bid_no_bid_approval",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(response.statusCode).toBe(200);
+    const { definitions } = response.json();
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0].capability_key).toBe("bid_no_bid_approval");
+  });
+
+  it("401s without a bearer token", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({ method: "GET", url: "/workflow/definitions/published" });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
 describe("workflow instance routes (ticket 0062, M06c)", () => {
   async function publishSimpleDefinition(app: ReturnType<typeof appWithFakeRepos>["app"]) {
     const createResponse = await app.inject({

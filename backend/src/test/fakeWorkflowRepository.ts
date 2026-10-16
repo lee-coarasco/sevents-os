@@ -152,6 +152,7 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     return [...this.definitionsById.values()].filter((definition) => {
       if (filters.status && definition.status !== filters.status) return false;
       if (filters.key && definition.key !== filters.key) return false;
+      if (filters.capabilityKey && definition.capability_key !== filters.capabilityKey) return false;
       return true;
     });
   }

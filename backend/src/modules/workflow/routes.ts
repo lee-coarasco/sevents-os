@@ -261,6 +261,25 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
     }
   });
 
+  // Permission-light lookup for any authenticated user whose module doesn't
+  // hold `workflow.definition.manage` (estimators, document controllers,
+  // bid/no-bid approvers, etc.) but still needs a definitionId to drive
+  // their own submit-for-approval action. Only published definitions,
+  // and only the fields needed to render a picker — no draft content.
+  app.get<{ Querystring: { capabilityKey?: string } }>(
+    "/workflow/definitions/published",
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const definitions = await listWorkflowDefinitions(options.getRepository(), token, {
+        status: "published",
+        capabilityKey: request.query.capabilityKey,
+      });
+      return {
+        definitions: definitions.map((d) => ({ id: d.id, key: d.key, name: d.name, capability_key: d.capability_key })),
+      };
+    },
+  );
+
   app.get<{ Querystring: { status?: string; key?: string } }>(
     "/workflow/definitions",
     { preHandler: options.requirePermission("workflow.definition.manage") },
