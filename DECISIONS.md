@@ -491,3 +491,43 @@ approved (agent-autonomous or you).
   agent-decidable per CLAUDE.md; recorded here at the same weight as
   the M06/M07/M09 split entries, and because the auth_audit_log
   finding is a security-relevant gap worth a paper trail).
+
+## 2026-10-16 01:52 UTC - M31 split into three sub-tickets (0081-0083); workflow runtime already declares escalation/notification event types nothing emits yet
+- Decision: Ticket 0069 (M31 — Notifications, SLA & Escalations) is
+  closed with no code of its own and split, same pattern as tickets
+  0059/0065/0067/0068: 0081 (M31a — SLA definitions, escalation
+  ladders and the runtime that starts actually emitting the
+  already-declared-but-unused `timer_fired`/`escalated`
+  `workflow_events`), 0082 (M31b — notification delivery core: a new
+  `notifications`/`notification_templates` pair, dedup, retry/
+  delivery-status bookkeeping, in-app read API — email-provider
+  selection carved out as its own owner-approval question *if and
+  when* that half is reached, so it doesn't block the dispatcher/
+  dedup/retry logic, which has no such dependency), 0083 (M31c —
+  per-user preferences, quiet hours, digest batching, ordered last
+  because it has nothing to attach to until 0082's `notifications`
+  table exists).
+- Why: BRD §8.11 gives two testable requirements (FR-NOT-001/002:
+  dedup+traceable, delivery-visible+retried); the rest of M31's scope
+  comes from the PRD's one-line module-row prose (templates, digest,
+  SLA timers, escalation ladders, quiet hours, preference management),
+  which is broad enough that building it as one ticket would either
+  take one session far too long or force guessing at scope boundaries
+  a later session would have to undo. Splitting by what each piece
+  depends on (SLA/escalation runtime -> delivery core -> preferences)
+  lets each sub-ticket be built and tested independently, same
+  reasoning as every prior module split.
+- Separately, the survey (done while filing 0081) found that
+  `workflow_nodes`' node-type enum and `workflow_events`'
+  `WORKFLOW_EVENT_TYPES` already declare `escalate`/`send_notification`
+  node types and `escalated`/`timer_fired`/`notification_sent` event
+  types (from ticket 0060/0062, M06a/M06c) — declared in the type
+  system, but no runtime code path emits or handles any of them today.
+  This is not a bug in those tickets (M06 was explicitly scoped to the
+  generic workflow engine, not to any one node type's business
+  behaviour) but it does mean M31a/b are "finish wiring up a node type
+  that was always meant to exist" rather than inventing one from
+  scratch.
+- Approved by: agent (ticket classification/ordering and internal
+  API/data-model design are explicitly agent-decidable per CLAUDE.md,
+  same weight as every prior M06/M07/M09/M35 split).
