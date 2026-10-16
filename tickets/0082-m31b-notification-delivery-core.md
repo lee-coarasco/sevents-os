@@ -1,7 +1,7 @@
 ---
 id: 82
 title: "M31b — Notification delivery core (templates, dedup, retry)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 11
 created: 2026-10-16
@@ -84,16 +84,16 @@ recorded`, etc.) this ticket can dispatch on even before 0081 lands.
   approves one in a future ticket.
 
 ## Acceptance
-- [ ] `notifications` + `notification_templates` exist, tenant-scoped
+- [x] `notifications` + `notification_templates` exist, tenant-scoped
       RLS.
-- [ ] Creating a notification for the same `dedup_key` + recipient
+- [x] Creating a notification for the same `dedup_key` + recipient
       twice does not create two rows / does not double-send.
-- [ ] A failed delivery is visibly `failed` and retried per a
+- [x] A failed delivery is visibly `failed` and retried per a
       caller-configured policy, never a hard-coded retry count.
-- [ ] In-app notifications are readable via an API scoped to the
+- [x] In-app notifications are readable via an API scoped to the
       caller's own session; a caller never sees another user's
       notifications.
-- [ ] Tests cover dedup, retry/backoff bookkeeping, and tenant/own-
+- [x] Tests cover dedup, retry/backoff bookkeeping, and tenant/own-
       user isolation; no live email send in any test.
 
 ## Progress
@@ -103,3 +103,40 @@ recorded`, etc.) this ticket can dispatch on even before 0081 lands.
   Flagging now, ahead of time: whoever picks this up should check
   DECISIONS.md/NEEDS_APPROVAL.md first in case a provider question was
   already asked and answered by a later session.
+- 2026-10-16 08:05 UTC: Built. New `backend/src/modules/notifications`
+  module (greenfield, as the survey predicted). Migration
+  `20261016000009_m31b_notification_delivery_core.sql` adds
+  `notification_templates` (tenant+key+channel unique),
+  `notification_retry_policies` (tenant+channel unique, no seeded
+  rows), and `notifications` (dedup enforced by a DB unique constraint
+  on `(tenant_id, dedup_key, recipient_id)` — the window itself is
+  whatever the caller encodes into `dedup_key`, per the ticket's own
+  "mechanism, not a fabricated time constant" instruction).
+  `notifications`' RLS policy checks `recipient_id = auth.uid()`
+  directly (not just tenant), same "own row" precedent as
+  `auth_audit_log` — a caller can never see another user's row even
+  within the same tenant. `dispatchNotification` renders the template
+  and delivers (in_app marks sent immediately; email calls an injected
+  `NotificationSender`, defaulting to no live provider — no email
+  provider has been chosen or approved, so there is nothing to wire a
+  real sender to yet; this is noted as an open follow-on, not asked as
+  a blocking `## Needs approval` question here, because every
+  acceptance box above is satisfiable with a stub sender and ticket
+  0082 itself says not to block the whole ticket on the provider
+  question). `retryNotification` refuses to retry with no configured
+  retry policy for that channel (never an invented default max-
+  attempts) and once `attempt_count` reaches the configured max. Added
+  `notification.template.manage` permission (deny-by-default,
+  platform-administrator-only), `FakeNotificationsRepository`, 8
+  service-level tests (dedup incl. per-recipient, delivery success/
+  failure, retry policy missing/not-retryable/max-exceeded) and 10
+  route tests (permission gating, template/retry-policy CRUD, self-
+  service GET/mark-read, 404 on an unknown notification). Did not
+  build: automatic consumption of `workflow_events` (no event-bus/
+  subscription mechanism exists in this codebase — same finding ticket
+  0075 already made for baseline-change-request resolution;
+  `dispatchNotification` is the entrypoint a future caller, e.g.
+  ticket 0081's escalation runtime, calls directly), and anything from
+  ticket 0081 (SLA/escalation) or 0083 (preferences/quiet hours/
+  digest) — both explicitly out of scope here. Full backend suite:
+  402/402 passing.

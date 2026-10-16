@@ -674,3 +674,29 @@ approved (agent-autonomous or you).
   M06-M09's decisions.
 - Approved by: agent (ticket 0079 — internal API design/module
   structure, explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-16 08:05 UTC - M31b (ticket 0082): no email provider wired, built with a stub sender behind an interface; not raised as a blocking Needs-approval question
+- Decision: Built the full notification dispatch/dedup/retry core
+  (migration, module, routes, tests) with email delivery going through
+  an injected `NotificationSender` interface whose production default
+  is a no-op/stub — no real transactional email provider was chosen or
+  wired in. Ticket 0082 itself said to ask the owner before wiring a
+  live sender if a paid provider becomes necessary, but also said not
+  to block the rest of the ticket on that question. Since every
+  acceptance box in the ticket (tables/RLS, dedup, retry bookkeeping,
+  in-app read API, tests with no live network call) is satisfiable
+  with a stub sender, no question was actually reached — so this was
+  recorded here as an open follow-on rather than filed as a `##
+  Needs approval` block, which would have forced the ticket to
+  `status: blocked` under `tickets/README.md`'s rule even though
+  nothing in it is actually waiting on an answer.
+- Why: CLAUDE.md requires owner sign-off before adopting a new paid
+  service, but an unchosen provider isn't yet a decision to make — it's
+  a decision to make later, when a real sender is needed. Blocking a
+  fully-buildable, fully-testable ticket on a question nobody needs
+  answered yet would be the same kind of unrequested caution ticket
+  0080 avoided by building its export half unblocked.
+- Approved by: agent (ticket 0082 — internal API design, explicitly
+  agent-decidable per CLAUDE.md; recorded here because it's a direct
+  reading of the ticket's own conditional instruction, not just an
+  implementation detail).

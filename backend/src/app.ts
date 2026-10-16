@@ -43,6 +43,11 @@ import {
   createSupabaseAuditRepository,
   type AuditRepository,
 } from "./modules/audit/repository.js";
+import { notificationsRoutes } from "./modules/notifications/routes.js";
+import {
+  createSupabaseNotificationsRepository,
+  type NotificationsRepository,
+} from "./modules/notifications/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -69,6 +74,8 @@ export interface BuildAppOptions {
   getProjectsRepository?: () => ProjectsRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getAuditRepository?: () => AuditRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getNotificationsRepository?: () => NotificationsRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -151,6 +158,18 @@ function defaultAuditRepository(): AuditRepository {
   return cachedAuditRepository;
 }
 
+let cachedNotificationsRepository: NotificationsRepository | null = null;
+
+function defaultNotificationsRepository(): NotificationsRepository {
+  if (!cachedNotificationsRepository) {
+    cachedNotificationsRepository = createSupabaseNotificationsRepository(
+      createServiceClient(),
+      createUserScopedClient,
+    );
+  }
+  return cachedNotificationsRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -203,6 +222,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(auditRoutes, {
     getRepository: options.getAuditRepository ?? defaultAuditRepository,
+    requirePermission: guard,
+  });
+
+  app.register(notificationsRoutes, {
+    getRepository: options.getNotificationsRepository ?? defaultNotificationsRepository,
     requirePermission: guard,
   });
 
