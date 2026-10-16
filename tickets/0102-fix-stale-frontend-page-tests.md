@@ -1,7 +1,7 @@
 ---
 id: 102
 title: Fix stale frontend page tests (LoginPage, OrgSetupPage, DepartmentsRolesPage)
-status: next
+status: done
 roles: [ui-designer]
 priority: 10
 created: 2026-10-16
@@ -28,9 +28,27 @@ to match current markup (same `getByRole`/flexible-matcher fixes ticket 0099 had
 own new `TaskInboxPage.test.tsx`), not changing the pages.
 
 ## Acceptance
-- [ ] `npm test` in `frontend/` passes with 0 failures.
-- [ ] No production component markup changed just to satisfy a test (fix the test unless the
+- [x] `npm test` in `frontend/` passes with 0 failures.
+- [x] No production component markup changed just to satisfy a test (fix the test unless the
       current markup is actually wrong on inspection).
 
 ## Progress
 - 2026-10-16 17:05 UTC: Filed while working ticket 0099 — found but out of that ticket's scope.
+- 2026-10-16 17:05 UTC: Fixed all three, no production markup touched (components were fine on
+  inspection, confirming the earlier note):
+  - `LoginPage.test.tsx`: `getByLabelText("Email")` → `"Email address"`, matching the real label.
+  - `OrgSetupPage.test.tsx`: the old test looked for one merged text node
+    `"Branches — Acme Construction"`; replaced with `getByRole("heading", { name: "Branches" })` /
+    `"Projects"` plus a count check on `"Acme Construction"` appearing 3+ times (company button +
+    both section subtitles), matching the actual two-element heading+subtitle markup.
+  - `DepartmentsRolesPage.test.tsx`: dropped the stale `{ selector: "li" }` (rows are `div`s); also
+    found two assertions that only looked right in isolation but collided once the full suite's
+    markup was considered — `"Engineering"` and `"Storekeeper"` each render twice (once in the
+    created list/row, once in a `<select>` option elsewhere in the same card), so a plain
+    `getByText` throws "found multiple elements". Fixed by scoping queries with
+    `within(...)` to the specific card/row (`within(departmentsCard).findByText("Engineering")`,
+    and for the role assignment, finding the `/u1/` text node first and scoping the `"Storekeeper"`
+    check to that node's own row via `.closest("div.flex")`). Also fixed the test's wrong
+    placeholder casing (`"User id"` → `"User ID"`, matching the component).
+  Full suite: `npm test` in `frontend/` → 9 files / 25 tests, all passing, 0 failures.
+  `npm run build` clean. Marking `done`.

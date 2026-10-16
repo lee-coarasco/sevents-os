@@ -52,12 +52,13 @@ describe("OrgSetupPage", () => {
     render(<OrgSetupPage />);
 
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
-    expect(screen.queryByText(/Branches —/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Branches" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Acme Construction"));
 
-    expect(await screen.findByText("Branches — Acme Construction")).toBeInTheDocument();
-    expect(screen.getByText("Projects — Acme Construction")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Branches" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.getAllByText("Acme Construction").length).toBeGreaterThanOrEqual(3);
   });
 
   it("hides the create-company form when the user lacks tenancy.company.manage", async () => {
