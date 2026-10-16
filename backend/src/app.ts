@@ -50,6 +50,11 @@ import {
 } from "./modules/notifications/repository.js";
 import { crmRoutes } from "./modules/crm/routes.js";
 import { createSupabaseCrmRepository, type CrmRepository } from "./modules/crm/repository.js";
+import { tenderingRoutes } from "./modules/tendering/routes.js";
+import {
+  createSupabaseTenderingRepository,
+  type TenderingRepository,
+} from "./modules/tendering/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -80,6 +85,8 @@ export interface BuildAppOptions {
   getNotificationsRepository?: () => NotificationsRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getCrmRepository?: () => CrmRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getTenderingRepository?: () => TenderingRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -183,6 +190,15 @@ function defaultCrmRepository(): CrmRepository {
   return cachedCrmRepository;
 }
 
+let cachedTenderingRepository: TenderingRepository | null = null;
+
+function defaultTenderingRepository(): TenderingRepository {
+  if (!cachedTenderingRepository) {
+    cachedTenderingRepository = createSupabaseTenderingRepository(createUserScopedClient);
+  }
+  return cachedTenderingRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -248,6 +264,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(crmRoutes, {
     getRepository: options.getCrmRepository ?? defaultCrmRepository,
     getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(tenderingRoutes, {
+    getRepository: options.getTenderingRepository ?? defaultTenderingRepository,
     requirePermission: guard,
   });
 

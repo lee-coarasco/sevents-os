@@ -882,3 +882,29 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   data-model split are explicitly agent-decidable per CLAUDE.md, same
   weight as every prior module split recorded here).
+
+## 2026-10-16 11:55 UTC - M11a (ticket 0096): new `tendering.document.manage` permission, not a reuse of `crm.lead.manage`
+- Decision: the tender document register and scope matrix/
+  clarification log routes are gated on a new
+  `tendering.document.manage` permission, granted to
+  `role.platform_administrator`, `role.civil_estimator`,
+  `role.mep_estimator`, `role.quantity_surveyor`, `role.cto` and
+  `role.cfo` — not a reuse of M10's `crm.lead.manage`.
+- Why: `crm.lead.manage` covers one permission for the CRM module's
+  single named owner cluster (BRD §7: Sales/Marketing/Technical).
+  M11a's named owners (BRD §7 row 437: Estimator; Commercial;
+  Technical; Finance) are a genuinely different actor cluster —
+  Estimator/Commercial/Finance have no reason to hold a CRM lead/
+  opportunity permission, and Sales/Marketing have no reason to manage
+  tender documents or clarifications. Reusing `crm.lead.manage` here
+  would grant each cluster the other's module surface for no actor-
+  class reason, the same kind of inconsistency ticket 0092's decision
+  explicitly avoided introducing in the other direction (keeping one
+  permission where the actor class is actually the same). Verified the
+  role IDs against `docs/canonical-role-map.md`: `role.civil_estimator`
+  and `role.mep_estimator` (Estimator/Commercial Manager cluster,
+  listed by ticket 0014/0015), `role.quantity_surveyor` (same
+  cluster), `role.cto` (Technical) and `role.cfo` (Finance).
+- Approved by: agent (internal permission/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0090's and
+  0092's own permission decisions).

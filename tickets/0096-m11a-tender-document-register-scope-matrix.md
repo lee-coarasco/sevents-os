@@ -1,7 +1,7 @@
 ---
 id: 96
 title: "M11a — Tender document register & scope matrix"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 14
 created: 2026-10-16
@@ -48,15 +48,52 @@ which this extends, not duplicates).
   217-221) ask for.
 
 ## Acceptance
-- [ ] Tender document register rows (type, title/number, revision,
+- [x] Tender document register rows (type, title/number, revision,
       received date, storage reference) tied to a `tender_submissions`
       row, tenant-scoped with RLS.
-- [ ] Scope matrix / clarification log rows (item, raised_by,
+- [x] Scope matrix / clarification log rows (item, raised_by,
       raised_at, response, resolved_at) tied to the same tender.
-- [ ] Permission decision recorded (reuse `crm.lead.manage` or a new
+- [x] Permission decision recorded (reuse `crm.lead.manage` or a new
       `tendering.*` permission, with reasoning either way).
-- [ ] Tests cover tenant isolation and permission gating.
+- [x] Tests cover tenant isolation and permission gating.
 
 ## Progress
 - 2026-10-16: Filed as the first of three M11 sub-tickets (see ticket
   0095's split).
+- 2026-10-16 11:55 UTC: Built. Migration
+  `supabase/migrations/20261016000015_m11a_tender_document_register_scope_matrix.sql`
+  adds `tender_documents` (document_type, title, document_number,
+  revision, received_date, storage_reference — plain text/URL field,
+  no bespoke upload pipeline) and `tender_clarifications` (item,
+  raised_by, raised_at, response, resolved_at), both FK'd to ticket
+  0091's `tender_submissions(id)`, tenant-scoped with RLS tenant-
+  isolation policies and an index on the FK column. New
+  `backend/src/modules/tendering/` module (types, repository incl.
+  Supabase-backed impl + `backend/src/test/fakeTenderingRepository.ts`,
+  service, routes) mirroring the CRM module's shape exactly. Wired into
+  `backend/src/app.ts` the same way `crmRoutes` is (new
+  `getTenderingRepository` option, `defaultTenderingRepository`,
+  `app.register(tenderingRoutes, ...)`).
+  Permission decision: new `tendering.document.manage` permission
+  (not a reuse of `crm.lead.manage`) granted to
+  `role.platform_administrator`, `role.civil_estimator`,
+  `role.mep_estimator`, `role.quantity_surveyor`, `role.cto`,
+  `role.cfo` — this module's named owners (BRD §7 row 437:
+  Estimator/Commercial/Technical/Finance) are a different actor
+  cluster from M10's Sales/Marketing/Technical, so reusing
+  `crm.lead.manage` would blur two unrelated actor classes behind one
+  permission. Recorded in `DECISIONS.md`.
+  Tests: 18 new tests (`backend/src/modules/tendering/service.test.ts`,
+  `backend/src/modules/tendering/routes.test.ts`) covering tenant
+  isolation (cross-tenant reads return empty lists / 404s, never
+  another tenant's rows) and permission gating (401 no token, 403
+  without `tendering.document.manage`, 201/200 with it). Full backend
+  suite: 510/510 passing (up from 492), `npm run build` clean,
+  `python3 scripts/tickets.py check` clean.
+  **Not applied to a live Supabase project** — same standing gap
+  tracked in ticket 0094 (Supabase MCP tools unreachable in this
+  sandbox); re-confirmed via `ToolSearch` this session, zero
+  `mcp__Supabase__*` tools found. Migration SQL reviewed by hand
+  against the same RLS/FK/index conventions as every prior migration
+  in this module family. Status set to `testing`, not `done`, per
+  `tickets/README.md` (built and waiting, not yet verified live).
