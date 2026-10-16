@@ -1,7 +1,7 @@
 ---
 id: 80
 title: "M35c — Data export & deletion policy"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 12
 created: 2026-10-16
@@ -54,17 +54,17 @@ before building in case a later section defines this.
   prior ticket.
 
 ## Acceptance
-- [ ] `data_requests` table (tenant-scoped, RLS) and its workflow-
+- [x] `data_requests` table (tenant-scoped, RLS) and its workflow-
       instance-backed approval lifecycle, mirroring ticket 0075's
       baseline-change-request shape.
-- [ ] Export half built and tested end-to-end for at least
+- [x] Export half built and tested end-to-end for at least
       `app_users`/`role_assignments`/audit rows.
-- [ ] Deletion half only built for entity types the owner confirmed in
+- [x] Deletion half only built for entity types the owner confirmed in
       the `## Needs approval` answer; if unanswered, this ticket ships
       export-only and stays `blocked` on the deletion half, not
       `done`.
-- [ ] Deletion checks `legal_holds` first and refuses if one is active.
-- [ ] Tests cover tenant isolation, permission gating, approval-gating
+- [x] Deletion checks `legal_holds` first and refuses if one is active.
+- [x] Tests cover tenant isolation, permission gating, approval-gating
       (no deletion/export happens before approval), and the
       legal-hold refusal.
 
@@ -79,3 +79,53 @@ before building in case a later section defines this.
   unblocked in substance, the formal ticket status is blocked until
   the owner answers.
 - 2026-10-16 07:41 GST - lee-coarasco (dashboard): Answered "Which entity types are in scope for real data deletion, and hard-delete or anonymize?": Choose whichever you recommend and that's good approach for this application
+- 2026-10-16 07:50 UTC: Built. Recommendation adopted and logged in
+  DECISIONS.md: real deletion scoped to `app_users` only,
+  anonymize-in-place (not hard-delete) — `app_users.id` is referenced
+  by ~49 FK columns across almost every module built so far, so a hard
+  delete would break referential integrity or cascade through history
+  the BRD protects (§6.1). Migration
+  `20261016000011_m35c_data_requests.sql` adds `data_requests`
+  (request_type export|deletion, entity_type/entity_id, required
+  `reason`, `workflow_instance_id` FK into `workflow_instances`, status
+  pending/approved/rejected/returned_for_correction/refused/completed,
+  `result` jsonb, `resolved_at`), tenant-scoped with RLS, plus
+  `data.request.manage` permission (platform_administrator only, same
+  bootstrap precedent as ticket 0079's `audit.retention.manage`).
+  `backend/src/modules/audit/service.ts` adds `requestDataAction`
+  (validates non-blank reason and that `entityType === "app_users"` —
+  the only entity type with a defined bundle/anonymize shape; calls
+  the existing `startWorkflowInstance` seam, no parallel approval
+  logic) and `resolveDataRequest`, the same on-demand polling pattern
+  as ticket 0075's `resolveBaselineChangeRequest`: reads the linked
+  workflow instance's decided step, and on `approved` either builds an
+  export bundle (`AuditRepository.buildAppUserExportBundle` — the
+  app_users row, its role_assignments, and its audit entries via
+  ticket 0078's merged read, all through the service-role client since
+  an approver reading another user's row would otherwise be blocked by
+  that user's own "select own" RLS policy) or executes the deletion:
+  checks `legal_holds` first (exact entity_id match or a type-wide hold
+  with `entity_id` null) and marks `refused` with the hold id if one is
+  active, otherwise calls a new `anonymizeUser` in the identity module
+  (`backend/src/modules/identity/service.ts` — scrubs email/
+  display_name, forces `deactivated`, bans sign-in, keeps the row and
+  every FK into it, same soft-deactivation shape as ticket 0054's
+  `deactivateUser`). Routes: `POST /data-requests`, `GET
+  /data-requests`, `GET /data-requests/:id` (the poll endpoint), all
+  gated on `data.request.manage`; wired into `app.ts` with the
+  workflow and identity repositories, same direct-module-call
+  convention as every prior cross-module seam. Tests:
+  `audit/data-requests.test.ts` (9 cases — blank reason, unsupported
+  entity type, export pending-then-resolved with bundle contents,
+  export rejected leaves no result, deletion approved-and-clear
+  anonymizes in place preserving the row/id, deletion refused on an
+  exact-entity legal hold, deletion refused on a type-wide legal hold,
+  not-found, tenant isolation) and `audit/routes.test.ts` (+6 HTTP
+  cases — 403 without permission, 400 on blank reason/unsupported
+  type, full export lifecycle including cross-tenant 404, deletion
+  refused by legal hold over HTTP). `npm test`: 443/443 across 44
+  files. `npm run build`/`lint` clean. `scripts/tickets.py check`
+  clean. Status set to `testing` — owner reviews migration/API
+  contracts per Phase 2-era testing instructions (no UI yet). M35
+  (Audit, Security, Privacy & Retention) is now fully built across
+  tickets 0078/0079/0080.

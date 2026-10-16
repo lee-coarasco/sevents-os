@@ -53,6 +53,14 @@ export async function deactivateUser(repo: IdentityRepository, userId: string): 
   return user;
 }
 
+/** Erasure-request fulfillment (ticket 0080): scrubs PII and blocks sign-in, but keeps the row so every foreign key into it stays valid. See DECISIONS.md 2026-10-16. */
+export async function anonymizeUser(repo: IdentityRepository, userId: string): Promise<AppUser> {
+  await repo.banAuthUser(userId);
+  const user = await repo.anonymizeAppUser(userId);
+  await repo.insertAuditEvent(userId, "anonymized", {});
+  return user;
+}
+
 export async function signIn(repo: IdentityRepository, email: string, password: string) {
   const result = await repo.signInWithPassword(email, password);
   if (!result.ok) {

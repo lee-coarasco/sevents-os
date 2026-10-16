@@ -18,6 +18,8 @@ export interface IdentityRepository {
   /** Returns null if the user wasn't in "pending" status (idempotent no-op upstream). */
   activateAppUser(userId: string): Promise<AppUser | null>;
   deactivateAppUser(userId: string): Promise<AppUser>;
+  /** Scrubs email/display_name and forces deactivated status; keeps the row (and every FK into it) intact. See DECISIONS.md 2026-10-16 (ticket 0080) for why this is anonymize-in-place, not a hard delete. */
+  anonymizeAppUser(userId: string): Promise<AppUser>;
   insertAuditEvent(
     userId: string | null,
     eventType: AuditEventType,
@@ -112,6 +114,24 @@ export function createSupabaseIdentityRepository(
         .single();
       if (error || !data) {
         throw new Error(`deactivateAppUser: ${error?.message ?? "user not found"}`);
+      }
+      return data as AppUser;
+    },
+
+    async anonymizeAppUser(userId) {
+      const { data, error } = await serviceClient
+        .from("app_users")
+        .update({
+          email: `deleted-${userId}@anonymized.invalid`,
+          display_name: null,
+          status: "deactivated",
+          deactivated_at: new Date().toISOString(),
+        })
+        .eq("id", userId)
+        .select("*")
+        .single();
+      if (error || !data) {
+        throw new Error(`anonymizeAppUser: ${error?.message ?? "user not found"}`);
       }
       return data as AppUser;
     },

@@ -86,3 +86,34 @@ export interface LegalHold {
   released_by: string | null;
   released_at: string | null;
 }
+
+/**
+ * M35c (ticket 0080): a request-and-approval record, never an instant
+ * self-service action. `result` is null until `status` leaves
+ * `pending` — an export's bundled rows, or a deletion's outcome
+ * (anonymized, or refused with the matching legal hold id).
+ */
+export type DataRequestType = "export" | "deletion";
+export type DataRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "returned_for_correction"
+  | "refused"
+  | "completed";
+
+export interface DataRequest {
+  id: string;
+  tenant_id: string;
+  request_type: DataRequestType;
+  entity_type: string;
+  entity_id: string;
+  reason: string;
+  requested_by: string | null;
+  workflow_instance_id: string;
+  status: DataRequestStatus;
+  result: Record<string, unknown> | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

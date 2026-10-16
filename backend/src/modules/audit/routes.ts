@@ -1,22 +1,32 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { AuditRepository } from "./repository.js";
+import type { IdentityRepository } from "../identity/repository.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
 import {
+  DataRequestNotFoundError,
   InvalidAuditFilterError,
   InvalidRetentionPeriodError,
   LegalHoldAlreadyReleasedError,
   LegalHoldNotFoundError,
+  MissingDataRequestReasonError,
   MissingLegalHoldReasonError,
+  UnsupportedDataRequestEntityTypeError,
   createRetentionPolicy,
   listAuditLog,
+  listDataRequests,
   listLegalHolds,
   listRetentionPolicies,
   placeLegalHold,
   releaseLegalHold,
+  requestDataAction,
+  resolveDataRequest,
 } from "./service.js";
 
 export interface AuditRouteOptions {
   getRepository: () => AuditRepository;
+  getWorkflowRepository: () => WorkflowRepository;
+  getIdentityRepository: () => IdentityRepository;
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
 }
 
@@ -155,6 +165,76 @@ export async function auditRoutes(app: FastifyInstance, options: AuditRouteOptio
         }
         if (error instanceof LegalHoldAlreadyReleasedError) {
           reply.code(409);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Body: { requestType: "export" | "deletion"; entityType: string; entityId: string; reason: string; definitionId: string };
+  }>(
+    "/data-requests",
+    { preHandler: options.requirePermission("data.request.manage") },
+    async (request, reply) => {
+      const { requestType, entityType, entityId, reason, definitionId } = request.body ?? ({} as never);
+      if (!requestType || !entityType || !entityId || !reason || !definitionId) {
+        reply.code(400);
+        return { error: "requestType, entityType, entityId, reason and definitionId are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const dataRequest = await requestDataAction(options.getRepository(), options.getWorkflowRepository(), token, {
+          requestType,
+          entityType,
+          entityId,
+          reason,
+          requestedBy: callerUserId,
+          definitionId,
+        });
+        reply.code(201);
+        return { dataRequest };
+      } catch (error) {
+        if (error instanceof MissingDataRequestReasonError || error instanceof UnsupportedDataRequestEntityTypeError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/data-requests",
+    { preHandler: options.requirePermission("data.request.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const dataRequests = await listDataRequests(options.getRepository(), token);
+      return { dataRequests };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/data-requests/:id",
+    { preHandler: options.requirePermission("data.request.manage") },
+    async (request, reply) => {
+      const tenantId = (request as AuthenticatedRequest).authTenantId as string;
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const dataRequest = await resolveDataRequest(
+          options.getRepository(),
+          options.getWorkflowRepository(),
+          options.getIdentityRepository(),
+          token,
+          tenantId,
+          request.params.id,
+        );
+        return { dataRequest };
+      } catch (error) {
+        if (error instanceof DataRequestNotFoundError) {
+          reply.code(404);
           return { error: error.message };
         }
         throw error;

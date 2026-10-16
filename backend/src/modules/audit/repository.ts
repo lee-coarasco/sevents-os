@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuditLogEntry, LegalHold, RetentionPolicy } from "./types.js";
+import type { AuditLogEntry, DataRequest, LegalHold, RetentionPolicy } from "./types.js";
 
 export interface CreateRetentionPolicyInput {
   entity_type: string;
@@ -12,6 +12,21 @@ export interface PlaceLegalHoldInput {
   entity_id?: string | null;
   reason: string;
   placed_by: string | null;
+}
+
+export interface CreateDataRequestInput {
+  request_type: "export" | "deletion";
+  entity_type: string;
+  entity_id: string;
+  reason: string;
+  requested_by: string | null;
+  workflow_instance_id: string;
+}
+
+export interface UpdateDataRequestInput {
+  status?: DataRequest["status"];
+  result?: Record<string, unknown> | null;
+  resolved_at?: string | null;
 }
 
 /**
@@ -37,6 +52,18 @@ export interface AuditRepository {
   releaseLegalHold(accessToken: string, legalHoldId: string, releasedBy: string | null): Promise<LegalHold>;
   listLegalHolds(accessToken: string): Promise<LegalHold[]>;
   getLegalHold(accessToken: string, legalHoldId: string): Promise<LegalHold | null>;
+  createDataRequest(accessToken: string, input: CreateDataRequestInput): Promise<DataRequest>;
+  getDataRequest(accessToken: string, dataRequestId: string): Promise<DataRequest | null>;
+  listDataRequests(accessToken: string): Promise<DataRequest[]>;
+  updateDataRequest(accessToken: string, dataRequestId: string, patch: UpdateDataRequestInput): Promise<DataRequest | null>;
+  /**
+   * Bundles the app_users row plus every role_assignments row and
+   * audit entry attributed to it. Goes through the service-role
+   * client, same as listAuditLogEntries: an approver resolving someone
+   * else's export request is reading another user's row, which that
+   * user's own "select own" RLS policy would otherwise block.
+   */
+  buildAppUserExportBundle(tenantId: string, userId: string): Promise<Record<string, unknown>>;
 }
 
 interface AuthAuditLogRow {
@@ -275,6 +302,74 @@ export function createSupabaseAuditRepository(
         .maybeSingle();
       if (error) throw new Error(`getLegalHold: ${error.message}`);
       return (data as LegalHold | null) ?? null;
+    },
+
+    async createDataRequest(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("data_requests")
+        .insert(input)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createDataRequest: ${error?.message ?? "no row returned"}`);
+      return data as DataRequest;
+    },
+
+    async getDataRequest(accessToken, dataRequestId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("data_requests")
+        .select("*")
+        .eq("id", dataRequestId)
+        .maybeSingle();
+      if (error) throw new Error(`getDataRequest: ${error.message}`);
+      return (data as DataRequest | null) ?? null;
+    },
+
+    async listDataRequests(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("data_requests").select("*");
+      if (error) throw new Error(`listDataRequests: ${error.message}`);
+      return (data as DataRequest[]) ?? [];
+    },
+
+    async updateDataRequest(accessToken, dataRequestId, patch) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("data_requests")
+        .update(patch)
+        .eq("id", dataRequestId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateDataRequest: ${error.message}`);
+      return (data as DataRequest | null) ?? null;
+    },
+
+    async buildAppUserExportBundle(tenantId, userId) {
+      const { data: userRow, error: userError } = await serviceClient
+        .from("app_users")
+        .select("*")
+        .eq("id", userId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (userError) throw new Error(`buildAppUserExportBundle: ${userError.message}`);
+
+      const { data: roleAssignments, error: roleError } = await serviceClient
+        .from("role_assignments")
+        .select("*")
+        .eq("user_id", userId);
+      if (roleError) throw new Error(`buildAppUserExportBundle: ${roleError.message}`);
+
+      const auditEntries = await this.listAuditLogEntries(tenantId);
+      const subjectAuditEntries = auditEntries.filter(
+        (entry) => entry.actorId === userId || entry.entityId === userId,
+      );
+
+      return {
+        appUser: userRow ?? null,
+        roleAssignments: roleAssignments ?? [],
+        auditEntries: subjectAuditEntries,
+      };
     },
   };
 }

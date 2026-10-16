@@ -1,5 +1,9 @@
 import type { AuditRepository } from "./repository.js";
-import type { AuditLogEntry, AuditLogFilters, AuditLogPage, LegalHold, RetentionPolicy } from "./types.js";
+import type { AuditLogEntry, AuditLogFilters, AuditLogPage, DataRequest, DataRequestType, LegalHold, RetentionPolicy } from "./types.js";
+import type { IdentityRepository } from "../identity/repository.js";
+import { anonymizeUser } from "../identity/service.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
+import { getWorkflowInstance, startWorkflowInstance } from "../workflow/service.js";
 
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 200;
@@ -122,4 +126,134 @@ export async function releaseLegalHold(
 
 export async function listLegalHolds(repository: AuditRepository, accessToken: string): Promise<LegalHold[]> {
   return repository.listLegalHolds(accessToken);
+}
+
+// ---------------------------------------------------------------------------
+// Data export & deletion requests (ticket 0080, M35c)
+// ---------------------------------------------------------------------------
+
+export class MissingDataRequestReasonError extends Error {}
+export class UnsupportedDataRequestEntityTypeError extends Error {}
+export class DataRequestNotFoundError extends Error {}
+
+/**
+ * The only entity type this module knows how to export/anonymize. See
+ * DECISIONS.md 2026-10-16 (ticket 0080): real deletion is scoped to
+ * app_users only, and export follows the same scope since nothing else
+ * has a defined bundling shape yet. Widening this is a future ticket's
+ * decision, not a guess made here.
+ */
+export const SUPPORTED_DATA_REQUEST_ENTITY_TYPE = "app_users";
+
+export interface RequestDataActionInput {
+  requestType: DataRequestType;
+  entityType: string;
+  entityId: string;
+  reason: string;
+  requestedBy: string | null;
+  /** Caller names an already-published request_approval workflow definition — same explicit, no-auto-resolution convention as ticket 0075's proposeBaselineChange. */
+  definitionId: string;
+}
+
+/** Starting a request never acts on data by itself — only resolveDataRequest does, once the linked workflow instance approves it. */
+export async function requestDataAction(
+  repository: AuditRepository,
+  workflowRepo: WorkflowRepository,
+  accessToken: string,
+  input: RequestDataActionInput,
+): Promise<DataRequest> {
+  if (!input.reason.trim()) {
+    throw new MissingDataRequestReasonError("a data request requires a non-empty reason");
+  }
+  if (input.entityType !== SUPPORTED_DATA_REQUEST_ENTITY_TYPE) {
+    throw new UnsupportedDataRequestEntityTypeError(
+      `entityType "${input.entityType}" is not supported; only "${SUPPORTED_DATA_REQUEST_ENTITY_TYPE}" is wired for export/deletion`,
+    );
+  }
+  const { instance } = await startWorkflowInstance(workflowRepo, accessToken, input.definitionId, input.requestedBy, {
+    requestType: input.requestType,
+    entityType: input.entityType,
+    entityId: input.entityId,
+  });
+  return repository.createDataRequest(accessToken, {
+    request_type: input.requestType,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    reason: input.reason,
+    requested_by: input.requestedBy,
+    workflow_instance_id: instance.id,
+  });
+}
+
+export async function listDataRequests(repository: AuditRepository, accessToken: string): Promise<DataRequest[]> {
+  return repository.listDataRequests(accessToken);
+}
+
+/**
+ * The polling half of the seam: no event bus exists in this codebase,
+ * so a request's outcome is read back on demand from its workflow
+ * instance's step instances, same pattern as projects'
+ * resolveBaselineChangeRequest. Idempotent once status leaves
+ * `pending`. A deletion request checks legal_holds before acting and
+ * refuses (status `refused`, never deletes) if an active hold matches
+ * the entity — either a hold on this exact entity_id, or a
+ * type-wide hold (entity_id null).
+ */
+export async function resolveDataRequest(
+  repository: AuditRepository,
+  workflowRepo: WorkflowRepository,
+  identityRepo: IdentityRepository,
+  accessToken: string,
+  tenantId: string,
+  dataRequestId: string,
+): Promise<DataRequest> {
+  const request = await repository.getDataRequest(accessToken, dataRequestId);
+  if (!request) throw new DataRequestNotFoundError(`data request ${dataRequestId} not found`);
+  if (request.status !== "pending") return request;
+
+  const { stepInstances } = await getWorkflowInstance(workflowRepo, accessToken, request.workflow_instance_id);
+  const decidedStep = stepInstances.find((s) => typeof s.output?.decision === "string");
+  if (!decidedStep) return request;
+
+  const decision = decidedStep.output.decision as string;
+  if (decision !== "approved") {
+    const updated = await repository.updateDataRequest(accessToken, dataRequestId, {
+      status: decision as "rejected" | "returned_for_correction",
+    });
+    return updated!;
+  }
+
+  if (request.request_type === "export") {
+    const bundle = await repository.buildAppUserExportBundle(tenantId, request.entity_id);
+    const updated = await repository.updateDataRequest(accessToken, dataRequestId, {
+      status: "completed",
+      result: bundle,
+      resolved_at: new Date().toISOString(),
+    });
+    return updated!;
+  }
+
+  const legalHolds = await repository.listLegalHolds(accessToken);
+  const activeHold = legalHolds.find(
+    (hold) =>
+      hold.released_at === null &&
+      hold.entity_type === request.entity_type &&
+      (hold.entity_id === null || hold.entity_id === request.entity_id),
+  );
+  if (activeHold) {
+    const updated = await repository.updateDataRequest(accessToken, dataRequestId, {
+      status: "refused",
+      result: { reason: "active legal hold", legalHoldId: activeHold.id },
+      resolved_at: new Date().toISOString(),
+    });
+    return updated!;
+  }
+
+  const anonymized = await anonymizeUser(identityRepo, request.entity_id);
+  const updated = await repository.updateDataRequest(accessToken, dataRequestId, {
+    status: "completed",
+    result: { anonymizedUserId: anonymized.id },
+    resolved_at: new Date().toISOString(),
+  });
+  return updated!;
 }

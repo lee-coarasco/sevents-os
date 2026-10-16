@@ -222,6 +222,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(auditRoutes, {
     getRepository: options.getAuditRepository ?? defaultAuditRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    getIdentityRepository: options.getIdentityRepository ?? defaultIdentityRepository,
     requirePermission: guard,
   });
 

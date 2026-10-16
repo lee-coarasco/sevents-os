@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
 import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
 import { FakeAuditRepository } from "../../test/fakeAuditRepository.js";
+import { FakeWorkflowRepository } from "../../test/fakeWorkflowRepository.js";
+import { FakeIdentityRepository } from "../../test/fakeIdentityRepository.js";
+import {
+  addNodeToVersion,
+  addTransitionToVersion,
+  createWorkflowDefinition,
+  decideApprovalStep,
+  publishVersion,
+  recordApproval,
+  submitForApproval,
+  validateVersion,
+} from "../workflow/service.js";
 import type { AuditLogEntry } from "./types.js";
 
 const ADMIN_TOKEN = "admin-token";
@@ -54,17 +66,44 @@ function appWithFakeRepos() {
   });
   authorityRepo.grantPermission("role.platform_administrator", "audit.log.view");
   authorityRepo.grantPermission("role.platform_administrator", "audit.retention.manage");
+  authorityRepo.grantPermission("role.platform_administrator", "data.request.manage");
 
   const auditRepo = new FakeAuditRepository();
   auditRepo.addSession(ADMIN_TOKEN, TENANT_A);
   auditRepo.addSession(PLAIN_TOKEN, TENANT_A);
   auditRepo.addSession(OTHER_TENANT_ADMIN_TOKEN, TENANT_B);
 
+  const workflowRepo = new FakeWorkflowRepository();
+  const identityRepo = new FakeIdentityRepository();
+
   const app = buildApp({
     getAuthorityRepository: () => authorityRepo,
     getAuditRepository: () => auditRepo,
+    getWorkflowRepository: () => workflowRepo,
+    getIdentityRepository: () => identityRepo,
   });
-  return { app, authorityRepo, auditRepo };
+  return { app, authorityRepo, auditRepo, workflowRepo, identityRepo };
+}
+
+async function publishDataRequestApprovalWorkflow(workflowRepo: FakeWorkflowRepository) {
+  const { definition, version } = await createWorkflowDefinition(
+    workflowRepo,
+    ADMIN_TOKEN,
+    { key: "data-request-approval-route-test", name: "data-request-approval-route-test" },
+    ADMIN_USER,
+  );
+  const approve = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, {
+    nodeKey: "approve",
+    nodeType: "request_approval",
+    config: { approverUserIds: [ADMIN_USER] },
+  });
+  const end = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, { nodeKey: "end", nodeType: "complete", config: {} });
+  await addTransitionToVersion(workflowRepo, ADMIN_TOKEN, version.id, { fromNodeId: approve.id, toNodeId: end.id, orderIndex: 0 });
+  await validateVersion(workflowRepo, ADMIN_TOKEN, version.id, ADMIN_USER);
+  await submitForApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, ADMIN_USER);
+  await recordApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, ADMIN_USER, "approved", null);
+  await publishVersion(workflowRepo, ADMIN_TOKEN, definition.id, version.id, ADMIN_USER);
+  return definition;
 }
 
 describe("GET /audit/log", () => {
@@ -309,5 +348,130 @@ describe("legal holds", () => {
       headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
     });
     expect(response.statusCode).toBe(404);
+  });
+});
+
+describe("data requests (ticket 0080, M35c)", () => {
+  it("403s submitting a request without data.request.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/data-requests",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { requestType: "export", entityType: "app_users", entityId: "subject-1", reason: "r", definitionId: "def-1" },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s a blank reason and an unsupported entity type", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const definition = await publishDataRequestApprovalWorkflow(workflowRepo);
+
+    const blankReason = await app.inject({
+      method: "POST",
+      url: "/data-requests",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { requestType: "export", entityType: "app_users", entityId: "subject-1", reason: "   ", definitionId: definition.id },
+    });
+    expect(blankReason.statusCode).toBe(400);
+
+    const unsupported = await app.inject({
+      method: "POST",
+      url: "/data-requests",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { requestType: "deletion", entityType: "projects", entityId: "project-1", reason: "r", definitionId: definition.id },
+    });
+    expect(unsupported.statusCode).toBe(400);
+  });
+
+  it("export over HTTP: pending until approved, then GET resolves the bundle; tenant isolation holds throughout", async () => {
+    const { app, workflowRepo, identityRepo, auditRepo } = appWithFakeRepos();
+    const definition = await publishDataRequestApprovalWorkflow(workflowRepo);
+    await identityRepo.insertAppUser({ id: "subject-1", email: "subject@example.com", display_name: "Subject", invited_by: null });
+    auditRepo.appUsers.set("subject-1", { id: "subject-1", tenant_id: TENANT_A, email: "subject@example.com" });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/data-requests",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {
+        requestType: "export",
+        entityType: "app_users",
+        entityId: "subject-1",
+        reason: "data subject asked for a copy",
+        definitionId: definition.id,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const requestId = created.json().dataRequest.id;
+    const workflowInstanceId = created.json().dataRequest.workflow_instance_id;
+
+    const stillPending = await app.inject({
+      method: "GET",
+      url: `/data-requests/${requestId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(stillPending.json().dataRequest.status).toBe("pending");
+
+    // Another tenant's admin cannot see or resolve it.
+    const crossTenant = await app.inject({
+      method: "GET",
+      url: `/data-requests/${requestId}`,
+      headers: { authorization: `Bearer ${OTHER_TENANT_ADMIN_TOKEN}` },
+    });
+    expect(crossTenant.statusCode).toBe(404);
+
+    const [step] = await workflowRepo.listStepInstances(ADMIN_TOKEN, workflowInstanceId);
+    await decideApprovalStep(workflowRepo, new FakeAuthorityRepository(), ADMIN_TOKEN, step!.id, ADMIN_USER, "approved", null);
+
+    const resolved = await app.inject({
+      method: "GET",
+      url: `/data-requests/${requestId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(resolved.statusCode).toBe(200);
+    expect(resolved.json().dataRequest.status).toBe("completed");
+    expect(resolved.json().dataRequest.result.appUser.id).toBe("subject-1");
+  });
+
+  it("deletion over HTTP: an active legal hold refuses the deletion instead of anonymizing", async () => {
+    const { app, workflowRepo, identityRepo, auditRepo } = appWithFakeRepos();
+    const definition = await publishDataRequestApprovalWorkflow(workflowRepo);
+    await identityRepo.insertAppUser({ id: "subject-2", email: "subject2@example.com", display_name: "Subject Two", invited_by: null });
+    const hold = await auditRepo.placeLegalHold(ADMIN_TOKEN, {
+      entity_type: "app_users",
+      entity_id: "subject-2",
+      reason: "active litigation",
+      placed_by: ADMIN_USER,
+    });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/data-requests",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {
+        requestType: "deletion",
+        entityType: "app_users",
+        entityId: "subject-2",
+        reason: "right to erasure request",
+        definitionId: definition.id,
+      },
+    });
+    const requestId = created.json().dataRequest.id;
+    const workflowInstanceId = created.json().dataRequest.workflow_instance_id;
+
+    const [step] = await workflowRepo.listStepInstances(ADMIN_TOKEN, workflowInstanceId);
+    await decideApprovalStep(workflowRepo, new FakeAuthorityRepository(), ADMIN_TOKEN, step!.id, ADMIN_USER, "approved", null);
+
+    const resolved = await app.inject({
+      method: "GET",
+      url: `/data-requests/${requestId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(resolved.json().dataRequest.status).toBe("refused");
+    expect(resolved.json().dataRequest.result.legalHoldId).toBe(hold.id);
+
+    const user = await identityRepo.getAppUserById("subject-2");
+    expect(user!.email).toBe("subject2@example.com");
   });
 });

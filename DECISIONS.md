@@ -738,3 +738,40 @@ approved (agent-autonomous or you).
   explicitly agent-decidable per CLAUDE.md; recorded here because each
   point is a divergence from the ticket's own filed text, not just an
   implementation detail).
+
+## 2026-10-16 07:15 UTC - M35c (ticket 0080): real deletion execution scoped to `app_users` only, anonymize-in-place rather than hard-delete
+- Decision: Ticket 0080 asked the owner which entity types are in
+  scope for real data deletion and whether deletion means hard-delete
+  or anonymize-in-place. The owner's answer (logged in the ticket) was
+  to defer to the agent's recommendation. Recommendation adopted:
+  (1) only `app_users` rows are in scope for the real deletion path —
+  it is the one table that holds the kind of personal data a "right
+  to erasure"-style request is actually about, and it is the only
+  entity type this ticket's own export-half text names as a concrete
+  example alongside `role_assignments`/`auth_audit_log` (which are
+  linkage/history, not the subject of erasure). Any other entity type
+  stays out of scope, per the ticket's own "Out of scope" line, until a
+  future ticket asks the owner about it by name. (2) Deletion means
+  anonymize-in-place, not hard-delete: `app_users.id` is referenced by
+  `on delete` default-restrict foreign keys from ~49 columns across
+  nearly every module built so far (role_assignments, workflow
+  instances, approvals, baselines, tasks, audit rows...) — a hard
+  delete would either fail outright or require cascading through
+  history/audit tables the BRD explicitly protects (§6.1: "never
+  silently delete audit-relevant records"). Anonymizing scrubs
+  `email`/`display_name` and forces `status='deactivated'` while
+  keeping the row (and therefore every foreign key into it) intact,
+  mirroring the existing `deactivateAppUser` soft-deactivation already
+  built for M01 (ticket 0054).
+- Why: matches CLAUDE.md's "AI agents must not invent... production
+  data" read the other way around — the safe default when the owner
+  defers to the agent is the one that cannot destroy referential
+  integrity or audit history across modules this project has already
+  built and tested, not the one that happens to satisfy the ticket
+  text most literally. A hard delete of `app_users` is the single
+  hardest-to-reverse action available in this schema today.
+- Approved by: owner (ticket 0080, 2026-10-16 07:41 GST, "choose
+  whichever you recommend") — the scope/mechanism judgment itself is
+  the agent's recommendation made under that delegation, recorded here
+  per CLAUDE.md's rule that owner approvals affecting data deletion are
+  documented in DECISIONS.md.

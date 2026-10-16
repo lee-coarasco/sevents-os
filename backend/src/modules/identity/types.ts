@@ -15,6 +15,7 @@ export type AuditEventType =
   | "invited"
   | "invite_accepted"
   | "deactivated"
+  | "anonymized"
   | "sign_in"
   | "sign_out"
   | "sign_in_failed"

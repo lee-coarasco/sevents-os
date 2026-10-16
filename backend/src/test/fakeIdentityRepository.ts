@@ -79,6 +79,21 @@ export class FakeIdentityRepository implements IdentityRepository {
     return updated;
   }
 
+  async anonymizeAppUser(userId: string) {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("anonymizeAppUser: user not found");
+    const updated: AppUser = {
+      ...user,
+      email: `deleted-${userId}@anonymized.invalid`,
+      display_name: null,
+      status: "deactivated",
+      deactivated_at: new Date().toISOString(),
+    };
+    this.users.set(userId, updated);
+    this.bannedUserIds.add(userId);
+    return updated;
+  }
+
   async insertAuditEvent(
     userId: string | null,
     eventType: AuditEventType,

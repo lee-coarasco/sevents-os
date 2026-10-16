@@ -1,9 +1,11 @@
 import type {
   AuditRepository,
+  CreateDataRequestInput,
   CreateRetentionPolicyInput,
   PlaceLegalHoldInput,
+  UpdateDataRequestInput,
 } from "../modules/audit/repository.js";
-import type { AuditLogEntry, LegalHold, RetentionPolicy } from "../modules/audit/types.js";
+import type { AuditLogEntry, DataRequest, LegalHold, RetentionPolicy } from "../modules/audit/types.js";
 
 let idCounter = 0;
 function nextId(prefix: string): string {
@@ -24,6 +26,10 @@ export class FakeAuditRepository implements AuditRepository {
   private sessions = new Map<string, string>(); // accessToken -> tenantId
   retentionPolicies = new Map<string, RetentionPolicy>();
   legalHolds = new Map<string, LegalHold>();
+  dataRequests = new Map<string, DataRequest>();
+  /** Seeded directly by tests that exercise buildAppUserExportBundle; keyed by app_users.id. */
+  appUsers = new Map<string, Record<string, unknown> & { id: string; tenant_id: string }>();
+  roleAssignments: Array<Record<string, unknown> & { user_id: string }> = [];
 
   seed(tenantId: string, entry: AuditLogEntry) {
     const existing = this.entriesByTenant.get(tenantId) ?? [];
@@ -100,5 +106,56 @@ export class FakeAuditRepository implements AuditRepository {
     const hold = this.legalHolds.get(legalHoldId);
     if (!hold || hold.tenant_id !== tenant_id) return null;
     return hold;
+  }
+
+  async createDataRequest(accessToken: string, input: CreateDataRequestInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const now = new Date().toISOString();
+    const dataRequest: DataRequest = {
+      id: nextId("data-request"),
+      tenant_id,
+      request_type: input.request_type,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id,
+      reason: input.reason,
+      requested_by: input.requested_by,
+      workflow_instance_id: input.workflow_instance_id,
+      status: "pending",
+      result: null,
+      resolved_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.dataRequests.set(dataRequest.id, dataRequest);
+    return dataRequest;
+  }
+
+  async getDataRequest(accessToken: string, dataRequestId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    const dataRequest = this.dataRequests.get(dataRequestId);
+    if (!dataRequest || dataRequest.tenant_id !== tenant_id) return null;
+    return dataRequest;
+  }
+
+  async listDataRequests(accessToken: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.dataRequests.values()].filter((d) => d.tenant_id === tenant_id);
+  }
+
+  async updateDataRequest(accessToken: string, dataRequestId: string, patch: UpdateDataRequestInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const dataRequest = this.dataRequests.get(dataRequestId);
+    if (!dataRequest || dataRequest.tenant_id !== tenant_id) return null;
+    Object.assign(dataRequest, patch, { updated_at: new Date().toISOString() });
+    return dataRequest;
+  }
+
+  async buildAppUserExportBundle(tenantId: string, userId: string) {
+    const user = this.appUsers.get(userId);
+    const appUser = user && user.tenant_id === tenantId ? user : null;
+    const roleAssignments = this.roleAssignments.filter((r) => r.user_id === userId);
+    const entries = await this.listAuditLogEntries(tenantId);
+    const auditEntries = entries.filter((e) => e.actorId === userId || e.entityId === userId);
+    return { appUser, roleAssignments, auditEntries };
   }
 }
