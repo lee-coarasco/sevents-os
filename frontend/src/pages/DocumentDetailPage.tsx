@@ -199,6 +199,18 @@ export function DocumentDetailPage() {
                 <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Access class</dt>
                 <dd className="mt-1 text-sm text-zinc-800">{document.access_class ?? "—"}</dd>
               </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Project</dt>
+                <dd className="mt-1 text-sm text-zinc-800">
+                  {document.project_id ? (
+                    <Link to={`/projects/${document.project_id}`} className="hover:text-brand-dim">
+                      View project →
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
             </dl>
           </div>
 

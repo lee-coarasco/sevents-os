@@ -190,7 +190,15 @@ export function DocumentsPage() {
                     {doc.document_number && <span className="ml-2 text-xs text-zinc-400">{doc.document_number}</span>}
                   </td>
                   <td className="px-6 py-4 text-zinc-600">{doc.document_type}</td>
-                  <td className="px-6 py-4 text-zinc-600">{projectName(doc.project_id)}</td>
+                  <td className="px-6 py-4 text-zinc-600">
+                    {doc.project_id ? (
+                      <Link to={`/projects/${doc.project_id}`} className="hover:text-brand-dim">
+                        {projectName(doc.project_id)}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-zinc-600">{doc.discipline ?? "—"}</td>
                   <td className="px-6 py-4 text-right">
                     <Link to={`/documents/${doc.id}`} className="text-xs text-zinc-400 hover:text-brand-dim">
