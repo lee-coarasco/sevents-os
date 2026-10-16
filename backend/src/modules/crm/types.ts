@@ -51,3 +51,41 @@ export interface Opportunity {
   created_at: string;
   updated_at: string;
 }
+
+export interface SiteVisit {
+  id: string;
+  tenant_id: string;
+  opportunity_id: string;
+  visited_by: string;
+  visit_date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** FR-CRM-003: a tender deadline plus whatever evidence shows what was submitted and when. */
+export interface TenderSubmission {
+  id: string;
+  tenant_id: string;
+  opportunity_id: string;
+  deadline_date: string;
+  submitted_at: string | null;
+  evidence_reference: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A log entry, not a two-way messaging feature — no send/receive here. */
+export interface ClientCommunication {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  opportunity_id: string | null;
+  channel: string;
+  summary: string;
+  logged_by: string;
+  occurred_at: string;
+  created_at: string;
+}

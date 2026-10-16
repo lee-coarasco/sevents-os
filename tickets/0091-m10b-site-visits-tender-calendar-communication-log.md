@@ -1,7 +1,7 @@
 ---
 id: 91
 title: "M10b — Site visits, tender deadline calendar & client communication log"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 13
 created: 2026-10-16
@@ -47,12 +47,36 @@ phrases "site visit... tender calendar... client communication log."
   not invented here.
 
 ## Acceptance
-- [ ] `site_visits` tenant-scoped with RLS, linked to an opportunity
+- [x] `site_visits` tenant-scoped with RLS, linked to an opportunity
       from ticket 0090.
-- [ ] Tender deadline + submission evidence tracked per FR-CRM-003.
-- [ ] Client communication log tenant-scoped with RLS.
-- [ ] Tests cover tenant isolation and permission gating.
+- [x] Tender deadline + submission evidence tracked per FR-CRM-003.
+- [x] Client communication log tenant-scoped with RLS.
+- [x] Tests cover tenant isolation and permission gating.
 
 ## Progress
 - 2026-10-16: Filed as the second of three M10 sub-tickets (see ticket
   0089's split).
+- 2026-10-16 11:48 UTC: Built. Migration
+  `supabase/migrations/20261016000013_m10b_crm_site_visits_tender_communications.sql`
+  adds `site_visits` (opportunity_id FK, visited_by, visit_date, notes),
+  `tender_submissions` (opportunity_id FK, deadline_date,
+  submitted_at, evidence_reference, notes — a small table rather than
+  columns on `opportunities`, so more than one deadline/resubmission
+  per opportunity needs no later migration) and `client_communications`
+  (client_id FK, optional opportunity_id FK, channel, summary,
+  logged_by, occurred_at — a log only, no send/receive). All three
+  tenant-scoped RLS. Reused ticket 0090's `crm.lead.manage` permission
+  rather than adding a new one — same module, no new actor. Extended
+  `backend/src/modules/crm/` (types/repository/service/routes) in
+  place rather than a new module, following the same pattern as the
+  M06 sub-tickets extending `modules/workflow/`. New routes:
+  `POST`/`GET /crm/opportunities/:id/site-visits`,
+  `POST`/`GET /crm/opportunities/:id/tender-submissions`,
+  `POST`/`GET /crm/client-communications`. 8 new tests (tenant
+  isolation, permission gating, multi-submission-per-opportunity).
+  `npm test`: 473/473 (465 prior + 8 new), `npm run build` clean,
+  `scripts/tickets.py check` clean. Not yet applied to the real
+  Supabase project — same gap as ticket 0090 and every other migration
+  in this repo. Status `testing`, not `done`, for the same reason.
+  Next: ticket 0092 (M10c — pipeline forecast reporting, won-opportunity
+  handover checklist gate).

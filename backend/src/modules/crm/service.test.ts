@@ -3,9 +3,15 @@ import { FakeCrmRepository } from "../../test/fakeCrmRepository.js";
 import {
   NotFoundError,
   createClient,
+  createClientCommunication,
   createContact,
   createOpportunity,
+  createSiteVisit,
+  createTenderSubmission,
   getOpportunity,
+  listClientCommunications,
+  listSiteVisits,
+  listTenderSubmissions,
   searchClients,
   searchContacts,
   updateOpportunity,
@@ -142,5 +148,105 @@ describe("createOpportunity / getOpportunity / updateOpportunity", () => {
     });
 
     await expect(getOpportunity(repo, OTHER_TOKEN, opportunity.id)).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe("site visits, tender submissions and client communications (M10b)", () => {
+  let repo: FakeCrmRepository;
+  let clientId: string;
+  let opportunityId: string;
+
+  beforeEach(async () => {
+    repo = new FakeCrmRepository();
+    repo.addSession(TOKEN, "user-1", TENANT_ID);
+    repo.addSession(OTHER_TOKEN, "user-2", OTHER_TENANT_ID);
+    const client = await createClient(repo, TOKEN, { name: "Acme", created_by: null });
+    clientId = client.id;
+    const opportunity = await createOpportunity(repo, TOKEN, {
+      client_id: clientId,
+      title: "New warehouse build",
+      source: "referral",
+      owner_id: "user-1",
+      created_by: null,
+    });
+    opportunityId = opportunity.id;
+  });
+
+  it("logs a site visit against an opportunity and lists it back", async () => {
+    await createSiteVisit(repo, TOKEN, {
+      opportunity_id: opportunityId,
+      visited_by: "user-1",
+      visit_date: "2026-11-05",
+      notes: "Site is accessible, no major obstructions.",
+    });
+
+    const visits = await listSiteVisits(repo, TOKEN, opportunityId);
+
+    expect(visits).toHaveLength(1);
+    expect(visits[0]?.visit_date).toBe("2026-11-05");
+  });
+
+  it("FR-CRM-003: tracks a tender deadline and its submission evidence", async () => {
+    await createTenderSubmission(repo, TOKEN, {
+      opportunity_id: opportunityId,
+      deadline_date: "2026-12-01",
+      submitted_at: "2026-11-30T10:00:00.000Z",
+      evidence_reference: "Submitted via portal ref #TND-2026-004",
+      notes: null,
+      created_by: "user-1",
+    });
+
+    const submissions = await listTenderSubmissions(repo, TOKEN, opportunityId);
+
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0]?.deadline_date).toBe("2026-12-01");
+    expect(submissions[0]?.evidence_reference).toContain("TND-2026-004");
+  });
+
+  it("supports more than one tender submission per opportunity (e.g. a resubmission)", async () => {
+    await createTenderSubmission(repo, TOKEN, {
+      opportunity_id: opportunityId,
+      deadline_date: "2026-12-01",
+      created_by: null,
+    });
+    await createTenderSubmission(repo, TOKEN, {
+      opportunity_id: opportunityId,
+      deadline_date: "2026-12-10",
+      created_by: null,
+    });
+
+    const submissions = await listTenderSubmissions(repo, TOKEN, opportunityId);
+
+    expect(submissions).toHaveLength(2);
+  });
+
+  it("logs a client communication (a log, not a messaging feature) and lists it by client", async () => {
+    await createClientCommunication(repo, TOKEN, {
+      client_id: clientId,
+      opportunity_id: opportunityId,
+      channel: "phone",
+      summary: "Discussed revised timeline.",
+      logged_by: "user-1",
+    });
+
+    const communications = await listClientCommunications(repo, TOKEN, { clientId });
+
+    expect(communications).toHaveLength(1);
+    expect(communications[0]?.channel).toBe("phone");
+  });
+
+  it("tenant-isolates site visits, tender submissions and communications", async () => {
+    await createSiteVisit(repo, TOKEN, { opportunity_id: opportunityId, visited_by: "user-1", visit_date: "2026-11-05" });
+    await createTenderSubmission(repo, TOKEN, { opportunity_id: opportunityId, deadline_date: "2026-12-01", created_by: null });
+    await createClientCommunication(repo, TOKEN, {
+      client_id: clientId,
+      channel: "email",
+      summary: "Sent proposal.",
+      logged_by: "user-1",
+    });
+
+    expect(await listSiteVisits(repo, OTHER_TOKEN, opportunityId)).toHaveLength(0);
+    expect(await listTenderSubmissions(repo, OTHER_TOKEN, opportunityId)).toHaveLength(0);
+    expect(await listClientCommunications(repo, OTHER_TOKEN, { clientId })).toHaveLength(0);
   });
 });

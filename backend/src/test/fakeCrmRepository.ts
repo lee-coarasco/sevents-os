@@ -1,12 +1,22 @@
 import type {
+  CreateClientCommunicationInput,
   CreateClientInput,
   CreateContactInput,
   CreateOpportunityInput,
+  CreateSiteVisitInput,
+  CreateTenderSubmissionInput,
   CrmRepository,
   ListOpportunitiesFilter,
   UpdateOpportunityInput,
 } from "../modules/crm/repository.js";
-import type { Client, Contact, Opportunity } from "../modules/crm/types.js";
+import type {
+  Client,
+  ClientCommunication,
+  Contact,
+  Opportunity,
+  SiteVisit,
+  TenderSubmission,
+} from "../modules/crm/types.js";
 
 let idCounter = 0;
 function nextId(prefix: string): string {
@@ -25,6 +35,9 @@ export class FakeCrmRepository implements CrmRepository {
   clients = new Map<string, Client>();
   contacts = new Map<string, Contact>();
   opportunities = new Map<string, Opportunity>();
+  siteVisits = new Map<string, SiteVisit>();
+  tenderSubmissions = new Map<string, TenderSubmission>();
+  clientCommunications = new Map<string, ClientCommunication>();
 
   addSession(accessToken: string, userId: string, tenantId: string) {
     this.sessions.set(accessToken, { userId, tenantId });
@@ -156,5 +169,82 @@ export class FakeCrmRepository implements CrmRepository {
     const updated: Opportunity = { ...opportunity, ...input, updated_at: new Date().toISOString() };
     this.opportunities.set(opportunityId, updated);
     return updated;
+  }
+
+  async createSiteVisit(accessToken: string, input: CreateSiteVisitInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const now = new Date().toISOString();
+    const siteVisit: SiteVisit = {
+      id: nextId("site-visit"),
+      tenant_id: tenantId,
+      opportunity_id: input.opportunity_id,
+      visited_by: input.visited_by,
+      visit_date: input.visit_date,
+      notes: input.notes ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.siteVisits.set(siteVisit.id, siteVisit);
+    return siteVisit;
+  }
+
+  async listSiteVisits(accessToken: string, opportunityId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.siteVisits.values()].filter(
+      (visit) => visit.tenant_id === tenantId && visit.opportunity_id === opportunityId,
+    );
+  }
+
+  async createTenderSubmission(accessToken: string, input: CreateTenderSubmissionInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const now = new Date().toISOString();
+    const tenderSubmission: TenderSubmission = {
+      id: nextId("tender-submission"),
+      tenant_id: tenantId,
+      opportunity_id: input.opportunity_id,
+      deadline_date: input.deadline_date,
+      submitted_at: input.submitted_at ?? null,
+      evidence_reference: input.evidence_reference ?? null,
+      notes: input.notes ?? null,
+      created_by: input.created_by,
+      created_at: now,
+      updated_at: now,
+    };
+    this.tenderSubmissions.set(tenderSubmission.id, tenderSubmission);
+    return tenderSubmission;
+  }
+
+  async listTenderSubmissions(accessToken: string, opportunityId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.tenderSubmissions.values()].filter(
+      (submission) => submission.tenant_id === tenantId && submission.opportunity_id === opportunityId,
+    );
+  }
+
+  async createClientCommunication(accessToken: string, input: CreateClientCommunicationInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const clientCommunication: ClientCommunication = {
+      id: nextId("client-communication"),
+      tenant_id: tenantId,
+      client_id: input.client_id,
+      opportunity_id: input.opportunity_id ?? null,
+      channel: input.channel,
+      summary: input.summary,
+      logged_by: input.logged_by,
+      occurred_at: input.occurred_at ?? new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    this.clientCommunications.set(clientCommunication.id, clientCommunication);
+    return clientCommunication;
+  }
+
+  async listClientCommunications(accessToken: string, filter: { clientId?: string; opportunityId?: string }) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.clientCommunications.values()].filter((entry) => {
+      if (entry.tenant_id !== tenantId) return false;
+      if (filter.clientId && entry.client_id !== filter.clientId) return false;
+      if (filter.opportunityId && entry.opportunity_id !== filter.opportunityId) return false;
+      return true;
+    });
   }
 }

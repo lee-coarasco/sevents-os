@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Client, Contact, Opportunity, OpportunityStage } from "./types.js";
+import type {
+  Client,
+  ClientCommunication,
+  Contact,
+  Opportunity,
+  OpportunityStage,
+  SiteVisit,
+  TenderSubmission,
+} from "./types.js";
 
 export interface CreateClientInput {
   name: string;
@@ -43,6 +51,31 @@ export interface ListOpportunitiesFilter {
   stage?: OpportunityStage;
 }
 
+export interface CreateSiteVisitInput {
+  opportunity_id: string;
+  visited_by: string;
+  visit_date: string;
+  notes?: string | null;
+}
+
+export interface CreateTenderSubmissionInput {
+  opportunity_id: string;
+  deadline_date: string;
+  submitted_at?: string | null;
+  evidence_reference?: string | null;
+  notes?: string | null;
+  created_by: string | null;
+}
+
+export interface CreateClientCommunicationInput {
+  client_id: string;
+  opportunity_id?: string | null;
+  channel: string;
+  summary: string;
+  logged_by: string;
+  occurred_at?: string;
+}
+
 /**
  * Every method goes through the caller's own user-scoped client, same
  * convention as modules/tenancy and modules/projects — RLS
@@ -66,6 +99,18 @@ export interface CrmRepository {
     opportunityId: string,
     input: UpdateOpportunityInput,
   ): Promise<Opportunity | null>;
+  createSiteVisit(accessToken: string, input: CreateSiteVisitInput): Promise<SiteVisit>;
+  listSiteVisits(accessToken: string, opportunityId: string): Promise<SiteVisit[]>;
+  createTenderSubmission(accessToken: string, input: CreateTenderSubmissionInput): Promise<TenderSubmission>;
+  listTenderSubmissions(accessToken: string, opportunityId: string): Promise<TenderSubmission[]>;
+  createClientCommunication(
+    accessToken: string,
+    input: CreateClientCommunicationInput,
+  ): Promise<ClientCommunication>;
+  listClientCommunications(
+    accessToken: string,
+    filter: { clientId?: string; opportunityId?: string },
+  ): Promise<ClientCommunication[]>;
 }
 
 /**
@@ -176,6 +221,66 @@ export function createSupabaseCrmRepository(
         .maybeSingle();
       if (error) throw new Error(`updateOpportunity: ${error.message}`);
       return (data as Opportunity | null) ?? null;
+    },
+
+    async createSiteVisit(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("site_visits")
+        .insert({ notes: null, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createSiteVisit: ${error?.message ?? "no row returned"}`);
+      return data as SiteVisit;
+    },
+
+    async listSiteVisits(accessToken, opportunityId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("site_visits").select("*").eq("opportunity_id", opportunityId);
+      if (error) throw new Error(`listSiteVisits: ${error.message}`);
+      return (data as SiteVisit[]) ?? [];
+    },
+
+    async createTenderSubmission(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("tender_submissions")
+        .insert({ submitted_at: null, evidence_reference: null, notes: null, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createTenderSubmission: ${error?.message ?? "no row returned"}`);
+      return data as TenderSubmission;
+    },
+
+    async listTenderSubmissions(accessToken, opportunityId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("tender_submissions")
+        .select("*")
+        .eq("opportunity_id", opportunityId);
+      if (error) throw new Error(`listTenderSubmissions: ${error.message}`);
+      return (data as TenderSubmission[]) ?? [];
+    },
+
+    async createClientCommunication(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("client_communications")
+        .insert({ opportunity_id: null, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createClientCommunication: ${error?.message ?? "no row returned"}`);
+      return data as ClientCommunication;
+    },
+
+    async listClientCommunications(accessToken, filter) {
+      const client = userScopedClientFactory(accessToken);
+      let query = client.from("client_communications").select("*");
+      if (filter.clientId) query = query.eq("client_id", filter.clientId);
+      if (filter.opportunityId) query = query.eq("opportunity_id", filter.opportunityId);
+      const { data, error } = await query;
+      if (error) throw new Error(`listClientCommunications: ${error.message}`);
+      return (data as ClientCommunication[]) ?? [];
     },
   };
 }

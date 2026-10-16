@@ -1,12 +1,15 @@
 import type {
+  CreateClientCommunicationInput,
   CreateClientInput,
   CreateContactInput,
   CreateOpportunityInput,
+  CreateSiteVisitInput,
+  CreateTenderSubmissionInput,
   CrmRepository,
   ListOpportunitiesFilter,
   UpdateOpportunityInput,
 } from "./repository.js";
-import type { Client, Contact, Opportunity } from "./types.js";
+import type { Client, ClientCommunication, Contact, Opportunity, SiteVisit, TenderSubmission } from "./types.js";
 
 export class NotFoundError extends Error {
   constructor(message = "not found") {
@@ -75,4 +78,52 @@ export async function updateOpportunity(
   const updated = await repo.updateOpportunity(accessToken, opportunityId, input);
   if (!updated) throw new NotFoundError();
   return updated;
+}
+
+export async function createSiteVisit(
+  repo: CrmRepository,
+  accessToken: string,
+  input: CreateSiteVisitInput,
+): Promise<SiteVisit> {
+  return repo.createSiteVisit(accessToken, input);
+}
+
+export async function listSiteVisits(
+  repo: CrmRepository,
+  accessToken: string,
+  opportunityId: string,
+): Promise<SiteVisit[]> {
+  return repo.listSiteVisits(accessToken, opportunityId);
+}
+
+export async function createTenderSubmission(
+  repo: CrmRepository,
+  accessToken: string,
+  input: CreateTenderSubmissionInput,
+): Promise<TenderSubmission> {
+  return repo.createTenderSubmission(accessToken, input);
+}
+
+export async function listTenderSubmissions(
+  repo: CrmRepository,
+  accessToken: string,
+  opportunityId: string,
+): Promise<TenderSubmission[]> {
+  return repo.listTenderSubmissions(accessToken, opportunityId);
+}
+
+export async function createClientCommunication(
+  repo: CrmRepository,
+  accessToken: string,
+  input: CreateClientCommunicationInput,
+): Promise<ClientCommunication> {
+  return repo.createClientCommunication(accessToken, input);
+}
+
+export async function listClientCommunications(
+  repo: CrmRepository,
+  accessToken: string,
+  filter: { clientId?: string; opportunityId?: string },
+): Promise<ClientCommunication[]> {
+  return repo.listClientCommunications(accessToken, filter);
 }

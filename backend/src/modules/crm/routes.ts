@@ -1,14 +1,21 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
+import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { CrmRepository } from "./repository.js";
 import type { OpportunityStage } from "./types.js";
 import {
   NotFoundError,
   createClient,
+  createClientCommunication,
   createContact,
   createOpportunity,
+  createSiteVisit,
+  createTenderSubmission,
   getOpportunity,
+  listClientCommunications,
   listContactsForClient,
   listOpportunities,
+  listSiteVisits,
+  listTenderSubmissions,
   searchClients,
   searchContacts,
   updateOpportunity,
@@ -190,4 +197,96 @@ export async function crmRoutes(app: FastifyInstance, options: CrmRouteOptions) 
       throw error;
     }
   });
+
+  app.post<{
+    Params: { id: string };
+    Body: { visitedBy: string; visitDate: string; notes?: string };
+  }>("/crm/opportunities/:id/site-visits", guard, async (request, reply) => {
+    const body = request.body ?? ({} as never);
+    if (!body.visitedBy || !body.visitDate) {
+      reply.code(400);
+      return { error: "visitedBy and visitDate are required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const siteVisit = await createSiteVisit(options.getRepository(), token, {
+      opportunity_id: request.params.id,
+      visited_by: body.visitedBy,
+      visit_date: body.visitDate,
+      notes: body.notes ?? null,
+    });
+    reply.code(201);
+    return { siteVisit };
+  });
+
+  app.get<{ Params: { id: string } }>("/crm/opportunities/:id/site-visits", guard, async (request) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    const siteVisits = await listSiteVisits(options.getRepository(), token, request.params.id);
+    return { siteVisits };
+  });
+
+  // FR-CRM-003: tender deadlines and submission evidence.
+  app.post<{
+    Params: { id: string };
+    Body: { deadlineDate: string; submittedAt?: string; evidenceReference?: string; notes?: string };
+  }>("/crm/opportunities/:id/tender-submissions", guard, async (request, reply) => {
+    const body = request.body ?? ({} as never);
+    if (!body.deadlineDate) {
+      reply.code(400);
+      return { error: "deadlineDate is required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const tenderSubmission = await createTenderSubmission(options.getRepository(), token, {
+      opportunity_id: request.params.id,
+      deadline_date: body.deadlineDate,
+      submitted_at: body.submittedAt ?? null,
+      evidence_reference: body.evidenceReference ?? null,
+      notes: body.notes ?? null,
+      created_by: null,
+    });
+    reply.code(201);
+    return { tenderSubmission };
+  });
+
+  app.get<{ Params: { id: string } }>("/crm/opportunities/:id/tender-submissions", guard, async (request) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    const tenderSubmissions = await listTenderSubmissions(options.getRepository(), token, request.params.id);
+    return { tenderSubmissions };
+  });
+
+  // Log only — no send/receive. See ticket 0082 for this project's one
+  // outbound-delivery mechanism, which this does not use.
+  app.post<{
+    Body: { clientId: string; opportunityId?: string; channel: string; summary: string; occurredAt?: string };
+  }>("/crm/client-communications", guard, async (request, reply) => {
+    const body = request.body ?? ({} as never);
+    if (!body.clientId || !body.channel || !body.summary) {
+      reply.code(400);
+      return { error: "clientId, channel and summary are required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const loggedBy = (request as AuthenticatedRequest).authUserId as string;
+    const clientCommunication = await createClientCommunication(options.getRepository(), token, {
+      client_id: body.clientId,
+      opportunity_id: body.opportunityId ?? null,
+      channel: body.channel,
+      summary: body.summary,
+      logged_by: loggedBy,
+      occurred_at: body.occurredAt,
+    });
+    reply.code(201);
+    return { clientCommunication };
+  });
+
+  app.get<{ Querystring: { clientId?: string; opportunityId?: string } }>(
+    "/crm/client-communications",
+    guard,
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const clientCommunications = await listClientCommunications(options.getRepository(), token, {
+        clientId: request.query.clientId,
+        opportunityId: request.query.opportunityId,
+      });
+      return { clientCommunications };
+    },
+  );
 }

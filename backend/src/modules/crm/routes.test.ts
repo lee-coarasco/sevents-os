@@ -223,3 +223,90 @@ describe("opportunity lifecycle", () => {
     expect(response.statusCode).toBe(403);
   });
 });
+
+describe("site visits, tender submissions and client communications (M10b)", () => {
+  async function createClientAndOpportunity(app: ReturnType<typeof appWithFakeRepos>["app"]) {
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const opportunityResponse = await app.inject({
+      method: "POST",
+      url: "/crm/opportunities",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { clientId, title: "New warehouse build", source: "referral", ownerId: ADMIN_USER },
+    });
+    return { clientId, opportunityId: opportunityResponse.json().opportunity.id };
+  }
+
+  it("logs and lists a site visit against an opportunity", async () => {
+    const { app } = appWithFakeRepos();
+    const { opportunityId } = await createClientAndOpportunity(app);
+
+    const postResponse = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/site-visits`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { visitedBy: ADMIN_USER, visitDate: "2026-11-05" },
+    });
+    expect(postResponse.statusCode).toBe(201);
+
+    const getResponse = await app.inject({
+      method: "GET",
+      url: `/crm/opportunities/${opportunityId}/site-visits`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(getResponse.json().siteVisits).toHaveLength(1);
+  });
+
+  it("FR-CRM-003: tracks a tender deadline/submission and 403s without the permission", async () => {
+    const { app } = appWithFakeRepos();
+    const { opportunityId } = await createClientAndOpportunity(app);
+
+    const postResponse = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/tender-submissions`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { deadlineDate: "2026-12-01", evidenceReference: "Portal ref #TND-2026-004" },
+    });
+    expect(postResponse.statusCode).toBe(201);
+
+    const forbidden = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/tender-submissions`,
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { deadlineDate: "2026-12-10" },
+    });
+    expect(forbidden.statusCode).toBe(403);
+  });
+
+  it("logs a client communication and lists it by client, scoped to the caller's tenant", async () => {
+    const { app } = appWithFakeRepos();
+    const { clientId, opportunityId } = await createClientAndOpportunity(app);
+
+    const postResponse = await app.inject({
+      method: "POST",
+      url: "/crm/client-communications",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { clientId, opportunityId, channel: "phone", summary: "Discussed revised timeline." },
+    });
+    expect(postResponse.statusCode).toBe(201);
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: `/crm/client-communications?clientId=${clientId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(listResponse.json().clientCommunications).toHaveLength(1);
+
+    const crossTenantResponse = await app.inject({
+      method: "GET",
+      url: `/crm/client-communications?clientId=${clientId}`,
+      headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
+    });
+    expect(crossTenantResponse.json().clientCommunications).toHaveLength(0);
+  });
+});
