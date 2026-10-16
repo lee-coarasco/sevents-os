@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Branch, Company, FileObjectMeta, Project } from "./types.js";
+import type { Branch, Company, FileObjectMeta } from "./types.js";
 
 export interface CreateCompanyInput {
   legal_name: string;
@@ -16,12 +16,6 @@ export interface CreateBranchInput {
   company_id: string;
   name: string;
   operating_region?: string | null;
-}
-
-export interface CreateProjectInput {
-  company_id: string;
-  name: string;
-  code?: string | null;
 }
 
 export interface RegisterFileObjectInput {
@@ -47,9 +41,6 @@ export interface TenancyRepository {
   getCompany(accessToken: string, companyId: string): Promise<Company | null>;
   createBranch(accessToken: string, input: CreateBranchInput): Promise<Branch>;
   listBranches(accessToken: string, companyId: string): Promise<Branch[]>;
-  createProject(accessToken: string, input: CreateProjectInput): Promise<Project>;
-  listProjects(accessToken: string): Promise<Project[]>;
-  getProject(accessToken: string, projectId: string): Promise<Project | null>;
   registerFileObject(accessToken: string, input: RegisterFileObjectInput): Promise<FileObjectMeta>;
 }
 
@@ -109,35 +100,6 @@ export function createSupabaseTenancyRepository(
         .eq("company_id", companyId);
       if (error) throw new Error(`listBranches: ${error.message}`);
       return (data as Branch[]) ?? [];
-    },
-
-    async createProject(accessToken, input) {
-      const client = userScopedClientFactory(accessToken);
-      const { data, error } = await client
-        .from("projects")
-        .insert({ status: "active", ...input })
-        .select("*")
-        .single();
-      if (error || !data) throw new Error(`createProject: ${error?.message ?? "no row returned"}`);
-      return data as Project;
-    },
-
-    async listProjects(accessToken) {
-      const client = userScopedClientFactory(accessToken);
-      const { data, error } = await client.from("projects").select("*");
-      if (error) throw new Error(`listProjects: ${error.message}`);
-      return (data as Project[]) ?? [];
-    },
-
-    async getProject(accessToken, projectId) {
-      const client = userScopedClientFactory(accessToken);
-      const { data, error } = await client
-        .from("projects")
-        .select("*")
-        .eq("id", projectId)
-        .maybeSingle();
-      if (error) throw new Error(`getProject: ${error.message}`);
-      return (data as Project | null) ?? null;
     },
 
     async registerFileObject(accessToken, input) {

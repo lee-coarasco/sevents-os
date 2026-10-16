@@ -42,19 +42,6 @@ describe("cross-tenant isolation", () => {
     expect(asA).toHaveLength(0);
   });
 
-  it("projects are scoped per tenant: listProjects and getProject never cross tenants", async () => {
-    const companyA = await repo.createCompany(tokenA, { legal_name: "Tenant A Co" });
-    const companyB = await repo.createCompany(tokenB, { legal_name: "Tenant B Co" });
-    await repo.createProject(tokenA, { company_id: companyA.id, name: "A Tower" });
-    const projectB = await repo.createProject(tokenB, { company_id: companyB.id, name: "B Tower" });
-
-    const asAList = await repo.listProjects(tokenA);
-    expect(asAList.every((p) => p.tenant_id === "tenant-a")).toBe(true);
-
-    const crossRead = await repo.getProject(tokenA, projectB.id);
-    expect(crossRead).toBeNull();
-  });
-
   it("file object metadata is scoped per tenant", async () => {
     const companyA = await repo.createCompany(tokenA, { legal_name: "Tenant A Co" });
     const companyB = await repo.createCompany(tokenB, { legal_name: "Tenant B Co" });

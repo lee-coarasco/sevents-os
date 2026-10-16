@@ -19,17 +19,6 @@ export interface Branch {
   operating_region: string | null;
 }
 
-export type ProjectStatus = "active" | "on_hold" | "closed";
-
-export interface Project {
-  id: string;
-  tenant_id: string;
-  company_id: string;
-  name: string;
-  code: string | null;
-  status: ProjectStatus;
-}
-
 export interface FileObjectMeta {
   id: string;
   tenant_id: string;

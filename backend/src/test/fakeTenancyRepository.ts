@@ -1,11 +1,10 @@
 import type {
   CreateBranchInput,
   CreateCompanyInput,
-  CreateProjectInput,
   RegisterFileObjectInput,
   TenancyRepository,
 } from "../modules/tenancy/repository.js";
-import type { Branch, Company, FileObjectMeta, Project } from "../modules/tenancy/types.js";
+import type { Branch, Company, FileObjectMeta } from "../modules/tenancy/types.js";
 
 let idCounter = 0;
 function nextId(prefix: string): string {
@@ -25,7 +24,6 @@ export class FakeTenancyRepository implements TenancyRepository {
   sessions = new Map<string, string>(); // accessToken -> tenant_id
   companies = new Map<string, Company>();
   branches = new Map<string, Branch>();
-  projects = new Map<string, Project>();
   fileObjects = new Map<string, FileObjectMeta>();
 
   addSession(accessToken: string, tenantId: string) {
@@ -86,32 +84,6 @@ export class FakeTenancyRepository implements TenancyRepository {
     return [...this.branches.values()].filter(
       (b) => b.tenant_id === tenant_id && b.company_id === companyId,
     );
-  }
-
-  async createProject(accessToken: string, input: CreateProjectInput) {
-    const tenant_id = this.tenantOf(accessToken);
-    const project: Project = {
-      id: nextId("project"),
-      tenant_id,
-      company_id: input.company_id,
-      name: input.name,
-      code: input.code ?? null,
-      status: "active",
-    };
-    this.projects.set(project.id, project);
-    return project;
-  }
-
-  async listProjects(accessToken: string) {
-    const tenant_id = this.tenantOf(accessToken);
-    return [...this.projects.values()].filter((p) => p.tenant_id === tenant_id);
-  }
-
-  async getProject(accessToken: string, projectId: string) {
-    const tenant_id = this.tenantOf(accessToken);
-    const project = this.projects.get(projectId);
-    if (!project || project.tenant_id !== tenant_id) return null;
-    return project;
   }
 
   async registerFileObject(accessToken: string, input: RegisterFileObjectInput) {

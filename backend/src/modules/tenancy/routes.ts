@@ -67,29 +67,4 @@ export async function tenancyRoutes(app: FastifyInstance, options: TenancyRouteO
     },
   );
 
-  app.post<{ Body: { companyId: string; name: string; code?: string } }>(
-    "/tenancy/projects",
-    { preHandler: options.requirePermission("tenancy.project.manage") },
-    async (request, reply) => {
-      const { companyId, name, code } = request.body ?? ({} as never);
-      if (!companyId || !name) {
-        reply.code(400);
-        return { error: "companyId and name are required" };
-      }
-      const token = bearerToken(request.headers.authorization) as string;
-      const project = await options.getRepository().createProject(token, {
-        company_id: companyId,
-        name,
-        code: code ?? null,
-      });
-      reply.code(201);
-      return { project };
-    },
-  );
-
-  app.get("/tenancy/projects", async (request) => {
-    const token = bearerToken(request.headers.authorization) as string;
-    const projects = await options.getRepository().listProjects(token);
-    return { projects };
-  });
 }
