@@ -1,7 +1,7 @@
 ---
 id: 78
 title: "M35a — Unified audit query surface & auth_audit_log admin access"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 10
 created: 2026-10-16
@@ -93,16 +93,16 @@ surface:
   0080) — this ticket is read-only.
 
 ## Acceptance
-- [ ] `audit.log.view` permission exists, deny-by-default.
-- [ ] `GET /audit/log` merges all four existing audit-shaped tables
+- [x] `audit.log.view` permission exists, deny-by-default.
+- [x] `GET /audit/log` merges all four existing audit-shaped tables
       into one normalized, paginated, filterable response; 403
       without the permission.
-- [ ] A platform administrator (or anyone holding `audit.log.view`)
+- [x] A platform administrator (or anyone holding `audit.log.view`)
       can read `auth_audit_log` rows for other users in their own
       tenant through this endpoint; a caller without the permission
       still cannot (ordinary per-table RLS is unchanged — no new
       "any tenant member can read" policy was added).
-- [ ] Tests cover: permission gating, tenant isolation (tenant B's
+- [x] Tests cover: permission gating, tenant isolation (tenant B's
       `audit.log.view` holder never sees tenant A's rows), and that
       the merged response never fabricates an `actorType` other than
       `"human"` or a `correlationId` where the source row has none.
@@ -113,3 +113,44 @@ surface:
   of filing this ticket — see "Survey findings" above; do not re-survey
   from scratch, extend this list if a later session finds another
   audit-shaped table this ticket missed.
+- 2026-10-16 01:52 UTC: Built. New `backend/src/modules/audit/`
+  (`types.ts`, `repository.ts`, `service.ts`, `routes.ts`) + migration
+  `20261016000006_m35a_audit_log_view_permission.sql` (adds
+  `audit.log.view`, granted to `role.platform_administrator`, no new
+  table/column). `GET /audit/log` (filters: `entityType`, `actorId`,
+  `from`, `to`, `limit`, `offset`) merges `auth_audit_log`,
+  `configuration_changes`, `workflow_events`, `approval_decisions` and
+  `approval_revocations` via a service-role client
+  (`createSupabaseAuditRepository`), with the tenant filter applied
+  explicitly in code (`tenant_id = tenantId` on the four tenant-scoped
+  tables; for `auth_audit_log`, which has no `tenant_id` column, a
+  service-role lookup of the caller's tenant's `app_users` ids, then
+  `user_id in (...)`) — gated by the route's own
+  `requirePermission("audit.log.view")`, same precedent as
+  `import-catalogue.ts`/identity admin ops. Normalization never
+  fabricates `actorType` (always `"human"`) or `correlationId` (always
+  `null`) — both are real, documented gaps, not guesses.
+  `workflow_events` rows normalize with `actorId: null` since that
+  table has no actor column (tested explicitly: filtering by any
+  `actorId` must exclude them, not match on null). Split the actual
+  Supabase-fetch (repository) from the filter/sort/paginate logic
+  (service, pure functions over plain arrays) so the normalization and
+  filter-semantics tests (`service.test.ts`) don't need to mock a
+  Supabase client; `routes.test.ts` covers 401/403 gating and
+  cross-tenant isolation via `FakeAuditRepository`
+  (`backend/src/test/fakeAuditRepository.ts`). Wired into
+  `backend/src/app.ts` (`auditRoutes`, `getAuditRepository`
+  override point, same pattern as every other module). `npm run
+  lint` and `npm test` both clean (352/352 tests pass, including 14
+  new ones). One known scale limitation worth flagging if audit
+  volume ever grows large: `listAuditLogEntries` fetches all of a
+  tenant's rows across all five source tables unfiltered-by-date in
+  one call, then filters/paginates in application code — fine at
+  current/expected volume, not fine if any tenant accumulates
+  hundreds of thousands of audit rows; a future session should push
+  the `from`/`to`/`entityType`/`actorId` filters down into each
+  Supabase query instead of filtering after fetch, if that ever
+  becomes the bottleneck. Status: `testing` (no UI; owner can
+  exercise this by running `npm test` or hitting `/audit/log` against
+  a real Supabase instance with a user holding `audit.log.view`, per
+  CLAUDE.md's Phase 2 "no user-facing UI yet" testing note).

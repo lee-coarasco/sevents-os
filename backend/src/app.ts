@@ -37,6 +37,11 @@ import {
   createSupabaseProjectsRepository,
   type ProjectsRepository,
 } from "./modules/projects/repository.js";
+import { auditRoutes } from "./modules/audit/routes.js";
+import {
+  createSupabaseAuditRepository,
+  type AuditRepository,
+} from "./modules/audit/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -60,6 +65,8 @@ export interface BuildAppOptions {
   getWorkforceRepository?: () => WorkforceRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getProjectsRepository?: () => ProjectsRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getAuditRepository?: () => AuditRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -133,6 +140,15 @@ function defaultProjectsRepository(): ProjectsRepository {
   return cachedProjectsRepository;
 }
 
+let cachedAuditRepository: AuditRepository | null = null;
+
+function defaultAuditRepository(): AuditRepository {
+  if (!cachedAuditRepository) {
+    cachedAuditRepository = createSupabaseAuditRepository(createServiceClient());
+  }
+  return cachedAuditRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -175,6 +191,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(projectsRoutes, {
     getRepository: options.getProjectsRepository ?? defaultProjectsRepository,
     getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(auditRoutes, {
+    getRepository: options.getAuditRepository ?? defaultAuditRepository,
     requirePermission: guard,
   });
 
