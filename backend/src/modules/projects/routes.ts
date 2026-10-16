@@ -1,13 +1,28 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
+import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { ProjectsRepository } from "./repository.js";
 import {
   NotFoundError,
+  addScheduleActivityDependency,
+  createMilestone,
   createProject,
   createProjectType,
+  createScheduleActivity,
+  createWBSNode,
   getProject,
+  listMilestones,
+  listProgressEntries,
   listProjectTypes,
   listProjects,
+  listScheduleActivities,
+  listScheduleActivityDependencies,
+  listWBSNodes,
+  recordProgressEntry,
+  removeScheduleActivityDependency,
+  updateMilestone,
   updateProject,
+  updateScheduleActivity,
+  updateWBSNode,
 } from "./service.js";
 
 export interface ProjectsRouteOptions {
@@ -179,4 +194,292 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
     const projectTypes = await listProjectTypes(options.getRepository(), token);
     return { projectTypes };
   });
+
+  app.post<{
+    Params: { projectId: string };
+    Body: { parentWbsNodeId?: string; code: string; name: string; sequence?: number; costCodeId?: string };
+  }>(
+    "/projects/:projectId/wbs-nodes",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.code || !body.name) {
+        reply.code(400);
+        return { error: "code and name are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const wbsNode = await createWBSNode(options.getRepository(), token, {
+        project_id: request.params.projectId,
+        parent_wbs_node_id: body.parentWbsNodeId ?? null,
+        code: body.code,
+        name: body.name,
+        sequence: body.sequence,
+        cost_code_id: body.costCodeId ?? null,
+      });
+      reply.code(201);
+      return { wbsNode };
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/wbs-nodes",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const wbsNodes = await listWBSNodes(options.getRepository(), token, request.params.projectId);
+      return { wbsNodes };
+    },
+  );
+
+  app.patch<{
+    Params: { wbsNodeId: string };
+    Body: { name?: string; sequence?: number; parentWbsNodeId?: string | null; costCodeId?: string | null };
+  }>(
+    "/wbs-nodes/:wbsNodeId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const wbsNode = await updateWBSNode(options.getRepository(), token, request.params.wbsNodeId, {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.sequence !== undefined ? { sequence: body.sequence } : {}),
+          ...(body.parentWbsNodeId !== undefined ? { parent_wbs_node_id: body.parentWbsNodeId } : {}),
+          ...(body.costCodeId !== undefined ? { cost_code_id: body.costCodeId } : {}),
+        });
+        return { wbsNode };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { projectId: string };
+    Body: { wbsNodeId?: string; name: string; targetDate: string };
+  }>(
+    "/projects/:projectId/milestones",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.name || !body.targetDate) {
+        reply.code(400);
+        return { error: "name and targetDate are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const milestone = await createMilestone(options.getRepository(), token, {
+        project_id: request.params.projectId,
+        wbs_node_id: body.wbsNodeId ?? null,
+        name: body.name,
+        target_date: body.targetDate,
+      });
+      reply.code(201);
+      return { milestone };
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/milestones",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const milestones = await listMilestones(options.getRepository(), token, request.params.projectId);
+      return { milestones };
+    },
+  );
+
+  app.patch<{
+    Params: { milestoneId: string };
+    Body: { name?: string; targetDate?: string; actualDate?: string | null; status?: "pending" | "achieved" | "missed" };
+  }>(
+    "/milestones/:milestoneId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const milestone = await updateMilestone(options.getRepository(), token, request.params.milestoneId, {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.targetDate !== undefined ? { target_date: body.targetDate } : {}),
+          ...(body.actualDate !== undefined ? { actual_date: body.actualDate } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+        });
+        return { milestone };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { projectId: string };
+    Body: { wbsNodeId?: string; name: string; plannedStart?: string; plannedEnd?: string };
+  }>(
+    "/projects/:projectId/schedule-activities",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.name) {
+        reply.code(400);
+        return { error: "name is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const scheduleActivity = await createScheduleActivity(options.getRepository(), token, {
+        project_id: request.params.projectId,
+        wbs_node_id: body.wbsNodeId ?? null,
+        name: body.name,
+        planned_start: body.plannedStart ?? null,
+        planned_end: body.plannedEnd ?? null,
+      });
+      reply.code(201);
+      return { scheduleActivity };
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/schedule-activities",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const scheduleActivities = await listScheduleActivities(
+        options.getRepository(),
+        token,
+        request.params.projectId,
+      );
+      return { scheduleActivities };
+    },
+  );
+
+  app.patch<{
+    Params: { activityId: string };
+    Body: {
+      name?: string;
+      plannedStart?: string | null;
+      plannedEnd?: string | null;
+      actualStart?: string | null;
+      actualEnd?: string | null;
+      percentComplete?: number;
+    };
+  }>(
+    "/schedule-activities/:activityId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const scheduleActivity = await updateScheduleActivity(
+          options.getRepository(),
+          token,
+          request.params.activityId,
+          {
+            ...(body.name !== undefined ? { name: body.name } : {}),
+            ...(body.plannedStart !== undefined ? { planned_start: body.plannedStart } : {}),
+            ...(body.plannedEnd !== undefined ? { planned_end: body.plannedEnd } : {}),
+            ...(body.actualStart !== undefined ? { actual_start: body.actualStart } : {}),
+            ...(body.actualEnd !== undefined ? { actual_end: body.actualEnd } : {}),
+            ...(body.percentComplete !== undefined ? { percent_complete: body.percentComplete } : {}),
+          },
+        );
+        return { scheduleActivity };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { activityId: string };
+    Body: { dependsOnActivityId: string; dependencyType?: "finish_to_start" | "start_to_start" | "finish_to_finish" | "start_to_finish" };
+  }>(
+    "/schedule-activities/:activityId/dependencies",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const { dependsOnActivityId, dependencyType } = request.body ?? ({} as never);
+      if (!dependsOnActivityId) {
+        reply.code(400);
+        return { error: "dependsOnActivityId is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const dependency = await addScheduleActivityDependency(options.getRepository(), token, {
+        activity_id: request.params.activityId,
+        depends_on_activity_id: dependsOnActivityId,
+        dependency_type: dependencyType,
+      });
+      reply.code(201);
+      return { dependency };
+    },
+  );
+
+  app.get<{ Params: { activityId: string } }>(
+    "/schedule-activities/:activityId/dependencies",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const dependencies = await listScheduleActivityDependencies(
+        options.getRepository(),
+        token,
+        request.params.activityId,
+      );
+      return { dependencies };
+    },
+  );
+
+  app.delete<{ Params: { activityId: string; dependsOnActivityId: string } }>(
+    "/schedule-activities/:activityId/dependencies/:dependsOnActivityId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      await removeScheduleActivityDependency(
+        options.getRepository(),
+        token,
+        request.params.activityId,
+        request.params.dependsOnActivityId,
+      );
+      return { ok: true };
+    },
+  );
+
+  app.post<{ Params: { activityId: string }; Body: { percentComplete: number; note?: string } }>(
+    "/schedule-activities/:activityId/progress",
+    { preHandler: options.requirePermission("project.progress.record") },
+    async (request, reply) => {
+      const { percentComplete, note } = request.body ?? ({} as never);
+      if (percentComplete === undefined || percentComplete === null) {
+        reply.code(400);
+        return { error: "percentComplete is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      const progressEntry = await recordProgressEntry(options.getRepository(), token, {
+        schedule_activity_id: request.params.activityId,
+        recorded_by: callerUserId,
+        percent_complete: percentComplete,
+        note: note ?? null,
+      });
+      reply.code(201);
+      return { progressEntry };
+    },
+  );
+
+  app.get<{ Params: { activityId: string } }>(
+    "/schedule-activities/:activityId/progress",
+    { preHandler: options.requirePermission("project.progress.record") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const progressEntries = await listProgressEntries(options.getRepository(), token, request.params.activityId);
+      return { progressEntries };
+    },
+  );
 }
