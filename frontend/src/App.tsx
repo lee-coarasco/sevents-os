@@ -1,7 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { OrgSetupPage } from "./pages/OrgSetupPage";
+import { DepartmentsRolesPage } from "./pages/DepartmentsRolesPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -20,10 +23,14 @@ export function App() {
             path="/"
             element={
               <RequireAuth>
-                <DashboardPage />
+                <AppLayout />
               </RequireAuth>
             }
-          />
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="org-setup" element={<OrgSetupPage />} />
+            <Route path="departments-roles" element={<DepartmentsRolesPage />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
