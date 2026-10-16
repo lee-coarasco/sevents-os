@@ -3,7 +3,12 @@ import type {
   Client,
   ClientCommunication,
   Contact,
+  HandoverExceptionStatus,
+  HandoverItemKey,
+  HandoverItemStatus,
   Opportunity,
+  OpportunityHandoverChecklistItem,
+  OpportunityHandoverException,
   OpportunityStage,
   SiteVisit,
   TenderSubmission,
@@ -44,6 +49,8 @@ export interface UpdateOpportunityInput {
   probability?: number | null;
   next_action?: string | null;
   due_date?: string | null;
+  handover_completed_at?: string;
+  handover_completed_by?: string | null;
 }
 
 export interface ListOpportunitiesFilter {
@@ -74,6 +81,31 @@ export interface CreateClientCommunicationInput {
   summary: string;
   logged_by: string;
   occurred_at?: string;
+}
+
+export interface CreateHandoverChecklistItemInput {
+  opportunity_id: string;
+  item_key: HandoverItemKey;
+  status?: HandoverItemStatus;
+  completed_by?: string | null;
+  completed_at?: string | null;
+}
+
+export interface UpdateHandoverChecklistItemInput {
+  status?: HandoverItemStatus;
+  completed_by?: string | null;
+  completed_at?: string | null;
+}
+
+export interface CreateHandoverExceptionInput {
+  opportunity_id: string;
+  reason: string;
+  requested_by: string | null;
+  workflow_instance_id: string;
+}
+
+export interface UpdateHandoverExceptionInput {
+  status?: HandoverExceptionStatus;
 }
 
 /**
@@ -111,6 +143,27 @@ export interface CrmRepository {
     accessToken: string,
     filter: { clientId?: string; opportunityId?: string },
   ): Promise<ClientCommunication[]>;
+  listHandoverChecklistItems(accessToken: string, opportunityId: string): Promise<OpportunityHandoverChecklistItem[]>;
+  createHandoverChecklistItem(
+    accessToken: string,
+    input: CreateHandoverChecklistItemInput,
+  ): Promise<OpportunityHandoverChecklistItem>;
+  updateHandoverChecklistItem(
+    accessToken: string,
+    itemId: string,
+    input: UpdateHandoverChecklistItemInput,
+  ): Promise<OpportunityHandoverChecklistItem | null>;
+  createHandoverException(
+    accessToken: string,
+    input: CreateHandoverExceptionInput,
+  ): Promise<OpportunityHandoverException>;
+  getHandoverException(accessToken: string, exceptionId: string): Promise<OpportunityHandoverException | null>;
+  listHandoverExceptions(accessToken: string, opportunityId: string): Promise<OpportunityHandoverException[]>;
+  updateHandoverException(
+    accessToken: string,
+    exceptionId: string,
+    input: UpdateHandoverExceptionInput,
+  ): Promise<OpportunityHandoverException | null>;
 }
 
 /**
@@ -281,6 +334,83 @@ export function createSupabaseCrmRepository(
       const { data, error } = await query;
       if (error) throw new Error(`listClientCommunications: ${error.message}`);
       return (data as ClientCommunication[]) ?? [];
+    },
+
+    async listHandoverChecklistItems(accessToken, opportunityId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_checklists")
+        .select("*")
+        .eq("opportunity_id", opportunityId);
+      if (error) throw new Error(`listHandoverChecklistItems: ${error.message}`);
+      return (data as OpportunityHandoverChecklistItem[]) ?? [];
+    },
+
+    async createHandoverChecklistItem(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_checklists")
+        .insert({ status: "pending", completed_by: null, completed_at: null, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createHandoverChecklistItem: ${error?.message ?? "no row returned"}`);
+      return data as OpportunityHandoverChecklistItem;
+    },
+
+    async updateHandoverChecklistItem(accessToken, itemId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_checklists")
+        .update(input)
+        .eq("id", itemId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateHandoverChecklistItem: ${error.message}`);
+      return (data as OpportunityHandoverChecklistItem | null) ?? null;
+    },
+
+    async createHandoverException(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_exceptions")
+        .insert(input)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createHandoverException: ${error?.message ?? "no row returned"}`);
+      return data as OpportunityHandoverException;
+    },
+
+    async getHandoverException(accessToken, exceptionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_exceptions")
+        .select("*")
+        .eq("id", exceptionId)
+        .maybeSingle();
+      if (error) throw new Error(`getHandoverException: ${error.message}`);
+      return (data as OpportunityHandoverException | null) ?? null;
+    },
+
+    async listHandoverExceptions(accessToken, opportunityId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_exceptions")
+        .select("*")
+        .eq("opportunity_id", opportunityId);
+      if (error) throw new Error(`listHandoverExceptions: ${error.message}`);
+      return (data as OpportunityHandoverException[]) ?? [];
+    },
+
+    async updateHandoverException(accessToken, exceptionId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("opportunity_handover_exceptions")
+        .update(input)
+        .eq("id", exceptionId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateHandoverException: ${error.message}`);
+      return (data as OpportunityHandoverException | null) ?? null;
     },
   };
 }

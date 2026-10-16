@@ -1,7 +1,25 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { FakeCrmRepository } from "../../test/fakeCrmRepository.js";
+import { FakeWorkflowRepository } from "../../test/fakeWorkflowRepository.js";
+import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
 import {
+  addNodeToVersion,
+  addTransitionToVersion,
+  createWorkflowDefinition,
+  decideApprovalStep,
+  publishVersion,
+  recordApproval,
+  submitForApproval,
+  validateVersion,
+} from "../workflow/service.js";
+import type { NodeType } from "../workflow/types.js";
+import {
+  HandoverChecklistIncompleteError,
+  MissingHandoverExceptionReasonError,
   NotFoundError,
+  OpportunityNotWonError,
+  completeHandover,
+  completeHandoverItem,
   createClient,
   createClientCommunication,
   createContact,
@@ -9,9 +27,13 @@ import {
   createSiteVisit,
   createTenderSubmission,
   getOpportunity,
+  getPipelineForecast,
   listClientCommunications,
+  listHandoverChecklist,
   listSiteVisits,
   listTenderSubmissions,
+  requestHandoverException,
+  resolveHandoverException,
   searchClients,
   searchContacts,
   updateOpportunity,
@@ -248,5 +270,199 @@ describe("site visits, tender submissions and client communications (M10b)", () 
     expect(await listSiteVisits(repo, OTHER_TOKEN, opportunityId)).toHaveLength(0);
     expect(await listTenderSubmissions(repo, OTHER_TOKEN, opportunityId)).toHaveLength(0);
     expect(await listClientCommunications(repo, OTHER_TOKEN, { clientId })).toHaveLength(0);
+  });
+});
+
+describe("pipeline forecast (ticket 0092, M10c)", () => {
+  let repo: FakeCrmRepository;
+  let clientId: string;
+
+  beforeEach(async () => {
+    repo = new FakeCrmRepository();
+    repo.addSession(TOKEN, "user-1", TENANT_ID);
+    const client = await createClient(repo, TOKEN, { name: "Acme", created_by: null });
+    clientId = client.id;
+  });
+
+  it("aggregates weighted pipeline value by stage from real opportunity rows", async () => {
+    await createOpportunity(repo, TOKEN, {
+      client_id: clientId,
+      title: "A",
+      source: "referral",
+      owner_id: "user-1",
+      expected_value: 100000,
+      probability: 50,
+      created_by: null,
+    });
+    await createOpportunity(repo, TOKEN, {
+      client_id: clientId,
+      title: "B",
+      source: "referral",
+      owner_id: "user-1",
+      expected_value: 200000,
+      probability: 25,
+      created_by: null,
+    });
+
+    const forecast = await getPipelineForecast(repo, TOKEN, "stage");
+
+    expect(forecast.groups).toHaveLength(1);
+    expect(forecast.groups[0]?.opportunityCount).toBe(2);
+    expect(forecast.groups[0]?.weightedValue).toBe(100000);
+  });
+});
+
+describe("won-opportunity handover checklist and exception approval (ticket 0092, M10c)", () => {
+  let repo: FakeCrmRepository;
+  let workflowRepo: FakeWorkflowRepository;
+  let authorityRepo: FakeAuthorityRepository;
+  let clientId: string;
+  let opportunityId: string;
+  const APPROVER = "approver-user";
+
+  async function publishApprovalWorkflow(key: string) {
+    const nodes: { key: string; type: NodeType; config?: Record<string, unknown> }[] = [
+      { key: "approve", type: "request_approval", config: { approverUserIds: [APPROVER] } },
+      { key: "end", type: "complete" },
+    ];
+    const { definition, version } = await createWorkflowDefinition(workflowRepo, TOKEN, { key, name: key }, "process-owner");
+    const nodeIdByKey = new Map<string, string>();
+    for (const n of nodes) {
+      const node = await addNodeToVersion(workflowRepo, TOKEN, version.id, { nodeKey: n.key, nodeType: n.type, config: n.config ?? {} });
+      nodeIdByKey.set(n.key, node.id);
+    }
+    await addTransitionToVersion(workflowRepo, TOKEN, version.id, {
+      fromNodeId: nodeIdByKey.get("approve")!,
+      toNodeId: nodeIdByKey.get("end")!,
+      orderIndex: 0,
+    });
+    await validateVersion(workflowRepo, TOKEN, version.id, "process-owner");
+    await submitForApproval(workflowRepo, TOKEN, definition.id, version.id, "process-owner");
+    await recordApproval(workflowRepo, TOKEN, definition.id, version.id, APPROVER, "approved", null);
+    await publishVersion(workflowRepo, TOKEN, definition.id, version.id, APPROVER);
+    return definition;
+  }
+
+  beforeEach(async () => {
+    repo = new FakeCrmRepository();
+    repo.addSession(TOKEN, "user-1", TENANT_ID);
+    repo.addSession(OTHER_TOKEN, "user-2", OTHER_TENANT_ID);
+    workflowRepo = new FakeWorkflowRepository();
+    authorityRepo = new FakeAuthorityRepository();
+    const client = await createClient(repo, TOKEN, { name: "Acme", created_by: null });
+    clientId = client.id;
+    const opportunity = await createOpportunity(repo, TOKEN, {
+      client_id: clientId,
+      title: "New warehouse build",
+      source: "referral",
+      owner_id: "user-1",
+      created_by: null,
+    });
+    opportunityId = opportunity.id;
+    await updateOpportunity(repo, TOKEN, opportunityId, { stage: "won" });
+  });
+
+  it("listHandoverChecklist materializes the four fixed items as pending, tenant-isolated", async () => {
+    const items = await listHandoverChecklist(repo, TOKEN, opportunityId);
+    expect(items).toHaveLength(4);
+    expect(items.every((i) => i.status === "pending")).toBe(true);
+
+    await expect(listHandoverChecklist(repo, OTHER_TOKEN, opportunityId)).rejects.toThrow(NotFoundError);
+  });
+
+  it("completeHandover rejects an opportunity that is not yet won", async () => {
+    const notWon = await createOpportunity(repo, TOKEN, {
+      client_id: clientId,
+      title: "Not won yet",
+      source: "referral",
+      owner_id: "user-1",
+      created_by: null,
+    });
+
+    await expect(completeHandover(repo, TOKEN, notWon.id, "user-1")).rejects.toBeInstanceOf(OpportunityNotWonError);
+  });
+
+  it("completeHandover blocks while any checklist item is pending, then succeeds once all are complete", async () => {
+    const items = await listHandoverChecklist(repo, TOKEN, opportunityId);
+
+    await expect(completeHandover(repo, TOKEN, opportunityId, "user-1")).rejects.toBeInstanceOf(
+      HandoverChecklistIncompleteError,
+    );
+
+    for (const item of items) {
+      await completeHandoverItem(repo, TOKEN, opportunityId, item.item_key, "user-1");
+    }
+
+    const opportunity = await completeHandover(repo, TOKEN, opportunityId, "user-1");
+    expect(opportunity.handover_completed_at).not.toBeNull();
+    expect(opportunity.handover_completed_by).toBe("user-1");
+  });
+
+  it("requestHandoverException rejects a blank reason", async () => {
+    const definition = await publishApprovalWorkflow("handover-exception-1");
+
+    await expect(
+      requestHandoverException(repo, workflowRepo, TOKEN, {
+        opportunityId,
+        reason: "   ",
+        requestedBy: "user-1",
+        definitionId: definition.id,
+      }),
+    ).rejects.toBeInstanceOf(MissingHandoverExceptionReasonError);
+  });
+
+  it("an approved exception lets completeHandover succeed despite incomplete checklist items", async () => {
+    const definition = await publishApprovalWorkflow("handover-exception-2");
+
+    const exception = await requestHandoverException(repo, workflowRepo, TOKEN, {
+      opportunityId,
+      reason: "client needs the site before paperwork finalizes",
+      requestedBy: "user-1",
+      definitionId: definition.id,
+    });
+    expect(exception.status).toBe("pending");
+
+    await expect(completeHandover(repo, TOKEN, opportunityId, "user-1")).rejects.toBeInstanceOf(
+      HandoverChecklistIncompleteError,
+    );
+
+    // Still pending: the approval step hasn't been decided yet.
+    const stillPending = await resolveHandoverException(repo, workflowRepo, TOKEN, exception.id);
+    expect(stillPending.status).toBe("pending");
+
+    const instance = await workflowRepo.getInstance(TOKEN, exception.workflow_instance_id);
+    const [step] = await workflowRepo.listStepInstances(TOKEN, instance!.id);
+    await decideApprovalStep(workflowRepo, authorityRepo, TOKEN, step!.id, APPROVER, "approved", null);
+
+    const resolved = await resolveHandoverException(repo, workflowRepo, TOKEN, exception.id);
+    expect(resolved.status).toBe("approved");
+
+    const opportunity = await completeHandover(repo, TOKEN, opportunityId, "user-1");
+    expect(opportunity.handover_completed_at).not.toBeNull();
+
+    // Idempotent: resolving again does not change the already-approved status.
+    const resolvedAgain = await resolveHandoverException(repo, workflowRepo, TOKEN, exception.id);
+    expect(resolvedAgain.status).toBe("approved");
+  });
+
+  it("a rejected exception leaves the handover blocked", async () => {
+    const definition = await publishApprovalWorkflow("handover-exception-3");
+    const exception = await requestHandoverException(repo, workflowRepo, TOKEN, {
+      opportunityId,
+      reason: "client needs the site before paperwork finalizes",
+      requestedBy: "user-1",
+      definitionId: definition.id,
+    });
+
+    const instance = await workflowRepo.getInstance(TOKEN, exception.workflow_instance_id);
+    const [step] = await workflowRepo.listStepInstances(TOKEN, instance!.id);
+    await decideApprovalStep(workflowRepo, authorityRepo, TOKEN, step!.id, APPROVER, "rejected", "not justified");
+
+    const resolved = await resolveHandoverException(repo, workflowRepo, TOKEN, exception.id);
+    expect(resolved.status).toBe("rejected");
+
+    await expect(completeHandover(repo, TOKEN, opportunityId, "user-1")).rejects.toBeInstanceOf(
+      HandoverChecklistIncompleteError,
+    );
   });
 });

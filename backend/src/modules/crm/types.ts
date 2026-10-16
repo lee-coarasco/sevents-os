@@ -50,6 +50,9 @@ export interface Opportunity {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** FR-CRM-004: set only once completeHandover's gate passes — see ticket 0092 (M10c). */
+  handover_completed_at: string | null;
+  handover_completed_by: string | null;
 }
 
 export interface SiteVisit {
@@ -88,4 +91,53 @@ export interface ClientCommunication {
   logged_by: string;
   occurred_at: string;
   created_at: string;
+}
+
+/**
+ * FR-CRM-004: the CRM module's own "sales-to-technical handoff"
+ * checklist (BRD §7's M10 row, §10.1 step 13) — a fixed four-item
+ * list, same CLOSEOUT_ITEM_KEYS-style convention as ticket 0077's
+ * project closeout checklist, not a configurable checklist builder
+ * (that's M06's job). This is a separate, earlier gate from M09's
+ * project closeout checklist: it covers handing a *won opportunity*
+ * to Technical, not closing out the project built from it.
+ */
+export const HANDOVER_ITEM_KEYS = [
+  "client_confirmation",
+  "commercial_terms_locked",
+  "site_information_handed_over",
+  "technical_owner_assigned",
+] as const;
+export type HandoverItemKey = (typeof HANDOVER_ITEM_KEYS)[number];
+export type HandoverItemStatus = "pending" | "complete";
+
+export interface OpportunityHandoverChecklistItem {
+  id: string;
+  tenant_id: string;
+  opportunity_id: string;
+  item_key: HandoverItemKey;
+  status: HandoverItemStatus;
+  completed_by: string | null;
+  completed_at: string | null;
+}
+
+export type HandoverExceptionStatus = "pending" | "approved" | "rejected" | "returned_for_correction";
+
+/**
+ * FR-CRM-004's "unless an authorized exception is recorded" path —
+ * same request/resolve-via-workflow-instance shape as ticket 0075's
+ * ProjectBaselineChangeRequest and ticket 0080's DataRequest, reusing
+ * the M08 request_approval seam rather than a second approval
+ * mechanism.
+ */
+export interface OpportunityHandoverException {
+  id: string;
+  tenant_id: string;
+  opportunity_id: string;
+  reason: string;
+  requested_by: string | null;
+  workflow_instance_id: string;
+  status: HandoverExceptionStatus;
+  created_at: string;
+  updated_at: string;
 }

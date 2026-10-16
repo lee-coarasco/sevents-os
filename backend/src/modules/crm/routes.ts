@@ -1,9 +1,17 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
+import type { WorkflowRepository } from "../workflow/repository.js";
 import type { CrmRepository } from "./repository.js";
-import type { OpportunityStage } from "./types.js";
+import { HANDOVER_ITEM_KEYS, type HandoverItemKey, type OpportunityStage } from "./types.js";
+import type { ForecastGroupBy } from "./forecast.js";
+import { FORECAST_GROUP_BY_VALUES } from "./forecast.js";
 import {
+  HandoverChecklistIncompleteError,
+  MissingHandoverExceptionReasonError,
   NotFoundError,
+  OpportunityNotWonError,
+  completeHandover,
+  completeHandoverItem,
   createClient,
   createClientCommunication,
   createContact,
@@ -11,11 +19,16 @@ import {
   createSiteVisit,
   createTenderSubmission,
   getOpportunity,
+  getPipelineForecast,
   listClientCommunications,
   listContactsForClient,
+  listHandoverChecklist,
+  listHandoverExceptions,
   listOpportunities,
   listSiteVisits,
   listTenderSubmissions,
+  requestHandoverException,
+  resolveHandoverException,
   searchClients,
   searchContacts,
   updateOpportunity,
@@ -23,6 +36,7 @@ import {
 
 export interface CrmRouteOptions {
   getRepository: () => CrmRepository;
+  getWorkflowRepository: () => WorkflowRepository;
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
 }
 
@@ -289,4 +303,146 @@ export async function crmRoutes(app: FastifyInstance, options: CrmRouteOptions) 
       return { clientCommunications };
     },
   );
+
+  // -------------------------------------------------------------------
+  // Pipeline forecast & won-opportunity handover checklist (ticket 0092, M10c)
+  // -------------------------------------------------------------------
+
+  app.get<{ Querystring: { groupBy?: string } }>("/crm/pipeline/forecast", guard, async (request, reply) => {
+    const groupBy = (request.query.groupBy ?? "stage") as ForecastGroupBy;
+    if (!FORECAST_GROUP_BY_VALUES.includes(groupBy)) {
+      reply.code(400);
+      return { error: `groupBy must be one of ${FORECAST_GROUP_BY_VALUES.join(", ")}` };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const forecast = await getPipelineForecast(options.getRepository(), token, groupBy);
+    return { forecast };
+  });
+
+  app.get<{ Params: { id: string } }>("/crm/opportunities/:id/handover-checklist", guard, async (request, reply) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    try {
+      const items = await listHandoverChecklist(options.getRepository(), token, request.params.id);
+      return { items };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
+
+  app.post<{ Params: { id: string; itemKey: string } }>(
+    "/crm/opportunities/:id/handover-checklist/:itemKey/complete",
+    guard,
+    async (request, reply) => {
+      if (!(HANDOVER_ITEM_KEYS as readonly string[]).includes(request.params.itemKey)) {
+        reply.code(400);
+        return { error: `itemKey must be one of ${HANDOVER_ITEM_KEYS.join(", ")}` };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const item = await completeHandoverItem(
+          options.getRepository(),
+          token,
+          request.params.id,
+          request.params.itemKey as HandoverItemKey,
+          callerUserId,
+        );
+        return { item };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { id: string };
+    Body: { reason: string; definitionId: string };
+  }>("/crm/opportunities/:id/handover-exceptions", guard, async (request, reply) => {
+    const body = request.body ?? ({} as never);
+    if (!body.reason || !body.definitionId) {
+      reply.code(400);
+      return { error: "reason and definitionId are required" };
+    }
+    const token = bearerToken(request.headers.authorization) as string;
+    const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+    try {
+      const exception = await requestHandoverException(options.getRepository(), options.getWorkflowRepository(), token, {
+        opportunityId: request.params.id,
+        reason: body.reason,
+        definitionId: body.definitionId,
+        requestedBy: callerUserId,
+      });
+      reply.code(201);
+      return { exception };
+    } catch (error) {
+      if (error instanceof OpportunityNotWonError || error instanceof MissingHandoverExceptionReasonError) {
+        reply.code(400);
+        return { error: error.message };
+      }
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
+
+  app.get<{ Params: { id: string } }>("/crm/opportunities/:id/handover-exceptions", guard, async (request) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    const exceptions = await listHandoverExceptions(options.getRepository(), token, request.params.id);
+    return { exceptions };
+  });
+
+  // GET is the poll: each read re-checks the linked workflow instance
+  // and applies the outcome exactly once (resolveHandoverException is
+  // idempotent once status leaves 'pending').
+  app.get<{ Params: { exceptionId: string } }>(
+    "/crm/handover-exceptions/:exceptionId",
+    guard,
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const exception = await resolveHandoverException(
+          options.getRepository(),
+          options.getWorkflowRepository(),
+          token,
+          request.params.exceptionId,
+        );
+        return { exception };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>("/crm/opportunities/:id/handover/complete", guard, async (request, reply) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+    try {
+      const opportunity = await completeHandover(options.getRepository(), token, request.params.id, callerUserId);
+      return { opportunity };
+    } catch (error) {
+      if (error instanceof OpportunityNotWonError || error instanceof HandoverChecklistIncompleteError) {
+        reply.code(409);
+        return { error: error.message };
+      }
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
+  });
 }

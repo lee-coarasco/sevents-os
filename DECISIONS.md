@@ -827,3 +827,33 @@ approved (agent-autonomous or you).
 - Approved by: agent (internal data-model detail, explicitly
   agent-decidable per CLAUDE.md; the ticket text itself delegated the
   naming choice to whoever built it).
+
+## 2026-10-16 13:10 UTC - M10c (ticket 0092): handover checklist/exception routes reuse `crm.lead.manage`, not a new permission
+- Decision: the new handover-checklist and handover-exception-request
+  endpoints are gated on the existing `crm.lead.manage` permission
+  (same as every other CRM route), not a new narrower permission —
+  unlike ticket 0077's closeout checklist, which split out its own
+  `project.closeout.manage` distinct from the broader
+  `tenancy.project.manage`.
+- Why: `tenancy.project.manage`/`project.closeout.manage` were already
+  two different permissions for two different actor classes (broad
+  project administration vs. a narrower closeout action) before ticket
+  0077 — splitting closeout out kept that existing narrowing
+  consistent. The CRM module (ticket 0090) deliberately has a single
+  permission covering its whole surface (clients, contacts,
+  opportunities, site visits, tender submissions, communications) for
+  the same named Sales/Marketing/Technical owners; handover is part of
+  the same opportunity lifecycle those roles already manage day to
+  day, so adding a second CRM permission here would be an
+  inconsistency with no actor-class boundary behind it, not extra
+  safety.
+- Also named the four fixed handover-checklist item keys
+  (`client_confirmation`, `commercial_terms_locked`,
+  `site_information_handed_over`, `technical_owner_assigned`) since the
+  ticket named the CLOSEOUT_ITEM_KEYS-style mechanism to reuse but left
+  the actual keys open — picked to match BRD §7's "sales-to-technical
+  handoff" framing of this module, not BRD §8.4's project-closeout
+  checklist (a separate, later gate owned by M09).
+- Approved by: agent (internal permission/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0077's own
+  permission-split decision).

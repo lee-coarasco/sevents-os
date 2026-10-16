@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
 import { FakeAuthorityRepository } from "../../test/fakeAuthorityRepository.js";
 import { FakeCrmRepository } from "../../test/fakeCrmRepository.js";
+import { FakeWorkflowRepository } from "../../test/fakeWorkflowRepository.js";
+import {
+  addNodeToVersion,
+  addTransitionToVersion,
+  createWorkflowDefinition,
+  decideApprovalStep,
+  publishVersion,
+  recordApproval,
+  submitForApproval,
+  validateVersion,
+} from "../workflow/service.js";
 
 const ADMIN_TOKEN = "admin-token";
 const ADMIN_USER = "admin-user";
@@ -11,6 +22,7 @@ const PLAIN_TOKEN = "plain-token";
 const PLAIN_USER = "plain-user";
 const OTHER_TENANT_TOKEN = "other-tenant-token";
 const OTHER_TENANT_USER = "other-tenant-user";
+const APPROVER = "approver-user";
 
 function appWithFakeRepos() {
   const authorityRepo = new FakeAuthorityRepository();
@@ -42,11 +54,30 @@ function appWithFakeRepos() {
   crmRepo.addSession(PLAIN_TOKEN, PLAIN_USER, TENANT_A);
   crmRepo.addSession(OTHER_TENANT_TOKEN, OTHER_TENANT_USER, TENANT_B);
 
+  const workflowRepo = new FakeWorkflowRepository();
+
   const app = buildApp({
     getAuthorityRepository: () => authorityRepo,
     getCrmRepository: () => crmRepo,
+    getWorkflowRepository: () => workflowRepo,
   });
-  return { app, crmRepo };
+  return { app, crmRepo, workflowRepo };
+}
+
+async function publishApprovalWorkflow(workflowRepo: FakeWorkflowRepository, key: string) {
+  const { definition, version } = await createWorkflowDefinition(workflowRepo, ADMIN_TOKEN, { key, name: key }, ADMIN_USER);
+  const approve = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, {
+    nodeKey: "approve",
+    nodeType: "request_approval",
+    config: { approverUserIds: [APPROVER] },
+  });
+  const end = await addNodeToVersion(workflowRepo, ADMIN_TOKEN, version.id, { nodeKey: "end", nodeType: "complete", config: {} });
+  await addTransitionToVersion(workflowRepo, ADMIN_TOKEN, version.id, { fromNodeId: approve.id, toNodeId: end.id, orderIndex: 0 });
+  await validateVersion(workflowRepo, ADMIN_TOKEN, version.id, ADMIN_USER);
+  await submitForApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, ADMIN_USER);
+  await recordApproval(workflowRepo, ADMIN_TOKEN, definition.id, version.id, APPROVER, "approved", null);
+  await publishVersion(workflowRepo, ADMIN_TOKEN, definition.id, version.id, APPROVER);
+  return definition;
 }
 
 describe("POST /crm/clients", () => {
@@ -308,5 +339,227 @@ describe("site visits, tender submissions and client communications (M10b)", () 
       headers: { authorization: `Bearer ${OTHER_TENANT_TOKEN}` },
     });
     expect(crossTenantResponse.json().clientCommunications).toHaveLength(0);
+  });
+});
+
+describe("GET /crm/pipeline/forecast (ticket 0092, M10c)", () => {
+  async function createOpportunity(
+    app: ReturnType<typeof appWithFakeRepos>["app"],
+    overrides: Record<string, unknown> = {},
+  ) {
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const response = await app.inject({
+      method: "POST",
+      url: "/crm/opportunities",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {
+        clientId,
+        title: "New warehouse build",
+        source: "referral",
+        ownerId: ADMIN_USER,
+        expectedValue: 100000,
+        probability: 50,
+        ...overrides,
+      },
+    });
+    return response.json().opportunity.id as string;
+  }
+
+  it("aggregates weighted pipeline value grouped by stage", async () => {
+    const { app } = appWithFakeRepos();
+    await createOpportunity(app, { expectedValue: 100000, probability: 50 });
+    await createOpportunity(app, { expectedValue: 200000, probability: 25 });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/crm/pipeline/forecast",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const forecast = response.json().forecast;
+    expect(forecast.groupBy).toBe("stage");
+    expect(forecast.groups).toHaveLength(1);
+    expect(forecast.groups[0].key).toBe("lead");
+    expect(forecast.groups[0].opportunityCount).toBe(2);
+    expect(forecast.groups[0].totalExpectedValue).toBe(300000);
+    expect(forecast.groups[0].weightedValue).toBe(100000);
+  });
+
+  it("400s on an invalid groupBy", async () => {
+    const { app } = appWithFakeRepos();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/crm/pipeline/forecast?groupBy=bogus",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("403s without crm.lead.manage", async () => {
+    const { app } = appWithFakeRepos();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/crm/pipeline/forecast",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+});
+
+describe("won-opportunity handover checklist and exception approval (ticket 0092, M10c)", () => {
+  async function createWonOpportunity(app: ReturnType<typeof appWithFakeRepos>["app"]) {
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/crm/opportunities",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { clientId, title: "New warehouse build", source: "referral", ownerId: ADMIN_USER },
+    });
+    const opportunityId = createResponse.json().opportunity.id as string;
+    await app.inject({
+      method: "PATCH",
+      url: `/crm/opportunities/${opportunityId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { stage: "won" },
+    });
+    return opportunityId;
+  }
+
+  it("GET handover-checklist materializes all four fixed items as pending", async () => {
+    const { app } = appWithFakeRepos();
+    const opportunityId = await createWonOpportunity(app);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/crm/opportunities/${opportunityId}/handover-checklist`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const items = response.json().items;
+    expect(items).toHaveLength(4);
+    expect(items.every((i: { status: string }) => i.status === "pending")).toBe(true);
+  });
+
+  it("blocks completeHandover while any item is pending, then allows it once all four are complete", async () => {
+    const { app } = appWithFakeRepos();
+    const opportunityId = await createWonOpportunity(app);
+    const checklist = await app.inject({
+      method: "GET",
+      url: `/crm/opportunities/${opportunityId}/handover-checklist`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    const itemKeys = checklist.json().items.map((i: { item_key: string }) => i.item_key);
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover/complete`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(blocked.statusCode).toBe(409);
+
+    for (const itemKey of itemKeys) {
+      const complete = await app.inject({
+        method: "POST",
+        url: `/crm/opportunities/${opportunityId}/handover-checklist/${itemKey}/complete`,
+        headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      });
+      expect(complete.statusCode).toBe(200);
+    }
+
+    const completed = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover/complete`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(completed.statusCode).toBe(200);
+    expect(completed.json().opportunity.handover_completed_at).not.toBeNull();
+  });
+
+  it("an approved exception lets handover complete despite missing checklist items", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const opportunityId = await createWonOpportunity(app);
+    const definition = await publishApprovalWorkflow(workflowRepo, "handover-exception-route-test");
+
+    const requestResponse = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover-exceptions`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { reason: "client needs site handed over before paperwork finalizes", definitionId: definition.id },
+    });
+    expect(requestResponse.statusCode).toBe(201);
+    const exceptionId = requestResponse.json().exception.id;
+
+    const stillBlocked = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover/complete`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(stillBlocked.statusCode).toBe(409);
+
+    const instance = await workflowRepo.getInstance(ADMIN_TOKEN, requestResponse.json().exception.workflow_instance_id);
+    const [step] = await workflowRepo.listStepInstances(ADMIN_TOKEN, instance!.id);
+    const authorityRepo = new FakeAuthorityRepository();
+    await decideApprovalStep(workflowRepo, authorityRepo, ADMIN_TOKEN, step!.id, APPROVER, "approved", null);
+
+    const pollResponse = await app.inject({
+      method: "GET",
+      url: `/crm/handover-exceptions/${exceptionId}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(pollResponse.json().exception.status).toBe("approved");
+
+    const completed = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover/complete`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(completed.statusCode).toBe(200);
+    expect(completed.json().opportunity.handover_completed_at).not.toBeNull();
+  });
+
+  it("400s requesting a handover exception for an opportunity that isn't won", async () => {
+    const { app, workflowRepo } = appWithFakeRepos();
+    const clientResponse = await app.inject({
+      method: "POST",
+      url: "/crm/clients",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Acme Construction" },
+    });
+    const clientId = clientResponse.json().client.id;
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/crm/opportunities",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { clientId, title: "New warehouse build", source: "referral", ownerId: ADMIN_USER },
+    });
+    const opportunityId = createResponse.json().opportunity.id;
+    const definition = await publishApprovalWorkflow(workflowRepo, "handover-exception-not-won-route-test");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/crm/opportunities/${opportunityId}/handover-exceptions`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { reason: "too early", definitionId: definition.id },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 });

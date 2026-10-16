@@ -247,6 +247,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(crmRoutes, {
     getRepository: options.getCrmRepository ?? defaultCrmRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
     requirePermission: guard,
   });
 

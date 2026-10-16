@@ -2,11 +2,15 @@ import type {
   CreateClientCommunicationInput,
   CreateClientInput,
   CreateContactInput,
+  CreateHandoverChecklistItemInput,
+  CreateHandoverExceptionInput,
   CreateOpportunityInput,
   CreateSiteVisitInput,
   CreateTenderSubmissionInput,
   CrmRepository,
   ListOpportunitiesFilter,
+  UpdateHandoverChecklistItemInput,
+  UpdateHandoverExceptionInput,
   UpdateOpportunityInput,
 } from "../modules/crm/repository.js";
 import type {
@@ -14,6 +18,8 @@ import type {
   ClientCommunication,
   Contact,
   Opportunity,
+  OpportunityHandoverChecklistItem,
+  OpportunityHandoverException,
   SiteVisit,
   TenderSubmission,
 } from "../modules/crm/types.js";
@@ -38,6 +44,8 @@ export class FakeCrmRepository implements CrmRepository {
   siteVisits = new Map<string, SiteVisit>();
   tenderSubmissions = new Map<string, TenderSubmission>();
   clientCommunications = new Map<string, ClientCommunication>();
+  handoverChecklistItems = new Map<string, OpportunityHandoverChecklistItem>();
+  handoverExceptions = new Map<string, OpportunityHandoverException>();
 
   addSession(accessToken: string, userId: string, tenantId: string) {
     this.sessions.set(accessToken, { userId, tenantId });
@@ -140,6 +148,8 @@ export class FakeCrmRepository implements CrmRepository {
       created_by: input.created_by,
       created_at: now,
       updated_at: now,
+      handover_completed_at: null,
+      handover_completed_by: null,
     };
     this.opportunities.set(opportunity.id, opportunity);
     return opportunity;
@@ -246,5 +256,81 @@ export class FakeCrmRepository implements CrmRepository {
       if (filter.opportunityId && entry.opportunity_id !== filter.opportunityId) return false;
       return true;
     });
+  }
+
+  async listHandoverChecklistItems(accessToken: string, opportunityId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.handoverChecklistItems.values()].filter(
+      (item) => item.tenant_id === tenantId && item.opportunity_id === opportunityId,
+    );
+  }
+
+  async createHandoverChecklistItem(accessToken: string, input: CreateHandoverChecklistItemInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const item: OpportunityHandoverChecklistItem = {
+      id: nextId("handover-item"),
+      tenant_id: tenantId,
+      opportunity_id: input.opportunity_id,
+      item_key: input.item_key,
+      status: input.status ?? "pending",
+      completed_by: input.completed_by ?? null,
+      completed_at: input.completed_at ?? null,
+    };
+    this.handoverChecklistItems.set(item.id, item);
+    return item;
+  }
+
+  async updateHandoverChecklistItem(accessToken: string, itemId: string, input: UpdateHandoverChecklistItemInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const item = this.handoverChecklistItems.get(itemId);
+    if (!item || item.tenant_id !== tenantId) return null;
+    const updated: OpportunityHandoverChecklistItem = { ...item, ...input };
+    this.handoverChecklistItems.set(itemId, updated);
+    return updated;
+  }
+
+  async createHandoverException(accessToken: string, input: CreateHandoverExceptionInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const now = new Date().toISOString();
+    const exception: OpportunityHandoverException = {
+      id: nextId("handover-exception"),
+      tenant_id: tenantId,
+      opportunity_id: input.opportunity_id,
+      reason: input.reason,
+      requested_by: input.requested_by,
+      workflow_instance_id: input.workflow_instance_id,
+      status: "pending",
+      created_at: now,
+      updated_at: now,
+    };
+    this.handoverExceptions.set(exception.id, exception);
+    return exception;
+  }
+
+  async getHandoverException(accessToken: string, exceptionId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    const exception = this.handoverExceptions.get(exceptionId);
+    if (!exception || exception.tenant_id !== tenantId) return null;
+    return exception;
+  }
+
+  async listHandoverExceptions(accessToken: string, opportunityId: string) {
+    const { tenantId } = this.contextOf(accessToken);
+    return [...this.handoverExceptions.values()].filter(
+      (exception) => exception.tenant_id === tenantId && exception.opportunity_id === opportunityId,
+    );
+  }
+
+  async updateHandoverException(accessToken: string, exceptionId: string, input: UpdateHandoverExceptionInput) {
+    const { tenantId } = this.contextOf(accessToken);
+    const exception = this.handoverExceptions.get(exceptionId);
+    if (!exception || exception.tenant_id !== tenantId) return null;
+    const updated: OpportunityHandoverException = {
+      ...exception,
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    this.handoverExceptions.set(exceptionId, updated);
+    return updated;
   }
 }
