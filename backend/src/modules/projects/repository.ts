@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  CloseoutItemKey,
+  CloseoutItemStatus,
   DependencyType,
   Milestone,
   MilestoneStatus,
@@ -9,6 +11,8 @@ import type {
   ProjectBaselineChangeRequest,
   ProjectBaselineChangeRequestStatus,
   ProjectBaselineStatus,
+  ProjectCloseoutChecklistItem,
+  ProjectHealthSnapshot,
   ProjectRegisterEntry,
   ProjectStatus,
   ProjectType,
@@ -174,6 +178,27 @@ export interface ListRegisterEntriesFilters {
   status?: RegisterEntryStatus;
 }
 
+export interface CreateHealthSnapshotInput {
+  project_id: string;
+  factors: Record<string, unknown>;
+  summary: string;
+  computed_by: string | null;
+}
+
+export interface CreateCloseoutItemInput {
+  project_id: string;
+  item_key: CloseoutItemKey;
+  status?: CloseoutItemStatus;
+  completed_by?: string | null;
+  completed_at?: string | null;
+}
+
+export interface UpdateCloseoutItemInput {
+  status?: CloseoutItemStatus;
+  completed_by?: string | null;
+  completed_at?: string | null;
+}
+
 /**
  * Every method is keyed off the caller's own access token, not an
  * explicit tenant id — same convention as `TenancyRepository`
@@ -251,6 +276,17 @@ export interface ProjectsRepository {
     entryId: string,
     input: UpdateRegisterEntryInput,
   ): Promise<ProjectRegisterEntry | null>;
+
+  createHealthSnapshot(accessToken: string, input: CreateHealthSnapshotInput): Promise<ProjectHealthSnapshot>;
+  listHealthSnapshots(accessToken: string, projectId: string): Promise<ProjectHealthSnapshot[]>;
+
+  listCloseoutItems(accessToken: string, projectId: string): Promise<ProjectCloseoutChecklistItem[]>;
+  createCloseoutItem(accessToken: string, input: CreateCloseoutItemInput): Promise<ProjectCloseoutChecklistItem>;
+  updateCloseoutItem(
+    accessToken: string,
+    itemId: string,
+    input: UpdateCloseoutItemInput,
+  ): Promise<ProjectCloseoutChecklistItem | null>;
 }
 
 /**
@@ -592,6 +628,61 @@ export function createSupabaseProjectsRepository(
         .maybeSingle();
       if (error) throw new Error(`updateRegisterEntry: ${error.message}`);
       return (data as ProjectRegisterEntry | null) ?? null;
+    },
+
+    async createHealthSnapshot(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_health_snapshots")
+        .insert(input)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createHealthSnapshot: ${error?.message ?? "no row returned"}`);
+      return data as ProjectHealthSnapshot;
+    },
+
+    async listHealthSnapshots(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_health_snapshots")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("computed_at", { ascending: false });
+      if (error) throw new Error(`listHealthSnapshots: ${error.message}`);
+      return (data as ProjectHealthSnapshot[]) ?? [];
+    },
+
+    async listCloseoutItems(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_closeout_checklists")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw new Error(`listCloseoutItems: ${error.message}`);
+      return (data as ProjectCloseoutChecklistItem[]) ?? [];
+    },
+
+    async createCloseoutItem(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_closeout_checklists")
+        .insert({ status: "pending", ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createCloseoutItem: ${error?.message ?? "no row returned"}`);
+      return data as ProjectCloseoutChecklistItem;
+    },
+
+    async updateCloseoutItem(accessToken, itemId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_closeout_checklists")
+        .update(input)
+        .eq("id", itemId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateCloseoutItem: ${error.message}`);
+      return (data as ProjectCloseoutChecklistItem | null) ?? null;
     },
   };
 }

@@ -1,7 +1,7 @@
 ---
 id: 77
 title: "M09e — Project health, forecast-vs-baseline & closeout checklist"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 9
 created: 2026-10-16
@@ -63,19 +63,19 @@ FR-PROJ-006, FR-PROJ-007 and FR-PROJ-008.
   this ticket's checklist is the fixed BRD-named item list only.
 
 ## Acceptance
-- [ ] `project_health_snapshots` and `project_closeout_checklists`
+- [x] `project_health_snapshots` and `project_closeout_checklists`
       created, tenant-scoped, RLS enabled.
-- [ ] Health endpoint returns factors + last-refresh timestamp, never
+- [x] Health endpoint returns factors + last-refresh timestamp, never
       a bare score.
-- [ ] Forecast endpoint returns baseline and forecast as distinct,
+- [x] Forecast endpoint returns baseline and forecast as distinct,
       separately labelled fields.
-- [ ] Closeout checklist covers exactly the four BRD-named items and
+- [x] Closeout checklist covers exactly the four BRD-named items and
       blocks nothing else in the system (completing it is a record,
       not a gate on project closure elsewhere, since BRD doesn't ask
       for that gate).
-- [ ] Tests cover tenant isolation, permission gating, and that
+- [x] Tests cover tenant isolation, permission gating, and that
       forecast/baseline never collapse into a single value.
-- [ ] `docs/BRD.md` FR-PROJ-006, FR-PROJ-007 and FR-PROJ-008 are
+- [x] `docs/BRD.md` FR-PROJ-006, FR-PROJ-007 and FR-PROJ-008 are
       satisfied.
 
 ## Progress
@@ -84,3 +84,37 @@ FR-PROJ-006, FR-PROJ-007 and FR-PROJ-008.
   scope" sections before it existed as a file; filing it now to close
   that gap (see DECISIONS.md). This completes the M09 split: 0073,
   0074, 0075, 0076, 0077.
+- 2026-10-16 01:39 UTC: Built. Migration
+  `20261016000005_m09e_health_forecast_closeout.sql` adds
+  `project_health_snapshots` (append-only, select/insert-only RLS,
+  same convention as `progress_entries`) and
+  `project_closeout_checklists` (tenant-scoped, unique on
+  `(tenant_id, project_id, item_key)`), plus a new
+  `project.closeout.manage` permission. `backend/src/modules/projects/
+  service.ts` adds `computeProjectHealth` (inserts a fresh snapshot
+  every call from overdue-activity/milestone counts, open
+  register-entry counts by kind, and current baseline status — no
+  numeric score, ever), `getProjectForecast` (baseline's frozen
+  planned-completion date vs. a naive live-schedule projection,
+  returned as two distinct top-level keys), and
+  `listCloseoutChecklist`/`completeCloseoutItem` (auto-vivify the four
+  fixed items as `pending`, mark one `complete`). Routes: `GET
+  /projects/:id/health`, `GET /projects/:id/forecast`, `GET
+  /projects/:id/closeout`, `POST
+  /projects/:id/closeout/:itemKey/complete`. 17 new tests (service +
+  HTTP route layer), full suite 340/340 passing, `tsc --noEmit` clean.
+  Two scope calls recorded in DECISIONS.md: cost-forecast is out of
+  scope (no cost-actuals tracking exists until M21); closeout
+  completion gets its own permission while health/forecast/closeout-
+  list reuse `tenancy.project.manage`, same pattern ticket 0075 used
+  for baseline vs. general project admin. Also caught and fixed a
+  latent cross-tenant-write risk in my own new "auto-create missing
+  checklist items" logic (a GET with a cross-tenant project id would
+  otherwise have silently created rows under the caller's tenant that
+  reference someone else's project) — guarded with an explicit
+  `getProject` ownership check before any closeout write. Status:
+  testing — this closes out the full M09 split (0073-0077); M09
+  (Project & Portfolio Management) is now code-complete. Next session
+  should move to M10 (Client, CRM & Sales Pipeline) per the BRD module
+  build order, or pick up any other `next` ticket `tickets.py next`
+  names first.

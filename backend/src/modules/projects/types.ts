@@ -180,3 +180,41 @@ export interface ProjectRegisterEntry {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Ticket 0077 (M09e, FR-PROJ-006). Inserted fresh on every
+ * `GET /projects/:projectId/health` call (append-only, same
+ * "point-in-time fact" convention as ProgressEntry) — never a bare
+ * numeric score. `factors` is exactly what fed `summary`; nothing
+ * here is ever computed by an AI/ML service (that is M28's job,
+ * later, and even then it must cite these same stored factors per
+ * FR-AI-004).
+ */
+export interface ProjectHealthSnapshot {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  computed_at: string;
+  factors: Record<string, unknown>;
+  summary: string;
+  computed_by: string | null;
+}
+
+/**
+ * FR-PROJ-008. A small fixed list of item keys named by the BRD, not a
+ * configurable checklist builder — M06 (Configuration Studio) is the
+ * place for admin-configurable checklists, not this module.
+ */
+export const CLOSEOUT_ITEM_KEYS = ["handover_records", "final_account", "defects_dlp", "lessons_learned"] as const;
+export type CloseoutItemKey = (typeof CLOSEOUT_ITEM_KEYS)[number];
+export type CloseoutItemStatus = "pending" | "complete";
+
+export interface ProjectCloseoutChecklistItem {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  item_key: CloseoutItemKey;
+  status: CloseoutItemStatus;
+  completed_by: string | null;
+  completed_at: string | null;
+}

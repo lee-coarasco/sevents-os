@@ -8,6 +8,8 @@ import {
   NoCurrentBaselineError,
   NotFoundError,
   addScheduleActivityDependency,
+  completeCloseoutItem,
+  computeProjectHealth,
   createMilestone,
   createProject,
   createProjectType,
@@ -16,8 +18,10 @@ import {
   createRegisterEntry,
   getBaseline,
   getProject,
+  getProjectForecast,
   listBaselineChangeRequests,
   listBaselines,
+  listCloseoutChecklist,
   listMilestones,
   listProgressEntries,
   listProjectTypes,
@@ -37,7 +41,7 @@ import {
   updateScheduleActivity,
   updateWBSNode,
 } from "./service.js";
-import type { RegisterEntryKind, RegisterEntryStatus } from "./types.js";
+import { CLOSEOUT_ITEM_KEYS, type CloseoutItemKey, type RegisterEntryKind, type RegisterEntryStatus } from "./types.js";
 
 export interface ProjectsRouteOptions {
   getRepository: () => ProjectsRepository;
@@ -709,6 +713,77 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
           ...(body.impact !== undefined ? { impact: body.impact } : {}),
         });
         return { entry };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // Health, forecast-vs-baseline & closeout checklist (ticket 0077, M09e)
+  // -------------------------------------------------------------------
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/health",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const snapshot = await computeProjectHealth(options.getRepository(), token, request.params.projectId, null);
+      return { snapshot };
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/forecast",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const forecast = await getProjectForecast(options.getRepository(), token, request.params.projectId);
+      return { forecast };
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/closeout",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const items = await listCloseoutChecklist(options.getRepository(), token, request.params.projectId);
+        return { items };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: { projectId: string; itemKey: string } }>(
+    "/projects/:projectId/closeout/:itemKey/complete",
+    { preHandler: options.requirePermission("project.closeout.manage") },
+    async (request, reply) => {
+      if (!(CLOSEOUT_ITEM_KEYS as readonly string[]).includes(request.params.itemKey)) {
+        reply.code(400);
+        return { error: `itemKey must be one of ${CLOSEOUT_ITEM_KEYS.join(", ")}` };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const item = await completeCloseoutItem(
+          options.getRepository(),
+          token,
+          request.params.projectId,
+          request.params.itemKey as CloseoutItemKey,
+          callerUserId,
+        );
+        return { item };
       } catch (error) {
         if (error instanceof NotFoundError) {
           reply.code(404);

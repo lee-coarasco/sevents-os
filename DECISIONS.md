@@ -390,3 +390,62 @@ approved (agent-autonomous or you).
   explicitly agent-decidable per CLAUDE.md; recorded here at the same
   weight as the M06/M07/M08 scope calls per this project's own
   precedent).
+
+## 2026-10-16 01:39 UTC - M09e closes the M09 split: health/forecast computed from recorded data only, cost forecast out of scope until M21, closeout completion is its own permission, and a cross-tenant write risk was found and guarded
+- Decision: Ticket 0077 (M09e — project health, forecast-vs-baseline &
+  closeout checklist, the fifth and last M09 sub-ticket) built
+  FR-PROJ-006/007/008 with four scope calls: (1) `computeProjectHealth`
+  derives `factors`/`summary` only from overdue schedule activities,
+  overdue/missed milestones, open register-entry counts by kind
+  (ticket 0076's table) and current baseline status (ticket 0075's
+  table) — no AI/ML call, no numeric score column, ever, per
+  FR-PROJ-006's explicit text; (2) `getProjectForecast`'s "forecast"
+  is a completion-*date* projection only (naive: latest of each live
+  schedule activity's actual-end-or-planned-end) — forecast *cost* is
+  out of scope because no cost-actuals tracking exists anywhere in
+  this codebase yet (that's M21, Finance, much later); building a
+  cost forecast now would mean inventing cost-actual data that
+  doesn't exist; (3) completing a closeout checklist item got its own
+  new `project.closeout.manage` permission, while the health/
+  forecast/closeout-list GETs reuse `tenancy.project.manage` — same
+  "narrower administrative action gets its own permission" reasoning
+  ticket 0075 used for `project.baseline.manage` vs. general project
+  setup; (4) while implementing `listCloseoutChecklist`'s "auto-create
+  the four fixed items as pending if missing" convenience, found that
+  a GET with a project id outside the caller's tenant would otherwise
+  have silently created `project_closeout_checklists` rows under the
+  caller's own tenant that reference another tenant's project (the
+  FK only checks the project id exists, not that it belongs to the
+  caller — RLS's `tenant_id = current_tenant_id()` default stops
+  cross-tenant *reads* but not this kind of cross-tenant-referencing
+  *write* triggered by a plain read). Fixed by adding an explicit
+  `getProject` ownership check before any closeout write in this
+  ticket's own two functions (`listCloseoutChecklist`,
+  `completeCloseoutItem`), which already throws `NotFoundError` for a
+  project outside the caller's tenant.
+- Why: (1)/(2) are FR-PROJ-006/007's literal text plus the standing
+  "don't invent unrequested machinery" principle (same one ticket
+  0072 used for task delegation, ticket 0075 used for baseline-change
+  resolution) — there is no cost-actuals entity to forecast from, so
+  inventing one here would be scope creep disconnected from any real
+  data. (3) is the same weight-of-action reasoning already applied
+  twice in this module (tickets 0074/0075) rather than a new policy.
+  (4) is flagged because it's a real, if narrow, data-integrity gap
+  this ticket's own new code could have introduced (not one that
+  existed before it) — earlier M09 create-paths (WBS nodes,
+  milestones, register entries) take an explicit project_id from an
+  explicit POST the caller chose to make, whereas this ticket's
+  checklist-list function performs a write as an implicit side effect
+  of a GET, which is a meaningfully higher bar for "don't do this by
+  accident." The same unguarded-project_id pattern on the older
+  explicit-POST paths is a pre-existing gap, out of this ticket's
+  scope to fix, but worth a future ticket if it's ever load-bearing
+  (e.g. once cross-tenant project-sharing becomes a real feature
+  request that would make the FK-only check actively wrong instead of
+  just imprecise).
+- Approved by: agent (ticket classification/ordering, internal API
+  design and DB schema details are all explicitly agent-decidable per
+  CLAUDE.md; recorded here at the same weight as the M06-M09 scope
+  calls per this project's own precedent, and because (4) is a
+  security-adjacent data-integrity finding worth a paper trail even
+  though it was agent-decidable to just fix it inline).

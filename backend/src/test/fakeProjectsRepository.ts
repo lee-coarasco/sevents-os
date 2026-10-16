@@ -2,6 +2,8 @@ import type {
   AddScheduleActivityDependencyInput,
   CreateBaselineChangeRequestInput,
   CreateBaselineInput,
+  CreateCloseoutItemInput,
+  CreateHealthSnapshotInput,
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
@@ -13,6 +15,7 @@ import type {
   RecordProgressEntryInput,
   UpdateBaselineChangeRequestInput,
   UpdateBaselineInput,
+  UpdateCloseoutItemInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
   UpdateRegisterEntryInput,
@@ -25,6 +28,8 @@ import type {
   Project,
   ProjectBaseline,
   ProjectBaselineChangeRequest,
+  ProjectCloseoutChecklistItem,
+  ProjectHealthSnapshot,
   ProjectRegisterEntry,
   ProjectType,
   ScheduleActivity,
@@ -55,6 +60,8 @@ export class FakeProjectsRepository implements ProjectsRepository {
   baselines = new Map<string, ProjectBaseline>();
   baselineChangeRequests = new Map<string, ProjectBaselineChangeRequest>();
   registerEntries = new Map<string, ProjectRegisterEntry>();
+  healthSnapshots = new Map<string, ProjectHealthSnapshot>();
+  closeoutItems = new Map<string, ProjectCloseoutChecklistItem>();
 
   addSession(accessToken: string, tenantId: string) {
     this.sessions.set(accessToken, tenantId);
@@ -405,6 +412,57 @@ export class FakeProjectsRepository implements ProjectsRepository {
     if (!entry || entry.tenant_id !== tenant_id) return null;
     const updated: ProjectRegisterEntry = { ...entry, ...input, updated_at: new Date().toISOString() };
     this.registerEntries.set(entryId, updated);
+    return updated;
+  }
+
+  async createHealthSnapshot(accessToken: string, input: CreateHealthSnapshotInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const snapshot: ProjectHealthSnapshot = {
+      id: nextId("health-snapshot"),
+      tenant_id,
+      project_id: input.project_id,
+      computed_at: new Date().toISOString(),
+      factors: input.factors,
+      summary: input.summary,
+      computed_by: input.computed_by,
+    };
+    this.healthSnapshots.set(snapshot.id, snapshot);
+    return snapshot;
+  }
+
+  async listHealthSnapshots(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.healthSnapshots.values()]
+      .filter((s) => s.tenant_id === tenant_id && s.project_id === projectId)
+      .sort((a, b) => (a.computed_at < b.computed_at ? 1 : -1));
+  }
+
+  async listCloseoutItems(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.closeoutItems.values()].filter((i) => i.tenant_id === tenant_id && i.project_id === projectId);
+  }
+
+  async createCloseoutItem(accessToken: string, input: CreateCloseoutItemInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const item: ProjectCloseoutChecklistItem = {
+      id: nextId("closeout-item"),
+      tenant_id,
+      project_id: input.project_id,
+      item_key: input.item_key,
+      status: input.status ?? "pending",
+      completed_by: input.completed_by ?? null,
+      completed_at: input.completed_at ?? null,
+    };
+    this.closeoutItems.set(item.id, item);
+    return item;
+  }
+
+  async updateCloseoutItem(accessToken: string, itemId: string, input: UpdateCloseoutItemInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const item = this.closeoutItems.get(itemId);
+    if (!item || item.tenant_id !== tenant_id) return null;
+    const updated: ProjectCloseoutChecklistItem = { ...item, ...input };
+    this.closeoutItems.set(itemId, updated);
     return updated;
   }
 }

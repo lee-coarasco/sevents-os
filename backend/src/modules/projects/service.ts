@@ -15,17 +15,24 @@ import type {
   UpdateScheduleActivityInput,
   UpdateWBSNodeInput,
 } from "./repository.js";
-import type {
-  Milestone,
-  ProgressEntry,
-  Project,
-  ProjectBaseline,
-  ProjectBaselineChangeRequest,
-  ProjectRegisterEntry,
-  ProjectType,
-  ScheduleActivity,
-  ScheduleActivityDependency,
-  WBSNode,
+import {
+  CLOSEOUT_ITEM_KEYS,
+  REGISTER_ENTRY_KINDS,
+  type CloseoutItemKey,
+  type Milestone,
+  type ProgressEntry,
+  type Project,
+  type ProjectBaseline,
+  type ProjectBaselineChangeRequest,
+  type ProjectBaselineStatus,
+  type ProjectCloseoutChecklistItem,
+  type ProjectHealthSnapshot,
+  type ProjectRegisterEntry,
+  type ProjectType,
+  type RegisterEntryKind,
+  type ScheduleActivity,
+  type ScheduleActivityDependency,
+  type WBSNode,
 } from "./types.js";
 import { getWorkflowInstance, startWorkflowInstance } from "../workflow/service.js";
 import type { WorkflowRepository } from "../workflow/repository.js";
@@ -444,6 +451,197 @@ export async function updateRegisterEntry(
   input: UpdateRegisterEntryInput,
 ): Promise<ProjectRegisterEntry> {
   const updated = await repo.updateRegisterEntry(accessToken, entryId, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Health, forecast-vs-baseline & closeout checklist (ticket 0077, M09e)
+// ---------------------------------------------------------------------------
+
+function maxDate(dates: Array<string | null | undefined>): string | null {
+  const valid = dates.filter((d): d is string => !!d);
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, d) => (d > latest ? d : latest));
+}
+
+/**
+ * FR-PROJ-006: computed from existing recorded data only — overdue
+ * schedule activities, overdue/missed milestones, open register
+ * entries by kind, and current baseline status. Never a bare AI/ML
+ * score; the returned snapshot's `factors` are exactly what fed
+ * `summary`. A fresh row is inserted on every call (append-only, same
+ * convention as ProgressEntry) — the snapshot's own `computed_at` is
+ * the "last refresh time" FR-PROJ-006 asks for.
+ */
+export async function computeProjectHealth(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+  computedBy: string | null,
+): Promise<ProjectHealthSnapshot> {
+  const now = new Date().toISOString();
+  const [scheduleActivities, milestones, registerEntries, baselines] = await Promise.all([
+    repo.listScheduleActivities(accessToken, projectId),
+    repo.listMilestones(accessToken, projectId),
+    repo.listRegisterEntries(accessToken, projectId, {}),
+    repo.listBaselines(accessToken, projectId),
+  ]);
+
+  const overdueScheduleActivitiesCount = scheduleActivities.filter(
+    (a) => a.planned_end && a.planned_end < now && !a.actual_end,
+  ).length;
+  const overdueMilestonesCount = milestones.filter((m) => m.status === "pending" && m.target_date < now).length;
+  const missedMilestonesCount = milestones.filter((m) => m.status === "missed").length;
+
+  const openRegisterEntryCountsByKind = REGISTER_ENTRY_KINDS.reduce(
+    (acc, kind) => {
+      acc[kind] = registerEntries.filter(
+        (e) => e.kind === kind && (e.status === "open" || e.status === "in_progress"),
+      ).length;
+      return acc;
+    },
+    {} as Record<RegisterEntryKind, number>,
+  );
+  const totalOpenRegisterEntries = Object.values(openRegisterEntryCountsByKind).reduce((a, b) => a + b, 0);
+
+  const currentBaseline = baselines.find((b) => b.status === "approved");
+  const pendingBaseline = baselines.find((b) => b.status === "pending_approval");
+  const currentBaselineStatus: ProjectBaselineStatus | "none" = currentBaseline
+    ? "approved"
+    : pendingBaseline
+      ? "pending_approval"
+      : "none";
+
+  const factors = {
+    overdueScheduleActivitiesCount,
+    overdueMilestonesCount,
+    missedMilestonesCount,
+    openRegisterEntryCountsByKind,
+    currentBaselineStatus,
+  };
+
+  const summary =
+    `${overdueScheduleActivitiesCount} overdue schedule activit${overdueScheduleActivitiesCount === 1 ? "y" : "ies"}; ` +
+    `${overdueMilestonesCount} overdue and ${missedMilestonesCount} missed milestone(s); ` +
+    `${totalOpenRegisterEntries} open register entr${totalOpenRegisterEntries === 1 ? "y" : "ies"}; ` +
+    `baseline status: ${currentBaselineStatus}.`;
+
+  return repo.createHealthSnapshot(accessToken, {
+    project_id: projectId,
+    factors,
+    summary,
+    computed_by: computedBy,
+  });
+}
+
+export async function listHealthSnapshots(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectHealthSnapshot[]> {
+  return repo.listHealthSnapshots(accessToken, projectId);
+}
+
+/**
+ * FR-PROJ-007: baseline and forecast are always two distinct, labelled
+ * fields — never merged into one value, so a caller can never mistake
+ * one for the other. Cost forecast is out of scope here: no
+ * cost-actuals tracking exists yet (that's M21, Finance); this ticket
+ * only has planned/actual *dates* to derive a naive completion
+ * forecast from.
+ */
+export interface ProjectForecast {
+  baseline: {
+    baselineId: string | null;
+    version: number | null;
+    status: ProjectBaselineStatus | null;
+    plannedCompletionDate: string | null;
+  };
+  forecast: {
+    projectedCompletionDate: string | null;
+    basis: string;
+  };
+}
+
+export async function getProjectForecast(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectForecast> {
+  const baselines = await repo.listBaselines(accessToken, projectId);
+  const currentBaseline = baselines.find((b) => b.status === "approved") ?? null;
+  const baselineActivities = (currentBaseline?.snapshot?.scheduleActivities as ScheduleActivity[] | undefined) ?? [];
+  const baselinePlannedCompletionDate = maxDate(baselineActivities.map((a) => a.planned_end));
+
+  const liveActivities = await repo.listScheduleActivities(accessToken, projectId);
+  const projectedCompletionDate = maxDate(liveActivities.map((a) => a.actual_end ?? a.planned_end));
+
+  return {
+    baseline: {
+      baselineId: currentBaseline?.id ?? null,
+      version: currentBaseline?.version ?? null,
+      status: currentBaseline?.status ?? null,
+      plannedCompletionDate: baselinePlannedCompletionDate,
+    },
+    forecast: {
+      projectedCompletionDate,
+      basis: "naive projection: latest of each live schedule activity's actual end date, or planned end date if not yet actualized",
+    },
+  };
+}
+
+/**
+ * FR-PROJ-008: ensures all four fixed checklist items exist for a
+ * project, creating any missing ones as `pending`. Checks the project
+ * is visible to the caller first — this function writes as a side
+ * effect of a read, so a cross-tenant projectId must fail closed
+ * rather than silently materializing rows that reference a project
+ * outside the caller's own tenant.
+ */
+export async function listCloseoutChecklist(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ProjectCloseoutChecklistItem[]> {
+  await getProject(repo, accessToken, projectId);
+  const existing = await repo.listCloseoutItems(accessToken, projectId);
+  const existingKeys = new Set(existing.map((i) => i.item_key));
+  const missing = CLOSEOUT_ITEM_KEYS.filter((key) => !existingKeys.has(key));
+  const created = await Promise.all(
+    missing.map((item_key) => repo.createCloseoutItem(accessToken, { project_id: projectId, item_key })),
+  );
+  return [...existing, ...created].sort(
+    (a, b) => CLOSEOUT_ITEM_KEYS.indexOf(a.item_key) - CLOSEOUT_ITEM_KEYS.indexOf(b.item_key),
+  );
+}
+
+/** A record only — completing every item is not a gate on project closure elsewhere, BRD doesn't ask for that gate. */
+export async function completeCloseoutItem(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+  itemKey: CloseoutItemKey,
+  completedBy: string | null,
+): Promise<ProjectCloseoutChecklistItem> {
+  await getProject(repo, accessToken, projectId);
+  const existing = await repo.listCloseoutItems(accessToken, projectId);
+  const current = existing.find((i) => i.item_key === itemKey);
+  const now = new Date().toISOString();
+  if (!current) {
+    return repo.createCloseoutItem(accessToken, {
+      project_id: projectId,
+      item_key: itemKey,
+      status: "complete",
+      completed_by: completedBy,
+      completed_at: now,
+    });
+  }
+  const updated = await repo.updateCloseoutItem(accessToken, current.id, {
+    status: "complete",
+    completed_by: completedBy,
+    completed_at: now,
+  });
   if (!updated) throw new NotFoundError();
   return updated;
 }
