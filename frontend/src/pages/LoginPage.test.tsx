@@ -33,7 +33,7 @@ describe("LoginPage", () => {
       </MemoryRouter>,
     );
 
-    await userEvent.type(screen.getByLabelText("Email"), "owner@example.com");
+    await userEvent.type(screen.getByLabelText("Email address"), "owner@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "wrong-password");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 

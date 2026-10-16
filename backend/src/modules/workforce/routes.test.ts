@@ -64,6 +64,56 @@ describe("POST /employees", () => {
   });
 });
 
+describe("GET /employees", () => {
+  it("lists employees in the caller's tenant, filterable by department, 403s without the permission", async () => {
+    const { app, workforceRepo } = appWithFakeRepos();
+    await workforceRepo.createEmployeeRecord(ADMIN_TOKEN, {
+      company_id: "company-1",
+      employee_code: "EMP-200",
+      full_name: "Bea",
+      department_id: "dept-1",
+    });
+    await workforceRepo.createEmployeeRecord(ADMIN_TOKEN, {
+      company_id: "company-1",
+      employee_code: "EMP-201",
+      full_name: "Amir",
+      department_id: "dept-2",
+    });
+
+    const other = "other-tenant-token";
+    workforceRepo.addSession(other, "other-user", "tenant-b");
+    await workforceRepo.createEmployeeRecord(other, {
+      company_id: "company-9",
+      employee_code: "EMP-900",
+      full_name: "Outside",
+    });
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/employees",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(list.statusCode).toBe(200);
+    const names = list.json().employees.map((e: { full_name: string }) => e.full_name);
+    expect(names).toEqual(["Amir", "Bea"]);
+
+    const filtered = await app.inject({
+      method: "GET",
+      url: "/employees?departmentId=dept-1",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(filtered.statusCode).toBe(200);
+    expect(filtered.json().employees.map((e: { full_name: string }) => e.full_name)).toEqual(["Bea"]);
+
+    const forbidden = await app.inject({
+      method: "GET",
+      url: "/employees",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+    });
+    expect(forbidden.statusCode).toBe(403);
+  });
+});
+
 describe("GET /employees/me", () => {
   it("returns the caller's own record without employee.directory.manage", async () => {
     const { app, workforceRepo } = appWithFakeRepos();

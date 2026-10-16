@@ -1,7 +1,7 @@
 ---
 id: 97
 title: "M11b — Estimate versions & cost build-up (FR-EST-001/002/003)"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 14
 created: 2026-10-16
@@ -55,16 +55,74 @@ mechanism" rule every M09/M10 sub-ticket already followed).
   M29, not started yet; this ticket only reserves the schema fields.
 
 ## Acceptance
-- [ ] `estimates` + `estimate_lines` tables, tenant-scoped RLS, every
+- [x] `estimates` + `estimate_lines` tables, tenant-scoped RLS, every
       FR-EST-001 field (assumptions, inclusions, exclusions, taxes,
       overheads, contingency, margin) a real column.
-- [ ] `estimate_lines.source`/`confidence` nullable fields exist, FR-
+- [x] `estimate_lines.source`/`confidence` nullable fields exist, FR-
       EST-002-ready, with no AI call behind them yet.
-- [ ] Approving an estimate version locks it (FR-EST-003): further
+- [x] Approving an estimate version locks it (FR-EST-003): further
       edits create a new version, never mutate the approved one.
-- [ ] Tests cover tenant isolation, permission gating, the version-
+- [x] Tests cover tenant isolation, permission gating, the version-
       lock behavior, and the approval-seam integration.
 
 ## Progress
 - 2026-10-16: Filed as the second of three M11 sub-tickets (see ticket
   0095's split).
+- 2026-10-16 12:00 UTC: Built. New module `backend/src/modules/estimating/`
+  (types.ts, repository.ts with Supabase-backed impl +
+  `backend/src/test/fakeEstimatingRepository.ts`, service.ts,
+  routes.ts, service.test.ts, routes.test.ts) — a new module rather
+  than extending `modules/tendering`, since estimates have their own
+  versioned/workflow-approved lifecycle distinct from tendering's
+  simple document-register CRUD; see DECISIONS.md for the full
+  rationale. Routes gated on the existing `tendering.document.manage`
+  permission (no new permission minted, per the ticket's instruction
+  to reuse it). Wired into `backend/src/app.ts` exactly like
+  `tenderingRoutes`.
+  - Migration `supabase/migrations/20261016000016_m11b_estimate_versions_cost_buildup.sql`:
+    `estimates` (version, status, assumptions/inclusions/exclusions,
+    taxes/overheads/contingency/margin, subtotal_amount/total_amount,
+    nullable workflow_instance_id, FK to tender_submissions) and
+    `estimate_lines` (item/quantity/unit/rate/cost_category/line_total,
+    FR-EST-002's `source`/`confidence` reserved columns). Both
+    tenant-scoped RLS, FK indexes. **Not applied to the live Supabase
+    project** — no reachable Supabase MCP tools in this sandbox (no
+    `.mcp.json`, no `SUPABASE_*` env vars); confirmed this independently
+    before starting, consistent with ticket 0094's open finding. Same
+    gap as ticket 0096 and every Supabase-backed module built this
+    session; not treated as a blocker for the rest of the work.
+  - FR-EST-003 approval/lock flow mirrors ticket 0075's
+    `proposeBaselineChange`/`resolveBaselineChangeRequest` exactly:
+    `submitEstimateForApproval` starts a `request_approval` workflow
+    instance (ticket 0066's seam) and moves the estimate to
+    `pending_approval`; `resolveEstimateApproval` polls the instance's
+    step instances for a `decision` and on `"approved"` locks this
+    version (`status: 'approved'`) while superseding whichever sibling
+    version of the same tender submission was previously approved
+    (`status: 'superseded'`); on `"rejected"`/`"returned_for_correction"`
+    it updates status accordingly without creating a new version.
+    `createNextEstimateVersionFrom` copies an estimate's FR-EST-001
+    fields and all `estimate_lines` forward into a new draft version —
+    the only legal way to change an approved (locked) estimate.
+    `line_total`/`subtotal_amount`/`total_amount` are always computed
+    server-side (service layer), never trusted from the caller.
+  - Judgment calls recorded in DECISIONS.md (2026-10-16 12:00 UTC
+    entry): (1) new `estimating` module vs. extending `tendering`; (2)
+    `returned_for_correction` kept as its own `estimates.status` value
+    (matching ticket 0066's `ApprovalChainDecision`), treated as
+    editable-in-place like `draft`, rather than collapsed into
+    `draft`.
+  - Tests: `backend/src/modules/estimating/service.test.ts` (9 cases:
+    FR-EST-001 fields on create, total recomputation on line add/
+    remove, FR-EST-002 default source/confidence, lock-on-approve +
+    blocked edits, new-version-copies-forward + old-version-superseded,
+    reject path, returned_for_correction path stays editable, tenant
+    isolation) and `backend/src/modules/estimating/routes.test.ts` (5
+    HTTP-level cases covering permission gating, 401/400/404/409
+    status codes, and the full propose→approve→lock→new-version flow
+    over HTTP). Full backend suite: 524/524 passing (510 pre-existing +
+    14 new). `npm run build` clean.
+  - Status set to `testing`, not `done`, same reason as every other
+    Supabase-backed ticket this session — code is tested against the
+    in-memory fake only, nothing has run against the live database yet
+    (ticket 0094).

@@ -12,6 +12,7 @@ import {
   getEmployeeRecord,
   getOwnEmployeeRecord,
   listActiveProjectAllocations,
+  listEmployeeRecords,
   updateEmployeeRecord,
 } from "./service.js";
 
@@ -48,6 +49,21 @@ export async function workforceRoutes(app: FastifyInstance, options: WorkforceRo
     }
     return { employee: record };
   });
+
+  // Tenant-wide list, same convention as ticket 0088's GET /tenancy/branches —
+  // registered before /employees/:id so the :id param route doesn't swallow it.
+  app.get<{ Querystring: { companyId?: string; departmentId?: string } }>(
+    "/employees",
+    { preHandler: options.requirePermission("employee.directory.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const employees = await listEmployeeRecords(options.getRepository(), token, {
+        companyId: request.query.companyId,
+        departmentId: request.query.departmentId,
+      });
+      return { employees };
+    },
+  );
 
   app.post<{
     Body: {

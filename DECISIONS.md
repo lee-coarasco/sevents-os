@@ -882,3 +882,92 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   data-model split are explicitly agent-decidable per CLAUDE.md, same
   weight as every prior module split recorded here).
+
+## 2026-10-16 11:55 UTC - M11a (ticket 0096): new `tendering.document.manage` permission, not a reuse of `crm.lead.manage`
+- Decision: the tender document register and scope matrix/
+  clarification log routes are gated on a new
+  `tendering.document.manage` permission, granted to
+  `role.platform_administrator`, `role.civil_estimator`,
+  `role.mep_estimator`, `role.quantity_surveyor`, `role.cto` and
+  `role.cfo` — not a reuse of M10's `crm.lead.manage`.
+- Why: `crm.lead.manage` covers one permission for the CRM module's
+  single named owner cluster (BRD §7: Sales/Marketing/Technical).
+  M11a's named owners (BRD §7 row 437: Estimator; Commercial;
+  Technical; Finance) are a genuinely different actor cluster —
+  Estimator/Commercial/Finance have no reason to hold a CRM lead/
+  opportunity permission, and Sales/Marketing have no reason to manage
+  tender documents or clarifications. Reusing `crm.lead.manage` here
+  would grant each cluster the other's module surface for no actor-
+  class reason, the same kind of inconsistency ticket 0092's decision
+  explicitly avoided introducing in the other direction (keeping one
+  permission where the actor class is actually the same). Verified the
+  role IDs against `docs/canonical-role-map.md`: `role.civil_estimator`
+  and `role.mep_estimator` (Estimator/Commercial Manager cluster,
+  listed by ticket 0014/0015), `role.quantity_surveyor` (same
+  cluster), `role.cto` (Technical) and `role.cfo` (Finance).
+- Approved by: agent (internal permission/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0090's and
+  0092's own permission decisions).
+
+## 2026-10-16 12:00 UTC - M11b (ticket 0097): new `estimating` module; `returned_for_correction` kept as its own estimate status, not collapsed into `draft`
+- Decision 1 (module placement): built a new `backend/src/modules/estimating/`
+  module rather than folding estimate versions/lines into
+  `modules/tendering` (ticket 0096). Routes are gated on the existing
+  `tendering.document.manage` permission (no new permission minted),
+  but the code lives in its own module.
+- Why: ticket 0096's tendering module owns child rows of
+  `tender_submissions` itself (document register, clarification log) —
+  simple CRUD with no lifecycle of its own. Estimates are a distinct
+  lifecycle (versioned, workflow-approved via the request_approval
+  seam, with their own child `estimate_lines` and server-computed
+  totals) that matches the BRD's own module name split
+  ("Tendering, Estimation & Commercials" = M11a tendering + M11b
+  estimation + M11c commercials) — ticket 0095's own three-way ticket
+  split already treats these as separate concerns. Sharing the
+  permission (not the module) keeps ticket 0096's actor-cluster
+  reasoning intact without conflating two different code lifecycles
+  into one file set.
+- Decision 2 (status enum): `estimates.status` includes
+  `returned_for_correction` as its own value (not collapsed into
+  `draft` on resolve), matching ticket 0066's
+  `ApprovalChainDecision` value of the same name and ticket 0075's
+  literal pass-through of it onto `project_baseline_change_requests.status`.
+  A `returned_for_correction` estimate is treated as editable in place
+  (same as `draft`) so the submitter can fix it and resubmit without
+  creating a brand new version — ticket 0075 has no equivalent case
+  since a rejected/returned baseline *change request* never touches
+  the baseline itself, but an estimate version IS the thing being
+  approved here, so "returned" has to mean something actionable on
+  that same row.
+- Approved by: agent (internal module/data-model detail, explicitly
+  agent-decidable per CLAUDE.md; same weight as ticket 0096's and
+  0092's own decisions).
+
+## 2026-10-16 17:05 UTC - Opened M13 (Documents, Drawings & Records), split into three sub-tickets; M13 built before M12
+- Decision: filed ticket 0103 (M13 parent, closed with no code — same
+  survey + split shape as ticket 0095) and split the build into 0104
+  (M13a — document register & revision control, FR-DOC-001/002), 0105
+  (M13b — approval stamps & IFC release gate, FR-DOC-003, reusing the
+  M08 `request_approval` seam), 0106 (M13c — transmittals & document
+  requests, FR-DOC-004). Built M13 before M12 even though BRD lists
+  M12 first — the build-order table has M12 depending on M13 (not the
+  reverse), so M13's data model has to exist first.
+- Confirmed two existing tables are NOT duplicated by this module:
+  ticket 0096's `tender_documents` (a narrower, tender-package-scoped
+  register, left as-is) and ticket 0079's `retention_policies`/
+  `legal_holds` (already generic by free-text `entity_type`, so M13
+  documents reuse them with zero new code — no retention/legal-hold
+  work is in scope for 0104/0105/0106).
+- OCR/extraction (PRD module-row prose, no BRD FR number) is scoped
+  out entirely, same reasoning as every prior AI-dependent item
+  (M28/M29 don't exist yet) — and unlike ticket 0097's FR-EST-002
+  handling, no placeholder column is reserved either, since nothing in
+  this module reads an OCR field yet.
+- Why: same dependency-ordered-split precedent as every M06/M07/M09/
+  M10/M11/M31/M35 module before it; BRD §8.6's own FR-DOC numbering
+  gives an unambiguous scope boundary against M12's FR-ENG numbering,
+  so no new judgment call is being made about what belongs in M13
+  versus M12.
+- Approved by: agent (ticket classification/ordering and internal
+  data-model split are explicitly agent-decidable per CLAUDE.md, same
+  weight as every prior module split recorded here).

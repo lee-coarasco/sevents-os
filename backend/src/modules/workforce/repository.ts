@@ -81,6 +81,8 @@ export interface WorkforceRepository {
   deactivateEmployeeRecord(accessToken: string, employeeId: string): Promise<EmployeeRecord | null>;
   getEmployeeRecord(accessToken: string, employeeId: string): Promise<EmployeeRecord | null>;
   getOwnEmployeeRecord(accessToken: string): Promise<EmployeeRecord | null>;
+  /** Tenant-wide list (RLS does the tenant scoping) with optional companyId/departmentId filters — backs the M04 Employee Directory screen. */
+  listEmployeeRecords(accessToken: string, filters: { companyId?: string; departmentId?: string }): Promise<EmployeeRecord[]>;
   addEmployeeSkill(accessToken: string, input: AddEmployeeSkillInput): Promise<EmployeeSkill>;
   addEmployeeCertification(
     accessToken: string,
@@ -207,6 +209,16 @@ export function createSupabaseWorkforceRepository(
         .maybeSingle();
       if (error) throw new Error(`getEmployeeRecord: ${error.message}`);
       return (data as EmployeeRecord | null) ?? null;
+    },
+
+    async listEmployeeRecords(accessToken, filters) {
+      const client = userScopedClientFactory(accessToken);
+      let query = client.from("employee_records").select("*").order("full_name", { ascending: true });
+      if (filters.companyId) query = query.eq("company_id", filters.companyId);
+      if (filters.departmentId) query = query.eq("department_id", filters.departmentId);
+      const { data, error } = await query;
+      if (error) throw new Error(`listEmployeeRecords: ${error.message}`);
+      return (data as EmployeeRecord[]) ?? [];
     },
 
     async getOwnEmployeeRecord(accessToken) {

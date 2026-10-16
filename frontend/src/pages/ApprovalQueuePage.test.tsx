@@ -1,0 +1,112 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ApprovalQueuePage } from "./ApprovalQueuePage";
+
+const apiFetch = vi.fn();
+
+vi.mock("../lib/api", () => ({
+  apiFetch: (...args: unknown[]) => apiFetch(...args),
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+const mockSession = { access_token: "test-token", user: { email: "owner@example.com" } };
+
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({ session: mockSession, loading: false }),
+}));
+
+const TASKS = [
+  { id: "a1", workflow_instance_id: "i1", status: "waiting", due_at: null, priority: "high", nodeType: "request_approval", nodeKey: "Approve PO-1002" },
+  { id: "t1", workflow_instance_id: "i1", status: "waiting", due_at: null, priority: "normal", nodeType: "create_task", nodeKey: "Site visit" },
+];
+
+const DETAIL = {
+  stepInstance: TASKS[0],
+  decisions: [],
+  requestContext: { amount: 5000, currency: "AED" },
+  comments: [],
+  authorityCheck: { configured: true, withinLimit: true },
+};
+
+function mockDefaultResponses() {
+  apiFetch.mockImplementation((path: string) => {
+    if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
+    if (path === "/approvals/a1") return Promise.resolve({ detail: DETAIL });
+    return Promise.resolve({});
+  });
+}
+
+describe("ApprovalQueuePage", () => {
+  beforeEach(() => {
+    apiFetch.mockReset();
+    mockDefaultResponses();
+  });
+
+  it("shows only pending approval tasks, not other task types", async () => {
+    render(<ApprovalQueuePage />);
+    expect(await screen.findByText("Approve PO-1002")).toBeInTheDocument();
+    expect(screen.queryByText("Site visit")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty state when there are no approvals", async () => {
+    apiFetch.mockImplementation((path: string) => {
+      if (path === "/tasks/my-work") return Promise.resolve({ items: [] });
+      return Promise.resolve({});
+    });
+    render(<ApprovalQueuePage />);
+    expect(await screen.findByText("No approvals are waiting on you right now.")).toBeInTheDocument();
+  });
+
+  it("opens detail and approves with a decision call", async () => {
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+
+    expect(await screen.findByText("Within your limit")).toBeInTheDocument();
+    expect(screen.getByText("amount")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^approve$/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/approvals/a1/decide",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ decision: "approved", reason: null }) }),
+      ),
+    );
+  });
+
+  it("requires a reason before rejecting", async () => {
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+    await screen.findByText("Within your limit");
+
+    await userEvent.click(screen.getByRole("button", { name: /reject/i }));
+
+    expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalledWith("/approvals/a1/decide", expect.anything(), expect.anything());
+  });
+
+  it("delegates the approval to another user", async () => {
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+    await screen.findByText("Within your limit");
+
+    await userEvent.type(screen.getByPlaceholderText("Delegate to (user ID)"), "user-99");
+    await userEvent.click(screen.getByRole("button", { name: /delegate this approval/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/tasks/a1/delegate",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ delegateUserId: "user-99", reason: null }) }),
+      ),
+    );
+  });
+});

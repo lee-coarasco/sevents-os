@@ -64,6 +64,14 @@ export async function getEmployeeRecord(
   return record;
 }
 
+export async function listEmployeeRecords(
+  repo: WorkforceRepository,
+  accessToken: string,
+  filters: { companyId?: string; departmentId?: string },
+): Promise<EmployeeRecord[]> {
+  return repo.listEmployeeRecords(accessToken, filters);
+}
+
 /** No permission required beyond a valid session — same "is this your own row" exemption as GET /identity/audit-log. */
 export async function getOwnEmployeeRecord(
   repo: WorkforceRepository,

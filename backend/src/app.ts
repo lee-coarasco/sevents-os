@@ -50,6 +50,26 @@ import {
 } from "./modules/notifications/repository.js";
 import { crmRoutes } from "./modules/crm/routes.js";
 import { createSupabaseCrmRepository, type CrmRepository } from "./modules/crm/repository.js";
+import { tenderingRoutes } from "./modules/tendering/routes.js";
+import {
+  createSupabaseTenderingRepository,
+  type TenderingRepository,
+} from "./modules/tendering/repository.js";
+import { estimatingRoutes } from "./modules/estimating/routes.js";
+import {
+  createSupabaseEstimatingRepository,
+  type EstimatingRepository,
+} from "./modules/estimating/repository.js";
+import { biddingRoutes } from "./modules/bidding/routes.js";
+import {
+  createSupabaseBiddingRepository,
+  type BiddingRepository,
+} from "./modules/bidding/repository.js";
+import { documentsRoutes } from "./modules/documents/routes.js";
+import {
+  createSupabaseDocumentsRepository,
+  type DocumentsRepository,
+} from "./modules/documents/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -80,6 +100,14 @@ export interface BuildAppOptions {
   getNotificationsRepository?: () => NotificationsRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getCrmRepository?: () => CrmRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getTenderingRepository?: () => TenderingRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getEstimatingRepository?: () => EstimatingRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getBiddingRepository?: () => BiddingRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getDocumentsRepository?: () => DocumentsRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -183,6 +211,42 @@ function defaultCrmRepository(): CrmRepository {
   return cachedCrmRepository;
 }
 
+let cachedTenderingRepository: TenderingRepository | null = null;
+
+function defaultTenderingRepository(): TenderingRepository {
+  if (!cachedTenderingRepository) {
+    cachedTenderingRepository = createSupabaseTenderingRepository(createUserScopedClient);
+  }
+  return cachedTenderingRepository;
+}
+
+let cachedEstimatingRepository: EstimatingRepository | null = null;
+
+function defaultEstimatingRepository(): EstimatingRepository {
+  if (!cachedEstimatingRepository) {
+    cachedEstimatingRepository = createSupabaseEstimatingRepository(createUserScopedClient);
+  }
+  return cachedEstimatingRepository;
+}
+
+let cachedBiddingRepository: BiddingRepository | null = null;
+
+function defaultBiddingRepository(): BiddingRepository {
+  if (!cachedBiddingRepository) {
+    cachedBiddingRepository = createSupabaseBiddingRepository(createUserScopedClient);
+  }
+  return cachedBiddingRepository;
+}
+
+let cachedDocumentsRepository: DocumentsRepository | null = null;
+
+function defaultDocumentsRepository(): DocumentsRepository {
+  if (!cachedDocumentsRepository) {
+    cachedDocumentsRepository = createSupabaseDocumentsRepository(createUserScopedClient);
+  }
+  return cachedDocumentsRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -247,6 +311,29 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(crmRoutes, {
     getRepository: options.getCrmRepository ?? defaultCrmRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(tenderingRoutes, {
+    getRepository: options.getTenderingRepository ?? defaultTenderingRepository,
+    requirePermission: guard,
+  });
+
+  app.register(estimatingRoutes, {
+    getRepository: options.getEstimatingRepository ?? defaultEstimatingRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(biddingRoutes, {
+    getRepository: options.getBiddingRepository ?? defaultBiddingRepository,
+    getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(documentsRoutes, {
+    getRepository: options.getDocumentsRepository ?? defaultDocumentsRepository,
     getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
     requirePermission: guard,
   });

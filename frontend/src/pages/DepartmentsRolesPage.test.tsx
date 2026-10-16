@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DepartmentsRolesPage } from "./DepartmentsRolesPage";
 
@@ -62,17 +62,20 @@ describe("DepartmentsRolesPage", () => {
     await userEvent.type(screen.getByPlaceholderText("Department name"), "Engineering");
     await userEvent.click(screen.getByRole("button", { name: /add department/i }));
 
-    expect(await screen.findByText("Engineering", { selector: "li" })).toBeInTheDocument();
+    const departmentsCard = screen.getByRole("heading", { name: "Departments" }).closest("div.rounded-2xl") as HTMLElement;
+    expect(await within(departmentsCard).findByText("Engineering")).toBeInTheDocument();
   });
 
   it("creates a role assignment by picking a role from the fetched list", async () => {
     render(<DepartmentsRolesPage />);
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
 
-    await userEvent.type(screen.getByPlaceholderText("User id"), "u1");
+    await userEvent.type(screen.getByPlaceholderText("User ID"), "u1");
     await userEvent.selectOptions(screen.getByDisplayValue("Select a role…"), "role.storekeeper");
     await userEvent.click(screen.getByRole("button", { name: /assign role/i }));
 
-    expect(await screen.findByText(/user u1 → role Storekeeper/)).toBeInTheDocument();
+    const userIdNode = await screen.findByText(/u1/);
+    const row = userIdNode.closest("div.flex") as HTMLElement;
+    expect(within(row).getByText("Storekeeper")).toBeInTheDocument();
   });
 });

@@ -1,11 +1,11 @@
 ---
 id: 86
 title: Wire a real preview deploy for the frontend (Vercel)
-status: blocked
+status: done
 roles: [human, devops]
 priority: 1
 created: 2026-10-16
-updated: 2026-10-16T12:30Z
+updated: 2026-10-16
 ---
 
 Ticket 0084 (the owner's "when will UI be created" question) got a
@@ -78,9 +78,6 @@ requires all three secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
   locally. Blocked on the owner setting up the Vercel account/token
   (see "What's needed from the owner" above); devops's half can start
   immediately once that exists.
-- 2026-10-16 12:30 UTC: Owner initially confirmed GitHub App integration;
-  later updated to Vercel CLI approach. `VERCEL_TOKEN` already set.
-  Still needed: `VERCEL_ORG_ID` + `VERCEL_PROJECT_ID` (run `vercel link`
-  in `frontend/` locally to get them from `.vercel/project.json`), then
-  add as GitHub Actions secrets. Also add the three `VITE_*` env vars
-  in Vercel project settings.
+- 2026-10-16 12:30 UTC: Owner updated deploy method; Vercel project
+  connected, VERCEL_TOKEN set, VITE_* env vars added in Vercel settings.
+- 2026-10-16 16:24 GST - lee-coarasco (dashboard): Blocked → Done. i have done all the setup in vercel.

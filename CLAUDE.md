@@ -187,6 +187,10 @@ whole session's commits are lost. Needed workflow changes go into a ticket with
 7. If you're blocked (failing test you can't fix, missing credential, etc.),
    set the ticket to `status: blocked` with the reason under `## Progress`
    rather than skipping silently.
+8. Whenever a module finishes, gains a new screen/endpoint, or changes
+   behavior, update that module's entry in `docs/USER-GUIDE.md` in the same
+   commit. That file is the one place a future session (or the owner) can
+   read to know what's built and how to use it — don't let it go stale.
 
 ## How the owner tests
 Phase 1: no user-facing UI yet — owner tests by running the repo's test suite locally or reviewing migration files and API contracts.

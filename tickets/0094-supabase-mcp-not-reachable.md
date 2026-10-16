@@ -1,7 +1,7 @@
 ---
 id: 94
 title: "Supabase MCP tools not reachable — migrations still can't go live"
-status: blocked
+status: done
 roles: [human]
 priority: 1
 created: 2026-10-16
@@ -53,3 +53,4 @@ live database.
   repositories — but every ticket built since Phase 2 will stay
   `testing` instead of `done`, and the app itself is unusable, until
   this is resolved.
+- 2026-10-16 16:09 GST - lee-coarasco (dashboard): Blocked → Done. added connector
