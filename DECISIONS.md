@@ -942,3 +942,32 @@ approved (agent-autonomous or you).
 - Approved by: agent (internal module/data-model detail, explicitly
   agent-decidable per CLAUDE.md; same weight as ticket 0096's and
   0092's own decisions).
+
+## 2026-10-16 17:05 UTC - Opened M13 (Documents, Drawings & Records), split into three sub-tickets; M13 built before M12
+- Decision: filed ticket 0103 (M13 parent, closed with no code — same
+  survey + split shape as ticket 0095) and split the build into 0104
+  (M13a — document register & revision control, FR-DOC-001/002), 0105
+  (M13b — approval stamps & IFC release gate, FR-DOC-003, reusing the
+  M08 `request_approval` seam), 0106 (M13c — transmittals & document
+  requests, FR-DOC-004). Built M13 before M12 even though BRD lists
+  M12 first — the build-order table has M12 depending on M13 (not the
+  reverse), so M13's data model has to exist first.
+- Confirmed two existing tables are NOT duplicated by this module:
+  ticket 0096's `tender_documents` (a narrower, tender-package-scoped
+  register, left as-is) and ticket 0079's `retention_policies`/
+  `legal_holds` (already generic by free-text `entity_type`, so M13
+  documents reuse them with zero new code — no retention/legal-hold
+  work is in scope for 0104/0105/0106).
+- OCR/extraction (PRD module-row prose, no BRD FR number) is scoped
+  out entirely, same reasoning as every prior AI-dependent item
+  (M28/M29 don't exist yet) — and unlike ticket 0097's FR-EST-002
+  handling, no placeholder column is reserved either, since nothing in
+  this module reads an OCR field yet.
+- Why: same dependency-ordered-split precedent as every M06/M07/M09/
+  M10/M11/M31/M35 module before it; BRD §8.6's own FR-DOC numbering
+  gives an unambiguous scope boundary against M12's FR-ENG numbering,
+  so no new judgment call is being made about what belongs in M13
+  versus M12.
+- Approved by: agent (ticket classification/ordering and internal
+  data-model split are explicitly agent-decidable per CLAUDE.md, same
+  weight as every prior module split recorded here).
