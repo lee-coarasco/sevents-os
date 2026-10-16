@@ -449,3 +449,45 @@ approved (agent-autonomous or you).
   calls per this project's own precedent, and because (4) is a
   security-adjacent data-integrity finding worth a paper trail even
   though it was agent-decidable to just fix it inline).
+
+## 2026-10-16 01:52 UTC - M35 split into three sub-tickets (0078-0080); found auth_audit_log has no tenant-wide admin read path at all
+- Decision: Ticket 0068 (M35 — Audit, Security, Privacy & Retention)
+  is closed with no code of its own and split, same pattern as
+  tickets 0059/0065/0067: 0078 (M35a — unified read surface merging
+  `auth_audit_log`/`configuration_changes`/`workflow_events`/
+  `approval_decisions`+`approval_revocations` into one
+  permission-gated `GET /audit/log`, plus fixing the one concrete gap
+  found during the survey), 0079 (M35b — retention policy & legal
+  hold, a framework with zero invented default values — every
+  `retention_policies` row requires an explicit, caller-supplied
+  period), 0080 (M35c — data export/deletion, approval-gated through
+  the existing M08 `request_approval` seam, with its deletion-
+  execution half left `blocked` pending an owner decision on which
+  entity types are in scope and hard-delete vs. anonymize — logged as
+  that ticket's own `## Needs approval` question, not guessed).
+- Why: BRD §8.11 gives exactly two testable requirements for this
+  module (FR-AUD-001/002); everything else attributed to M35 comes
+  from the PRD's one-line module-row prose ("encryption... retention
+  rules, legal hold, data export/deletion policy, incident handling,
+  backup/restore tests"), which is not a specification — building
+  retention periods or a deletion policy's exact scope from that prose
+  alone would mean inventing production data-handling policy, which
+  CLAUDE.md's standing rule forbids ("AI agents must not invent...
+  SLA values, approval policies or production data"). Splitting lets
+  the one FR-backed, fully-specifiable piece (0078) proceed without
+  waiting on an owner answer, same reasoning ticket 0080 itself uses
+  to stay `next`-in-substance on its non-deletion half despite being
+  formally `blocked`.
+- Separately, the survey (done while filing 0078) found
+  `auth_audit_log` (ticket 0054) has no `tenant_id` column and its
+  only RLS policy is `auth.uid() = user_id` — a user can read their
+  own login/session history and nobody else can, including a platform
+  administrator. This is not a new ticket on its own; ticket 0078
+  fixes it as part of building the unified read surface (a
+  service-role-backed admin path gated on a new `audit.log.view`
+  permission, not a loosened RLS policy that would let any tenant
+  member read anyone's login history).
+- Approved by: agent (ticket classification/ordering is explicitly
+  agent-decidable per CLAUDE.md; recorded here at the same weight as
+  the M06/M07/M09 split entries, and because the auth_audit_log
+  finding is a security-relevant gap worth a paper trail).
