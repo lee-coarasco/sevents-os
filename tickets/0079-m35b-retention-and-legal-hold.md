@@ -1,7 +1,7 @@
 ---
 id: 79
 title: "M35b — Retention policy & legal hold"
-status: next
+status: testing
 roles: [backend-engineer]
 priority: 11
 created: 2026-10-16
@@ -52,14 +52,14 @@ case a later section defines this that a keyword search missed.
 - Inventing a default retention period for any entity type.
 
 ## Acceptance
-- [ ] `retention_policies` and `legal_holds` created, tenant-scoped,
+- [x] `retention_policies` and `legal_holds` created, tenant-scoped,
       RLS enabled, no seeded/default rows.
-- [ ] `audit.retention.manage` permission exists, deny-by-default.
-- [ ] Placing a legal hold requires a non-blank reason; releasing one
+- [x] `audit.retention.manage` permission exists, deny-by-default.
+- [x] Placing a legal hold requires a non-blank reason; releasing one
       is a separate, audited action (do not allow deleting a hold row
       — release it, same "compensating record, never delete" pattern
       as ticket 0066's approval revocations).
-- [ ] Tests cover tenant isolation, permission gating, and that no
+- [x] Tests cover tenant isolation, permission gating, and that no
       retention period is ever defaulted or invented by the code.
 
 ## Progress
@@ -68,3 +68,34 @@ case a later section defines this that a keyword search missed.
   flagged above as the one thing to double check before building,
   since this ticket (unlike 0078) has no BRD FR-xxx number backing it,
   only the PRD module-row prose.
+- 2026-10-16 07:40 UTC: Built. Confirmed via a BRD re-read that there
+  is still no FR-RET-xxx section — this stays PRD-module-row-prose-only,
+  framework-only scope as planned. Migration
+  `20261016000008_m35b_retention_policy_and_legal_hold.sql` adds
+  `retention_policies` (entity_type, retention_days with a
+  `> 0` check, set_by, set_at) and `legal_holds` (entity_type,
+  nullable entity_id, reason with a non-blank check, placed_by/
+  placed_at, released_by/released_at — both null or both set, enforced
+  by a check constraint), both tenant-scoped with RLS, no seeded rows.
+  Added `audit.retention.manage` permission, granted only to
+  `role.platform_administrator`. Extended the existing `audit` module
+  (`backend/src/modules/audit/{types,repository,service,routes}.ts`)
+  rather than a new module, since M35b is the same BRD module as
+  M35a (ticket 0078) and ticket 0078 already named a distinct
+  permission for this exact "narrower action" reason. Routes:
+  `POST`/`GET /audit/retention-policies`,
+  `POST`/`GET /audit/legal-holds`,
+  `POST /audit/legal-holds/:id/release` — all gated on
+  `audit.retention.manage`. `createRetentionPolicy` rejects a
+  non-positive/non-integer `retentionDays` (400) — there is no code
+  path that can default or invent a period. `releaseLegalHold` 404s on
+  an unknown hold and 409s on an already-released one; the row is
+  never deleted, matching ticket 0066's revocation pattern. Added
+  `FakeAuditRepository` support (`addSession`, retention/hold maps)
+  and route tests for all five endpoints covering permission gating,
+  tenant isolation, the blank-reason/non-positive-period rejections,
+  and the release-twice 409. Full backend suite: 382/382 passing.
+  Deliberately not built (per ticket's own "out of scope"): any
+  scheduled purge, and ticket 0080's own job of actually checking
+  `legal_holds` before a deletion — this ticket only makes holds a
+  queryable, auditable fact, per its own text.

@@ -55,3 +55,34 @@ export interface AuditLogPage {
   limit: number;
   offset: number;
 }
+
+/**
+ * M35b (ticket 0079): framework only, no invented default. Every row
+ * requires an explicit, caller-supplied entity type and period — never
+ * seeded, never defaulted in code.
+ */
+export interface RetentionPolicy {
+  id: string;
+  tenant_id: string;
+  entity_type: string;
+  retention_days: number;
+  set_by: string | null;
+  set_at: string;
+}
+
+/**
+ * entity_id null means "hold everything of this entity_type"; a
+ * specific id means one record. released_by/released_at are both null
+ * while active — releasing is a separate action, never a delete.
+ */
+export interface LegalHold {
+  id: string;
+  tenant_id: string;
+  entity_type: string;
+  entity_id: string | null;
+  reason: string;
+  placed_by: string | null;
+  placed_at: string;
+  released_by: string | null;
+  released_at: string | null;
+}

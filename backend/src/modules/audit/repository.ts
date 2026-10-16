@@ -1,14 +1,42 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuditLogEntry } from "./types.js";
+import type { AuditLogEntry, LegalHold, RetentionPolicy } from "./types.js";
+
+export interface CreateRetentionPolicyInput {
+  entity_type: string;
+  retention_days: number;
+  set_by: string | null;
+}
+
+export interface PlaceLegalHoldInput {
+  entity_type: string;
+  entity_id?: string | null;
+  reason: string;
+  placed_by: string | null;
+}
 
 /**
  * All audit-shaped rows across every source table, already normalized
  * and scoped to this one tenant. Unfiltered beyond tenant — service.ts
  * applies entityType/actorId/date filtering and pagination on top, as
  * plain, mock-free logic.
+ *
+ * The retention/legal-hold methods below (ticket 0079, M35b) are a
+ * different shape on purpose: `retention_policies`/`legal_holds` are
+ * plain tenant-scoped RLS tables, so they follow the usual
+ * accessToken + user-scoped-client convention every other module in
+ * this codebase uses (tenancy, authority) — unlike
+ * `listAuditLogEntries`, which must bypass `auth_audit_log`'s own
+ * narrower RLS policy via the service-role client (see the Supabase
+ * adapter's doc comment below).
  */
 export interface AuditRepository {
   listAuditLogEntries(tenantId: string): Promise<AuditLogEntry[]>;
+  createRetentionPolicy(accessToken: string, input: CreateRetentionPolicyInput): Promise<RetentionPolicy>;
+  listRetentionPolicies(accessToken: string): Promise<RetentionPolicy[]>;
+  placeLegalHold(accessToken: string, input: PlaceLegalHoldInput): Promise<LegalHold>;
+  releaseLegalHold(accessToken: string, legalHoldId: string, releasedBy: string | null): Promise<LegalHold>;
+  listLegalHolds(accessToken: string): Promise<LegalHold[]>;
+  getLegalHold(accessToken: string, legalHoldId: string): Promise<LegalHold | null>;
 }
 
 interface AuthAuditLogRow {
@@ -151,7 +179,10 @@ function normalizeApprovalRevocation(row: ApprovalRevocationRow): AuditLogEntry 
  * this: get that check right before trusting this repository's tenant
  * filter alone.
  */
-export function createSupabaseAuditRepository(serviceClient: SupabaseClient): AuditRepository {
+export function createSupabaseAuditRepository(
+  serviceClient: SupabaseClient,
+  userScopedClientFactory: (accessToken: string) => SupabaseClient,
+): AuditRepository {
   return {
     async listAuditLogEntries(tenantId) {
       const { data: tenantUsers, error: tenantUsersError } = await serviceClient
@@ -185,6 +216,65 @@ export function createSupabaseAuditRepository(serviceClient: SupabaseClient): Au
         ...((approvalDecisions.data ?? []) as ApprovalDecisionRow[]).map(normalizeApprovalDecision),
         ...((approvalRevocations.data ?? []) as ApprovalRevocationRow[]).map(normalizeApprovalRevocation),
       ];
+    },
+
+    async createRetentionPolicy(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("retention_policies")
+        .insert(input)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createRetentionPolicy: ${error?.message ?? "no row returned"}`);
+      return data as RetentionPolicy;
+    },
+
+    async listRetentionPolicies(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("retention_policies").select("*");
+      if (error) throw new Error(`listRetentionPolicies: ${error.message}`);
+      return (data as RetentionPolicy[]) ?? [];
+    },
+
+    async placeLegalHold(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("legal_holds")
+        .insert({ entity_id: null, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`placeLegalHold: ${error?.message ?? "no row returned"}`);
+      return data as LegalHold;
+    },
+
+    async releaseLegalHold(accessToken, legalHoldId, releasedBy) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("legal_holds")
+        .update({ released_by: releasedBy, released_at: new Date().toISOString() })
+        .eq("id", legalHoldId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`releaseLegalHold: ${error?.message ?? "no row returned"}`);
+      return data as LegalHold;
+    },
+
+    async listLegalHolds(accessToken) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client.from("legal_holds").select("*");
+      if (error) throw new Error(`listLegalHolds: ${error.message}`);
+      return (data as LegalHold[]) ?? [];
+    },
+
+    async getLegalHold(accessToken, legalHoldId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("legal_holds")
+        .select("*")
+        .eq("id", legalHoldId)
+        .maybeSingle();
+      if (error) throw new Error(`getLegalHold: ${error.message}`);
+      return (data as LegalHold | null) ?? null;
     },
   };
 }

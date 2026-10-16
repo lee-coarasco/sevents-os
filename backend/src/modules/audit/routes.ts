@@ -1,11 +1,29 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { AuditRepository } from "./repository.js";
-import { InvalidAuditFilterError, listAuditLog } from "./service.js";
+import {
+  InvalidAuditFilterError,
+  InvalidRetentionPeriodError,
+  LegalHoldAlreadyReleasedError,
+  LegalHoldNotFoundError,
+  MissingLegalHoldReasonError,
+  createRetentionPolicy,
+  listAuditLog,
+  listLegalHolds,
+  listRetentionPolicies,
+  placeLegalHold,
+  releaseLegalHold,
+} from "./service.js";
 
 export interface AuditRouteOptions {
   getRepository: () => AuditRepository;
   requirePermission: (permissionKey: string) => preHandlerHookHandler;
+}
+
+function bearerToken(header: string | undefined): string | null {
+  if (!header?.startsWith("Bearer ")) return null;
+  const token = header.slice("Bearer ".length).trim();
+  return token || null;
 }
 
 export async function auditRoutes(app: FastifyInstance, options: AuditRouteOptions) {
@@ -37,6 +55,106 @@ export async function auditRoutes(app: FastifyInstance, options: AuditRouteOptio
       } catch (error) {
         if (error instanceof InvalidAuditFilterError) {
           reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Body: { entityType: string; retentionDays: number } }>(
+    "/audit/retention-policies",
+    { preHandler: options.requirePermission("audit.retention.manage") },
+    async (request, reply) => {
+      const { entityType, retentionDays } = request.body ?? ({} as never);
+      if (!entityType || typeof retentionDays !== "number") {
+        reply.code(400);
+        return { error: "entityType and retentionDays are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const policy = await createRetentionPolicy(options.getRepository(), token, callerUserId, {
+          entityType,
+          retentionDays,
+        });
+        reply.code(201);
+        return { policy };
+      } catch (error) {
+        if (error instanceof InvalidRetentionPeriodError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/audit/retention-policies",
+    { preHandler: options.requirePermission("audit.retention.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const policies = await listRetentionPolicies(options.getRepository(), token);
+      return { policies };
+    },
+  );
+
+  app.post<{ Body: { entityType: string; entityId?: string; reason: string } }>(
+    "/audit/legal-holds",
+    { preHandler: options.requirePermission("audit.retention.manage") },
+    async (request, reply) => {
+      const { entityType, entityId, reason } = request.body ?? ({} as never);
+      if (!entityType || !reason) {
+        reply.code(400);
+        return { error: "entityType and reason are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const legalHold = await placeLegalHold(options.getRepository(), token, callerUserId, {
+          entityType,
+          entityId: entityId ?? null,
+          reason,
+        });
+        reply.code(201);
+        return { legalHold };
+      } catch (error) {
+        if (error instanceof MissingLegalHoldReasonError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/audit/legal-holds",
+    { preHandler: options.requirePermission("audit.retention.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const legalHolds = await listLegalHolds(options.getRepository(), token);
+      return { legalHolds };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/audit/legal-holds/:id/release",
+    { preHandler: options.requirePermission("audit.retention.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const legalHold = await releaseLegalHold(options.getRepository(), token, request.params.id, callerUserId);
+        return { legalHold };
+      } catch (error) {
+        if (error instanceof LegalHoldNotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        if (error instanceof LegalHoldAlreadyReleasedError) {
+          reply.code(409);
           return { error: error.message };
         }
         throw error;

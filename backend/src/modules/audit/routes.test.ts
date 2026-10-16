@@ -53,8 +53,12 @@ function appWithFakeRepos() {
     valid_to: null,
   });
   authorityRepo.grantPermission("role.platform_administrator", "audit.log.view");
+  authorityRepo.grantPermission("role.platform_administrator", "audit.retention.manage");
 
   const auditRepo = new FakeAuditRepository();
+  auditRepo.addSession(ADMIN_TOKEN, TENANT_A);
+  auditRepo.addSession(PLAIN_TOKEN, TENANT_A);
+  auditRepo.addSession(OTHER_TENANT_ADMIN_TOKEN, TENANT_B);
 
   const app = buildApp({
     getAuthorityRepository: () => authorityRepo,
@@ -173,5 +177,137 @@ describe("GET /audit/log", () => {
     });
 
     expect(response.statusCode).toBe(400);
+  });
+});
+
+describe("POST /audit/retention-policies", () => {
+  it("403s without audit.retention.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/audit/retention-policies",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { entityType: "app_users", retentionDays: 365 },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s a non-positive retentionDays", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/audit/retention-policies",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", retentionDays: 0 },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("creates a policy with no invented default, and lists it back tenant-scoped", async () => {
+    const { app } = appWithFakeRepos();
+    const create = await app.inject({
+      method: "POST",
+      url: "/audit/retention-policies",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", retentionDays: 2555 },
+    });
+    expect(create.statusCode).toBe(201);
+    expect(create.json().policy.retention_days).toBe(2555);
+
+    await app.inject({
+      method: "POST",
+      url: "/audit/retention-policies",
+      headers: { authorization: `Bearer ${OTHER_TENANT_ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", retentionDays: 90 },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/audit/retention-policies",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(response.statusCode).toBe(200);
+    const policies = response.json().policies;
+    expect(policies).toHaveLength(1);
+    expect(policies[0].retention_days).toBe(2555);
+  });
+});
+
+describe("legal holds", () => {
+  it("403s placing a hold without audit.retention.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/audit/legal-holds",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { entityType: "app_users", entityId: "user-1", reason: "litigation hold" },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s placing a hold with a blank reason", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/audit/legal-holds",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", entityId: "user-1", reason: "   " },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("places a hold, lists it tenant-scoped, then releases it without deleting the row", async () => {
+    const { app } = appWithFakeRepos();
+    const place = await app.inject({
+      method: "POST",
+      url: "/audit/legal-holds",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", entityId: "user-1", reason: "litigation hold" },
+    });
+    expect(place.statusCode).toBe(201);
+    const holdId = place.json().legalHold.id;
+    expect(place.json().legalHold.released_at).toBeNull();
+
+    await app.inject({
+      method: "POST",
+      url: "/audit/legal-holds",
+      headers: { authorization: `Bearer ${OTHER_TENANT_ADMIN_TOKEN}` },
+      payload: { entityType: "app_users", entityId: "user-2", reason: "other tenant's hold" },
+    });
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/audit/legal-holds",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().legalHolds).toHaveLength(1);
+
+    const release = await app.inject({
+      method: "POST",
+      url: `/audit/legal-holds/${holdId}/release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(release.statusCode).toBe(200);
+    expect(release.json().legalHold.id).toBe(holdId);
+    expect(release.json().legalHold.released_at).not.toBeNull();
+    expect(release.json().legalHold.released_by).toBe(ADMIN_USER);
+
+    const releaseAgain = await app.inject({
+      method: "POST",
+      url: `/audit/legal-holds/${holdId}/release`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(releaseAgain.statusCode).toBe(409);
+  });
+
+  it("404s releasing a hold that does not exist", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/audit/legal-holds/does-not-exist/release",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(response.statusCode).toBe(404);
   });
 });

@@ -650,3 +650,27 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket 0088's own text pre-authorized this
   follow-up without a new ticket; UI component structure is
   agent-decidable per CLAUDE.md).
+
+## 2026-10-16 07:40 UTC - M35b (ticket 0079) extends the existing audit module rather than a new one; retention/legal-hold endpoints follow the accessToken/RLS convention, not audit/log's service-role convention
+- Decision: Ticket 0079's `retention_policies`/`legal_holds` tables and
+  their routes were added to the existing `backend/src/modules/audit`
+  module (types/repository/service/routes), not a new module, since
+  M35b is the same BRD module as M35a (ticket 0078). Within that
+  module, the new methods (`createRetentionPolicy`,
+  `listRetentionPolicies`, `placeLegalHold`, `releaseLegalHold`,
+  `listLegalHolds`, `getLegalHold`) use the ordinary
+  accessToken + user-scoped-client convention every other tenant-
+  scoped-RLS table in this codebase uses (tenancy, authority) —
+  deliberately not the service-role + explicit-tenantId convention
+  `listAuditLogEntries` uses, which exists only because that one method
+  merges reads across tables with inconsistent/narrower RLS policies
+  (`auth_audit_log` in particular). `retention_policies`/`legal_holds`
+  are plain single-table, fully-RLS'd tenant data with no such
+  conflict, so there was no reason to bypass RLS for them.
+- Why: avoids forking the audit module into two unrelated access
+  patterns for no reason, and avoids inventing a reason to go
+  service-role where ordinary RLS already does the job — same
+  "don't build unrequested machinery" principle used throughout
+  M06-M09's decisions.
+- Approved by: agent (ticket 0079 — internal API design/module
+  structure, explicitly agent-decidable per CLAUDE.md).

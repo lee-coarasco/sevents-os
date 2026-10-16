@@ -146,7 +146,7 @@ let cachedAuditRepository: AuditRepository | null = null;
 
 function defaultAuditRepository(): AuditRepository {
   if (!cachedAuditRepository) {
-    cachedAuditRepository = createSupabaseAuditRepository(createServiceClient());
+    cachedAuditRepository = createSupabaseAuditRepository(createServiceClient(), createUserScopedClient);
   }
   return cachedAuditRepository;
 }
