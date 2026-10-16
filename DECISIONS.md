@@ -531,3 +531,28 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   API/data-model design are explicitly agent-decidable per CLAUDE.md,
   same weight as every prior M06/M07/M09/M35 split).
+
+## 2026-10-16 07:41 GST - Answered: ticket #80 "M35c — Data export & deletion policy": Which entity types are in scope for real data deletion, and hard-delete or anonymize?
+- Question: 2026-10-16 01:52 UTC — Which entity types are in scope for real data deletion, and hard-delete or anonymize?
+- Answer: Choose whichever you recommend and that's good approach for this application
+- Approved by: lee-coarasco (via AppYard dashboard)
+
+> The PRD names this module's purpose as "data export/deletion policy"
+> with no further detail, and CLAUDE.md is explicit that AI agents must
+> not invent production data-handling policy. Before building the
+> deletion-execution half (export is unambiguous and will be built
+> regardless), I need:
+> 1. Which entity types a deletion request can actually target —
+>    starting candidates: `app_users` (a person's own account/PII),
+>    or is this narrower (e.g. just HR records once M04/M24 exist)?
+> 2. Hard-delete (row removed) or anonymize-in-place (PII fields
+>    scrubbed, row and its audit trail survive)? BRD §6.1 elsewhere says
+>    "never silently delete audit-relevant records" (the same rule
+>    `banAuthUser`'s 100-year-ban workaround in ticket 0054 already
+>    follows) — anonymize-in-place is my default recommendation for
+>    that reason, but the owner should confirm since "right to erasure"
+>    style requests sometimes require true removal.
+> Recommendation: anonymize-in-place, scoped to `app_users` only for
+> this first build, expand to other entity types in a later ticket once
+> real categories of sensitive data (HR/legal/financial, per the PRD
+> module row) actually exist as entities in this codebase.
