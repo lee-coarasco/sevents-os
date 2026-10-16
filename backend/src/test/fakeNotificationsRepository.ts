@@ -3,9 +3,18 @@ import type {
   InsertNotificationInput,
   NotificationDeliveryResult,
   NotificationsRepository,
+  UpsertPreferenceInput,
   UpsertRetryPolicyInput,
+  UpsertScheduleSettingsInput,
 } from "../modules/notifications/repository.js";
-import type { Notification, NotificationChannel, NotificationRetryPolicy, NotificationTemplate } from "../modules/notifications/types.js";
+import type {
+  Notification,
+  NotificationChannel,
+  NotificationPreference,
+  NotificationRetryPolicy,
+  NotificationScheduleSettings,
+  NotificationTemplate,
+} from "../modules/notifications/types.js";
 
 let idCounter = 0;
 function nextId(prefix: string): string {
@@ -21,19 +30,30 @@ function nextId(prefix: string): string {
  * service-role path (no caller session exists for those).
  */
 export class FakeNotificationsRepository implements NotificationsRepository {
-  private sessions = new Map<string, string>(); // accessToken -> tenantId
+  // accessToken -> { tenantId, userId }. `userId` defaults to the token itself
+  // for every existing caller that only ever passed (token, tenantId) — this
+  // module's preference/schedule tests are the only ones that care about it.
+  private sessions = new Map<string, { tenantId: string; userId: string }>();
   templates = new Map<string, NotificationTemplate>();
   retryPolicies = new Map<string, NotificationRetryPolicy>(); // key: `${tenantId}:${channel}`
   notifications = new Map<string, Notification>();
+  preferences = new Map<string, NotificationPreference>(); // key: `${tenantId}:${userId}:${templateKey}:${channel}`
+  scheduleSettings = new Map<string, NotificationScheduleSettings>(); // key: `${tenantId}:${userId}`
 
-  addSession(accessToken: string, tenantId: string) {
-    this.sessions.set(accessToken, tenantId);
+  addSession(accessToken: string, tenantId: string, userId: string = accessToken) {
+    this.sessions.set(accessToken, { tenantId, userId });
   }
 
   private tenantOf(accessToken: string): string {
-    const tenantId = this.sessions.get(accessToken);
-    if (!tenantId) throw new Error("no tenant for this access token");
-    return tenantId;
+    const session = this.sessions.get(accessToken);
+    if (!session) throw new Error("no tenant for this access token");
+    return session.tenantId;
+  }
+
+  private sessionOf(accessToken: string): { tenantId: string; userId: string } {
+    const session = this.sessions.get(accessToken);
+    if (!session) throw new Error("no tenant for this access token");
+    return session;
   }
 
   async createTemplate(accessToken: string, input: CreateTemplateInput) {
@@ -126,6 +146,7 @@ export class FakeNotificationsRepository implements NotificationsRepository {
       delivered_at: null,
       read_at: null,
       failure_reason: null,
+      deferred_delivery_mode: null,
     };
     this.notifications.set(notification.id, notification);
     return { notification, created: true };
@@ -144,5 +165,85 @@ export class FakeNotificationsRepository implements NotificationsRepository {
 
   async getNotification(notificationId: string) {
     return this.notifications.get(notificationId) ?? null;
+  }
+
+  async upsertPreference(accessToken: string, input: UpsertPreferenceInput) {
+    const { tenantId, userId } = this.sessionOf(accessToken);
+    const key = `${tenantId}:${userId}:${input.template_key}:${input.channel}`;
+    const existing = this.preferences.get(key);
+    const preference: NotificationPreference = {
+      id: existing?.id ?? nextId("preference"),
+      tenant_id: tenantId,
+      user_id: userId,
+      template_key: input.template_key,
+      channel: input.channel,
+      opted_in: input.opted_in,
+      delivery_mode: input.delivery_mode,
+    };
+    this.preferences.set(key, preference);
+    return preference;
+  }
+
+  async listMyPreferences(accessToken: string) {
+    const { tenantId, userId } = this.sessionOf(accessToken);
+    return [...this.preferences.values()].filter((p) => p.tenant_id === tenantId && p.user_id === userId);
+  }
+
+  async upsertScheduleSettings(accessToken: string, input: UpsertScheduleSettingsInput) {
+    const { tenantId, userId } = this.sessionOf(accessToken);
+    const key = `${tenantId}:${userId}`;
+    const existing = this.scheduleSettings.get(key);
+    const settings: NotificationScheduleSettings = {
+      id: existing?.id ?? nextId("schedule-settings"),
+      tenant_id: tenantId,
+      user_id: userId,
+      quiet_hours_start: input.quiet_hours_start,
+      quiet_hours_end: input.quiet_hours_end,
+      quiet_hours_timezone: input.quiet_hours_timezone,
+      digest_interval_minutes: input.digest_interval_minutes,
+      last_digest_released_at: existing?.last_digest_released_at ?? null,
+    };
+    this.scheduleSettings.set(key, settings);
+    return settings;
+  }
+
+  async getMyScheduleSettings(accessToken: string) {
+    const { tenantId, userId } = this.sessionOf(accessToken);
+    return this.scheduleSettings.get(`${tenantId}:${userId}`) ?? null;
+  }
+
+  async getPreference(tenantId: string, userId: string, templateKey: string, channel: NotificationChannel) {
+    return this.preferences.get(`${tenantId}:${userId}:${templateKey}:${channel}`) ?? null;
+  }
+
+  async getScheduleSettings(tenantId: string, userId: string) {
+    return this.scheduleSettings.get(`${tenantId}:${userId}`) ?? null;
+  }
+
+  async markDigestReleased(tenantId: string, userId: string, releasedAtIso: string) {
+    const key = `${tenantId}:${userId}`;
+    const existing = this.scheduleSettings.get(key);
+    if (existing) existing.last_digest_released_at = releasedAtIso;
+  }
+
+  async listDeferredNotifications(tenantId: string, userId: string) {
+    return [...this.notifications.values()].filter(
+      (n) => n.tenant_id === tenantId && n.recipient_id === userId && n.status === "deferred",
+    );
+  }
+
+  async markNotificationDeferred(notificationId: string, deliveryMode: "immediate" | "digest") {
+    const notification = this.notifications.get(notificationId);
+    if (!notification) throw new Error(`notification ${notificationId} not found`);
+    notification.status = "deferred";
+    notification.deferred_delivery_mode = deliveryMode;
+    return notification;
+  }
+
+  async markNotificationSkipped(notificationId: string) {
+    const notification = this.notifications.get(notificationId);
+    if (!notification) throw new Error(`notification ${notificationId} not found`);
+    notification.status = "skipped";
+    return notification;
   }
 }

@@ -700,3 +700,41 @@ approved (agent-autonomous or you).
   agent-decidable per CLAUDE.md; recorded here because it's a direct
   reading of the ticket's own conditional instruction, not just an
   implementation detail).
+
+## 2026-10-16 07:11 UTC - M31c (ticket 0083): `urgent` added as the single explicit urgency flag on dispatchNotification; `notification.preferences.manage` granted to every role, not just platform_administrator; digest batching releases the whole waiting group together rather than merging into one message body
+- Decision: Three scoping calls while building ticket 0083's
+  preferences/quiet-hours/digest layer, each diverging slightly from
+  the ticket's own text as filed:
+  1. The ticket assumed "whatever priority/severity field 0082's
+     notifications already carry" could decide urgency. Ticket 0082's
+     `notifications` table has no such field. Added `urgent?: boolean`
+     as an explicit, caller-named parameter to `dispatchNotification`
+     (default false) — the single urgency concept, not a second one
+     layered on an existing field, since none existed.
+  2. Every permission added by M06-M31 so far is deny-by-default,
+     granted only to `role.platform_administrator`. `notification.
+     preferences.manage` is different in kind: it gates a basic
+     self-service action (manage your own notification settings) that
+     every user should have, not an administrative one. Granted it to
+     every row in `role_definitions` instead. RLS (`user_id =
+     auth.uid()`), not the permission, is what actually prevents
+     targeting another user.
+  3. The ticket's "one delivery per user per interval" for digest
+     batching was built as "release the whole waiting group together
+     in one pass, gated by the interval" (one shared
+     `last_digest_released_at` update) rather than merging every
+     member notification's body into a single combined message —
+     true body-merging would need a dedicated digest template/render
+     step this ticket had no concrete requirement to invent.
+- Why: (1)/(3) follow CLAUDE.md's "do not invent unrequested
+  machinery" / "no invented defaults" principle applied to a case the
+  ticket's own survey text got slightly wrong once the code was
+  actually read; (2) follows the same principle in the other
+  direction — deny-by-default is for administrative actions, and
+  denying a basic self-service feature to every role by default would
+  just be unrequested friction with no security benefit, since RLS
+  already does the real access control.
+- Approved by: agent (ticket 0083 — internal API/permission design,
+  explicitly agent-decidable per CLAUDE.md; recorded here because each
+  point is a divergence from the ticket's own filed text, not just an
+  implementation detail).

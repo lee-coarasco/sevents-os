@@ -1,5 +1,12 @@
+import { isDigestDue, isWithinQuietHours } from "./preferences.js";
 import type { NotificationsRepository } from "./repository.js";
-import type { Notification, NotificationChannel, NotificationSender, NotificationTemplate } from "./types.js";
+import type {
+  Notification,
+  NotificationChannel,
+  NotificationDeliveryMode,
+  NotificationSender,
+  NotificationTemplate,
+} from "./types.js";
 
 export class MissingTemplateBodyError extends Error {}
 export class InvalidRetryPolicyError extends Error {}
@@ -8,6 +15,8 @@ export class NotificationNotFoundError extends Error {}
 export class NotificationNotRetryableError extends Error {}
 export class RetryPolicyNotConfiguredError extends Error {}
 export class MaxRetriesExceededError extends Error {}
+export class InvalidPreferenceError extends Error {}
+export class InvalidScheduleSettingsError extends Error {}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -56,6 +65,69 @@ export async function listRetryPolicies(repository: NotificationsRepository, acc
 
 export async function listMyNotifications(repository: NotificationsRepository, accessToken: string) {
   return repository.listMyNotifications(accessToken);
+}
+
+/** Ticket 0083: one row per (template_key, channel) — see `NotificationPreference`'s own doc comment on why `template_key` and not an invented `category`. */
+export async function setMyPreference(
+  repository: NotificationsRepository,
+  accessToken: string,
+  input: { templateKey: string; channel: NotificationChannel; optedIn: boolean; deliveryMode: NotificationDeliveryMode },
+) {
+  if (!input.templateKey.trim()) throw new InvalidPreferenceError("templateKey is required");
+  return repository.upsertPreference(accessToken, {
+    template_key: input.templateKey,
+    channel: input.channel,
+    opted_in: input.optedIn,
+    delivery_mode: input.deliveryMode,
+  });
+}
+
+export async function listMyPreferences(repository: NotificationsRepository, accessToken: string) {
+  return repository.listMyPreferences(accessToken);
+}
+
+/**
+ * Partial update: a field left `undefined` keeps its current value
+ * (reads the existing row first and merges); pass `null` explicitly to
+ * clear a field (e.g. turn quiet hours back off). Quiet hours is
+ * all-three-or-none — CLAUDE.md forbids inventing a default window, so
+ * a start with no end/timezone is rejected rather than silently
+ * defaulted.
+ */
+export async function setMyScheduleSettings(
+  repository: NotificationsRepository,
+  accessToken: string,
+  input: {
+    quietHoursStart?: string | null;
+    quietHoursEnd?: string | null;
+    quietHoursTimezone?: string | null;
+    digestIntervalMinutes?: number | null;
+  },
+) {
+  const current = await repository.getMyScheduleSettings(accessToken);
+  const merged = {
+    quiet_hours_start: input.quietHoursStart !== undefined ? input.quietHoursStart : current?.quiet_hours_start ?? null,
+    quiet_hours_end: input.quietHoursEnd !== undefined ? input.quietHoursEnd : current?.quiet_hours_end ?? null,
+    quiet_hours_timezone:
+      input.quietHoursTimezone !== undefined ? input.quietHoursTimezone : current?.quiet_hours_timezone ?? null,
+    digest_interval_minutes:
+      input.digestIntervalMinutes !== undefined ? input.digestIntervalMinutes : current?.digest_interval_minutes ?? null,
+  };
+
+  const quietHoursFields = [merged.quiet_hours_start, merged.quiet_hours_end, merged.quiet_hours_timezone];
+  const providedCount = quietHoursFields.filter((f) => f !== null).length;
+  if (providedCount !== 0 && providedCount !== 3) {
+    throw new InvalidScheduleSettingsError("quietHoursStart, quietHoursEnd and quietHoursTimezone must be set together");
+  }
+  if (merged.digest_interval_minutes !== null && (!Number.isInteger(merged.digest_interval_minutes) || merged.digest_interval_minutes <= 0)) {
+    throw new InvalidScheduleSettingsError("digestIntervalMinutes must be a positive integer");
+  }
+
+  return repository.upsertScheduleSettings(accessToken, merged);
+}
+
+export async function getMyScheduleSettings(repository: NotificationsRepository, accessToken: string) {
+  return repository.getMyScheduleSettings(accessToken);
 }
 
 export async function markNotificationRead(
@@ -121,8 +193,19 @@ export async function dispatchNotification(
     channel: NotificationChannel;
     dedupKey: string;
     variables?: Record<string, string>;
+    /**
+     * Ticket 0083: the single explicit urgency flag — 0082's
+     * notifications carried no priority/severity field to reuse, so
+     * this is it, not a second parallel concept. Caller-named, same
+     * "no resolution magic" precedent as `recipientId` itself. Urgent
+     * notifications always deliver immediately, bypassing quiet hours
+     * and digest preference.
+     */
+    urgent?: boolean;
+    /** Injectable for deterministic tests — defaults to the real clock, same convention as sla.ts's `nowIso` params. */
+    nowIso?: string;
   },
-): Promise<{ notification: Notification; deduped: boolean }> {
+): Promise<{ notification: Notification; deduped: boolean; deferred: boolean }> {
   const template = await repository.getTemplateByKey(tenantId, input.templateKey, input.channel);
   if (!template) {
     throw new TemplateNotFoundError(`no ${input.channel} template for key "${input.templateKey}"`);
@@ -140,10 +223,93 @@ export async function dispatchNotification(
     rendered_subject: renderedSubject,
     rendered_body: renderedBody,
   });
-  if (!created) return { notification, deduped: true };
+  if (!created) return { notification, deduped: true, deferred: notification.status === "deferred" };
+
+  const preference = await repository.getPreference(tenantId, input.recipientId, input.templateKey, input.channel);
+  if (preference && !preference.opted_in) {
+    const skipped = await repository.markNotificationSkipped(notification.id);
+    return { notification: skipped, deduped: false, deferred: false };
+  }
+
+  if (!input.urgent) {
+    const deliveryMode = preference?.delivery_mode ?? "immediate";
+    if (deliveryMode === "digest") {
+      const deferred = await repository.markNotificationDeferred(notification.id, "digest");
+      return { notification: deferred, deduped: false, deferred: true };
+    }
+
+    const now = input.nowIso ?? nowIso();
+    const schedule = await repository.getScheduleSettings(tenantId, input.recipientId);
+    const quietHours =
+      schedule?.quiet_hours_start && schedule.quiet_hours_end && schedule.quiet_hours_timezone
+        ? {
+            quiet_hours_start: schedule.quiet_hours_start,
+            quiet_hours_end: schedule.quiet_hours_end,
+            quiet_hours_timezone: schedule.quiet_hours_timezone,
+          }
+        : null;
+    if (isWithinQuietHours(now, quietHours)) {
+      const deferred = await repository.markNotificationDeferred(notification.id, "immediate");
+      return { notification: deferred, deduped: false, deferred: true };
+    }
+  }
 
   const delivered = await attemptDelivery(repository, sender, notification);
-  return { notification: delivered, deduped: false };
+  return { notification: delivered, deduped: false, deferred: false };
+}
+
+/**
+ * No scheduler exists in this codebase (same gap ticket 0081/0082's
+ * own service.ts notes) — nothing calls this on a timer. It is the
+ * entrypoint a future read path (e.g. GET /notifications) or a
+ * caller's own poll calls, same "no resolution magic, caller invokes
+ * explicitly" precedent as dispatchNotification itself not subscribing
+ * to workflow_events.
+ */
+export async function releaseDueDeferrals(
+  repository: NotificationsRepository,
+  sender: NotificationSender,
+  tenantId: string,
+  userId: string,
+  nowIsoValue: string,
+): Promise<{ released: Notification[]; digestReleased: boolean }> {
+  const deferred = await repository.listDeferredNotifications(tenantId, userId);
+  if (deferred.length === 0) return { released: [], digestReleased: false };
+
+  const schedule = await repository.getScheduleSettings(tenantId, userId);
+  const quietHours =
+    schedule?.quiet_hours_start && schedule.quiet_hours_end && schedule.quiet_hours_timezone
+      ? {
+          quiet_hours_start: schedule.quiet_hours_start,
+          quiet_hours_end: schedule.quiet_hours_end,
+          quiet_hours_timezone: schedule.quiet_hours_timezone,
+        }
+      : null;
+  if (isWithinQuietHours(nowIsoValue, quietHours)) {
+    return { released: [], digestReleased: false };
+  }
+
+  const released: Notification[] = [];
+
+  const immediate = deferred.filter((n) => n.deferred_delivery_mode !== "digest");
+  for (const notification of immediate) {
+    released.push(await attemptDelivery(repository, sender, notification));
+  }
+
+  const digestCandidates = deferred.filter((n) => n.deferred_delivery_mode === "digest");
+  let digestReleased = false;
+  if (digestCandidates.length > 0) {
+    const intervalMinutes = schedule?.digest_interval_minutes ?? null;
+    if (isDigestDue(nowIsoValue, schedule?.last_digest_released_at ?? null, intervalMinutes)) {
+      for (const notification of digestCandidates) {
+        released.push(await attemptDelivery(repository, sender, notification));
+      }
+      await repository.markDigestReleased(tenantId, userId, nowIsoValue);
+      digestReleased = true;
+    }
+  }
+
+  return { released, digestReleased };
 }
 
 /**

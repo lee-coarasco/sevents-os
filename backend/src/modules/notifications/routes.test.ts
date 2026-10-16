@@ -145,6 +145,7 @@ describe("GET /notifications and POST /notifications/:id/read", () => {
       delivered_at: "2026-10-16T00:00:00.000Z",
       read_at: null,
       failure_reason: null,
+      deferred_delivery_mode: null,
     });
     notificationsRepo.notifications.set("n2", {
       id: "n2",
@@ -161,6 +162,7 @@ describe("GET /notifications and POST /notifications/:id/read", () => {
       delivered_at: "2026-10-16T00:00:00.000Z",
       read_at: null,
       failure_reason: null,
+      deferred_delivery_mode: null,
     });
 
     // The fake's listMyNotifications filters by tenant only (RLS does the
@@ -193,6 +195,7 @@ describe("GET /notifications and POST /notifications/:id/read", () => {
       delivered_at: "2026-10-16T00:00:00.000Z",
       read_at: null,
       failure_reason: null,
+      deferred_delivery_mode: null,
     });
 
     const response = await app.inject({
@@ -212,5 +215,125 @@ describe("GET /notifications and POST /notifications/:id/read", () => {
       headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
     });
     expect(response.statusCode).toBe(404);
+  });
+});
+
+describe("POST/GET /notifications/preferences", () => {
+  it("403s without notification.preferences.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/notifications/preferences",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { templateKey: "welcome", channel: "email", optedIn: false, deliveryMode: "digest" },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s a missing field", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    authorityRepo.grantPermission("role.platform_administrator", "notification.preferences.manage");
+    const response = await app.inject({
+      method: "POST",
+      url: "/notifications/preferences",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { templateKey: "welcome" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("sets and lists a caller's own preferences, isolated from another user's", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    authorityRepo.grantPermission("role.platform_administrator", "notification.preferences.manage");
+    authorityRepo.roleAssignments.set("seed-b", {
+      id: "seed-b",
+      tenant_id: TENANT_A,
+      user_id: PLAIN_USER,
+      role_id: "role.platform_administrator",
+      department_id: null,
+      valid_from: "2000-01-01T00:00:00.000Z",
+      valid_to: null,
+    });
+
+    const adminSet = await app.inject({
+      method: "POST",
+      url: "/notifications/preferences",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { templateKey: "welcome", channel: "email", optedIn: false, deliveryMode: "digest" },
+    });
+    expect(adminSet.statusCode).toBe(201);
+    expect(adminSet.json().preference.opted_in).toBe(false);
+
+    const plainList = await app.inject({
+      method: "GET",
+      url: "/notifications/preferences",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+    });
+    expect(plainList.json().preferences).toHaveLength(0);
+
+    const adminList = await app.inject({
+      method: "GET",
+      url: "/notifications/preferences",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(adminList.json().preferences).toHaveLength(1);
+  });
+});
+
+describe("PUT/GET /notifications/schedule-settings", () => {
+  it("403s without notification.preferences.manage", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "PUT",
+      url: "/notifications/schedule-settings",
+      headers: { authorization: `Bearer ${PLAIN_TOKEN}` },
+      payload: { digestIntervalMinutes: 60 },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s a partial quiet-hours window", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    authorityRepo.grantPermission("role.platform_administrator", "notification.preferences.manage");
+    const response = await app.inject({
+      method: "PUT",
+      url: "/notifications/schedule-settings",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { quietHoursStart: "22:00" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("returns null until a caller configures it, then round-trips the configured values", async () => {
+    const { app, authorityRepo } = appWithFakeRepos();
+    authorityRepo.grantPermission("role.platform_administrator", "notification.preferences.manage");
+
+    const before = await app.inject({
+      method: "GET",
+      url: "/notifications/schedule-settings",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(before.json().settings).toBeNull();
+
+    const put = await app.inject({
+      method: "PUT",
+      url: "/notifications/schedule-settings",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: {
+        quietHoursStart: "22:00",
+        quietHoursEnd: "06:00",
+        quietHoursTimezone: "Asia/Dubai",
+        digestIntervalMinutes: 60,
+      },
+    });
+    expect(put.statusCode).toBe(200);
+
+    const after = await app.inject({
+      method: "GET",
+      url: "/notifications/schedule-settings",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(after.json().settings.quiet_hours_start).toBe("22:00");
+    expect(after.json().settings.digest_interval_minutes).toBe(60);
   });
 });

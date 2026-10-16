@@ -1,14 +1,20 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { NotificationsRepository } from "./repository.js";
 import {
+  InvalidPreferenceError,
   InvalidRetryPolicyError,
+  InvalidScheduleSettingsError,
   MissingTemplateBodyError,
   NotificationNotFoundError,
   createTemplate,
+  getMyScheduleSettings,
   listMyNotifications,
+  listMyPreferences,
   listRetryPolicies,
   listTemplates,
   markNotificationRead,
+  setMyPreference,
+  setMyScheduleSettings,
   upsertRetryPolicy,
 } from "./service.js";
 
@@ -132,4 +138,84 @@ export async function notificationsRoutes(app: FastifyInstance, options: Notific
       throw error;
     }
   });
+
+  // Self-service, but — unlike GET /notifications above — gated by an
+  // explicit permission (ticket 0083's own instruction): RLS still
+  // enforces "never another user's row," the permission just gates
+  // whether this feature is available to the caller's role at all.
+  app.post<{
+    Body: { templateKey: string; channel: "in_app" | "email"; optedIn: boolean; deliveryMode: "immediate" | "digest" };
+  }>(
+    "/notifications/preferences",
+    { preHandler: options.requirePermission("notification.preferences.manage") },
+    async (request, reply) => {
+      const { templateKey, channel, optedIn, deliveryMode } = request.body ?? ({} as never);
+      if (!templateKey || !channel || typeof optedIn !== "boolean" || !deliveryMode) {
+        reply.code(400);
+        return { error: "templateKey, channel, optedIn and deliveryMode are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const preference = await setMyPreference(options.getRepository(), token, {
+          templateKey,
+          channel,
+          optedIn,
+          deliveryMode,
+        });
+        reply.code(201);
+        return { preference };
+      } catch (error) {
+        if (error instanceof InvalidPreferenceError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/notifications/preferences",
+    { preHandler: options.requirePermission("notification.preferences.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const preferences = await listMyPreferences(options.getRepository(), token);
+      return { preferences };
+    },
+  );
+
+  app.put<{
+    Body: {
+      quietHoursStart?: string | null;
+      quietHoursEnd?: string | null;
+      quietHoursTimezone?: string | null;
+      digestIntervalMinutes?: number | null;
+    };
+  }>(
+    "/notifications/schedule-settings",
+    { preHandler: options.requirePermission("notification.preferences.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const settings = await setMyScheduleSettings(options.getRepository(), token, request.body ?? {});
+        return { settings };
+      } catch (error) {
+        if (error instanceof InvalidScheduleSettingsError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/notifications/schedule-settings",
+    { preHandler: options.requirePermission("notification.preferences.manage") },
+    async (request) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const settings = await getMyScheduleSettings(options.getRepository(), token);
+      return { settings };
+    },
+  );
 }
