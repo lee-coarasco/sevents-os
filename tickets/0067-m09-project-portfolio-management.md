@@ -1,11 +1,11 @@
 ---
 id: 67
 title: "M09 — Project & Portfolio Management"
-status: next
+status: done
 roles: [architect, backend-engineer]
 priority: 9
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 Fourth Phase 3 module per `docs/PRD.md`'s build-order table. Depends on
@@ -42,3 +42,25 @@ ticket 0062's M07/M08 seam.
   tickets 0064-0066 in priority order. Not yet scoped — re-read BRD
   §8.4 and ticket 0055's existing stub `projects` table before
   designing the real data model.
+- 2026-10-15 21:22 UTC: Architect session. Re-read BRD §8.4 in full
+  and ticket 0055's stub `projects` table. Closed this ticket with no
+  code and split into five sub-tickets, same precedent as ticket 0059
+  (M06) splitting into 0060-0063 and ticket 0065 (M07) splitting into
+  0070-0072: ticket 0073 (M09a — project register & setup, extends
+  the M02 stub table in place, FR-PROJ-001/002), 0074 (M09b — WBS/
+  milestones/schedule activities/dependencies/progress, FR-PROJ-003),
+  0075 (M09c — baseline snapshots and approval-gated baseline-change
+  control via the M08 approval seam, FR-PROJ-004). That session's
+  commit (03fc91f) filed 0073-0075 but did not close this parent
+  ticket or record the split in DECISIONS.md — doing both now.
+- 2026-10-16: Found the gap above while picking up this ticket as
+  `tickets.py next`'s result (it was still `status: next` despite
+  0073-0075 existing). Closing it out properly: filed the two
+  remaining sub-tickets 0073/0074/0075 had already referenced in
+  their "out of scope" sections but that didn't exist as files —
+  0076 (M09d — issue/risk/decision/assumption/dependency/change-
+  request register, FR-PROJ-005) and 0077 (M09e — health/forecast-
+  vs-baseline/closeout checklist, FR-PROJ-006/007/008). Recorded the
+  full split rationale in DECISIONS.md. M09 is now five sub-tickets:
+  0073-0077, all `status: next`, same pattern as M06/M07. Picking up
+  0073 next in this same session.

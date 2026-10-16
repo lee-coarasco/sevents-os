@@ -300,3 +300,52 @@ approved (agent-autonomous or you).
   details, explicitly agent-decidable per CLAUDE.md; recorded here at
   the same weight as the M06/M07 scope calls per this project's own
   precedent for real scope decisions, not just implementation detail).
+
+## 2026-10-16 00:30 UTC - M09 split into five sub-tickets (0073-0077), one shared register table for FR-PROJ-005, no AI health score
+- Decision: Ticket 0067 (M09 — Project & Portfolio Management) is
+  closed with no code, split the same way ticket 0059 (M06) and
+  ticket 0065 (M07) were split: 0073 (M09a — project register &
+  setup, extends ticket 0055's M02 stub `projects` table in place,
+  FR-PROJ-001/002), 0074 (M09b — WBS/milestones/schedule activities/
+  dependencies/progress, FR-PROJ-003), 0075 (M09c — baseline
+  snapshots and approval-gated baseline-change control via the M08
+  `request_approval` seam, FR-PROJ-004), 0076 (M09d — issue/risk/
+  decision/assumption/dependency/change-request register,
+  FR-PROJ-005), 0077 (M09e — health/forecast-vs-baseline/closeout
+  checklist, FR-PROJ-006/007/008). Two scope calls recorded within
+  that split: (1) ticket 0076's six FR-PROJ-005 categories
+  (issue/risk/decision/assumption/dependency/change_request) share
+  one `project_register_entries` table with a `kind` enum, not six
+  separate tables — they share the same shape (title, description,
+  status, owner, due date) and BRD only asks that each be "tracked,"
+  not that they be structurally distinct entities; (2) ticket 0077's
+  health endpoint computes and stores which recorded factors (overdue
+  activities, open register entries, baseline status) fed its summary
+  and never produces a bare AI/ML score, per FR-PROJ-006's explicit
+  "never display an unexplained AI score as fact," and forecast vs.
+  baseline are always returned as two distinct labelled fields, never
+  merged, per FR-PROJ-007.
+- Why: same "too large for one ticket" shape M06/M07 hit — BRD §8.4
+  is eight requirements spanning register/setup, a real WBS/schedule
+  model, approval-gated baselining, a multi-category tracking
+  register and a health/forecast/closeout surface, each with its own
+  natural seam and most with their own dependency ordering (0074
+  needs 0073's project row; 0075 needs 0074's WBS to baseline and
+  M08's approval chain; 0077 needs 0074's schedule data and 0075's
+  approved baseline). The register-table consolidation in (1) follows
+  the same "don't invent per-category tables BRD didn't ask for"
+  principle ticket 0072 used for task delegation. The no-AI-score
+  rule in (2) is not a new policy — it is FR-PROJ-006's literal text,
+  restated here because a later session building 0077 could otherwise
+  default to "just compute a 0-100 health score," which the BRD
+  explicitly forbids.
+- Correcting a process gap: the session that filed tickets 0073-0075
+  (commit 03fc91f, 2026-10-15 21:22 UTC) did the actual split but
+  left ticket 0067 at `status: next` and wrote no DECISIONS.md entry
+  or daily-log entry for it — `tickets.py next` kept surfacing 0067
+  as if unsplit. This entry and ticket 0067's Progress note close
+  that gap; sub-tickets 0073-0075's content was reviewed and kept
+  as-is (it matches this project's established M09 scope), only 0076
+  and 0077 were newly filed.
+- Approved by: agent (ticket classification/ordering and DB schema
+  details are both explicitly agent-decidable per CLAUDE.md).
