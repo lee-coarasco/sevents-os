@@ -5,7 +5,7 @@ status: blocked
 roles: [human, devops]
 priority: 1
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-16T12:30Z
 ---
 
 Ticket 0084 (the owner's "when will UI be created" question) got a
@@ -23,17 +23,24 @@ must do (a key, an account, a device test) is a ticket with
 `roles: [human]`").
 
 ## What's needed from the owner (human half)
-1. A Vercel account (free tier is enough for preview deploys).
-2. A Vercel project connected to this GitHub repo, with the project
-   root set to `frontend/`.
-3. A `VERCEL_TOKEN` (and `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` if Vercel
-   requires them for CLI-based deploys) added as a GitHub Actions
-   secret, the same way `SUPABASE_URL` etc. already are.
-4. The frontend's own runtime env vars (`VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` pointing at wherever the
-   backend ends up hosted — see the still-open backend hosting TBD in
-   CLAUDE.md's tech stack table) set in the Vercel project's
-   environment variable settings.
+
+**Deploy method confirmed (2026-10-16): Vercel GitHub App integration
+(option 1) — NOT the CLI approach. No `VERCEL_ORG_ID` or
+`VERCEL_PROJECT_ID` secrets are needed. Vercel handles deployments
+automatically via its GitHub connection.**
+
+1. ✅ A Vercel account (free tier is enough for preview deploys).
+2. Connect this GitHub repo in the Vercel dashboard → Import Project →
+   set **Root Directory** to `frontend/`. Vercel will auto-deploy on
+   every push.
+3. ✅ `VERCEL_TOKEN` is already added as a GitHub Actions secret.
+   (`VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are NOT needed with the
+   GitHub App integration.)
+4. Add the frontend runtime env vars in Vercel project settings:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_API_URL` (use `http://localhost:3000` as placeholder until
+     backend is hosted)
 
 ## What devops does once the above exists
 - Wire a preview deploy (`vercel deploy` or the Vercel GitHub
@@ -71,3 +78,10 @@ must do (a key, an account, a device test) is a ticket with
   locally. Blocked on the owner setting up the Vercel account/token
   (see "What's needed from the owner" above); devops's half can start
   immediately once that exists.
+- 2026-10-16 12:30 UTC: Owner confirmed using **Vercel GitHub App
+  integration** (not CLI). `VERCEL_TOKEN` already added as secret.
+  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` not needed with this approach.
+  Remaining human step: connect the repo in Vercel dashboard (Root
+  Directory = `frontend/`) and add the three `VITE_*` env vars there.
+  Once done, Vercel auto-deploys on every push — devops step is then
+  just verifying the preview URL works end-to-end.
