@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
+import { UserPicker } from "../components/UserPicker";
 
 type StepInstanceStatus = "pending" | "active" | "waiting" | "completed" | "skipped" | "failed";
 type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -49,6 +50,8 @@ export function TaskInboxPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [blockReason, setBlockReason] = useState("");
+  const [reassignUserId, setReassignUserId] = useState("");
+  const [delegateUserId, setDelegateUserId] = useState("");
   const [busy, setBusy] = useState(false);
 
   function load() {
@@ -113,6 +116,44 @@ export function TaskInboxPage() {
     }
   }
 
+  async function handleReassign() {
+    if (!session || !selectedTask || !reassignUserId) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await apiFetch(`/tasks/${selectedTask.id}/reassign`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({ newAssigneeUserId: reassignUserId }),
+      });
+      setReassignUserId("");
+      setSelectedTaskId(null);
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Could not reassign the task");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelegate() {
+    if (!session || !selectedTask || !delegateUserId) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await apiFetch(`/tasks/${selectedTask.id}/delegate`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({ delegateUserId }),
+      });
+      setDelegateUserId("");
+      setSelectedTaskId(null);
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Could not delegate the task");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const groups: Group[] = ["to_do", "in_progress", "blocked", "done"];
   const grouped = groups.map((group) => ({
     group,
@@ -151,6 +192,8 @@ export function TaskInboxPage() {
                             setSelectedTaskId(task.id);
                             setActionError(null);
                             setBlockReason("");
+                            setReassignUserId("");
+                            setDelegateUserId("");
                           }}
                           className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition ${
                             task.id === selectedTaskId
@@ -244,6 +287,30 @@ export function TaskInboxPage() {
                     </button>
                   </div>
                 )}
+
+                <div className="space-y-2 border-t border-zinc-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Reassign</p>
+                  <UserPicker value={reassignUserId} onChange={setReassignUserId} placeholder="Reassign to…" />
+                  <button
+                    onClick={handleReassign}
+                    disabled={busy || !reassignUserId}
+                    className="w-full rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    Reassign task
+                  </button>
+                </div>
+
+                <div className="space-y-2 border-t border-zinc-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Delegate</p>
+                  <UserPicker value={delegateUserId} onChange={setDelegateUserId} placeholder="Delegate to…" />
+                  <button
+                    onClick={handleDelegate}
+                    disabled={busy || !delegateUserId}
+                    className="w-full rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    Delegate task
+                  </button>
+                </div>
               </div>
             )}
             {!permissionsLoading && !canAct && (

@@ -37,6 +37,11 @@ function mockDefaultResponses() {
     if (path === "/authority/effective-permissions") {
       return Promise.resolve({ permissions: ["workflow.instance.act"] });
     }
+    if (path === "/admin/users") {
+      return Promise.resolve({
+        users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }],
+      });
+    }
     return Promise.resolve({});
   });
 }
@@ -91,5 +96,45 @@ describe("TaskInboxPage", () => {
 
     render(<TaskInboxPage />);
     expect(await screen.findByText("No tasks assigned to you right now.")).toBeInTheDocument();
+  });
+
+  it("reassigns a task to another user via the picker", async () => {
+    render(<TaskInboxPage />);
+    await userEvent.click(await screen.findByText("Review drawing"));
+
+    const reassignSearch = screen.getByPlaceholderText("Reassign to…");
+    await userEvent.click(reassignSearch);
+    await userEvent.type(reassignSearch, "Uma");
+    await userEvent.click(await screen.findByText("Uma One (u1@sevents.test)"));
+
+    await userEvent.click(screen.getByRole("button", { name: /reassign task/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/tasks/t1/reassign",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ newAssigneeUserId: "u1" }) }),
+      ),
+    );
+  });
+
+  it("delegates a task to another user via the picker", async () => {
+    render(<TaskInboxPage />);
+    await userEvent.click(await screen.findByText("Review drawing"));
+
+    const delegateSearch = screen.getByPlaceholderText("Delegate to…");
+    await userEvent.click(delegateSearch);
+    await userEvent.type(delegateSearch, "Uma");
+    await userEvent.click(await screen.findByText("Uma One (u1@sevents.test)"));
+
+    await userEvent.click(screen.getByRole("button", { name: /delegate task/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/tasks/t1/delegate",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ delegateUserId: "u1" }) }),
+      ),
+    );
   });
 });

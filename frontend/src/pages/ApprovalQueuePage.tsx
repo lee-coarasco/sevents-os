@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
+import { UserPicker } from "../components/UserPicker";
 
 type StepInstanceStatus = "pending" | "active" | "waiting" | "completed" | "skipped" | "failed";
 type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -268,16 +269,27 @@ export function ApprovalQueuePage() {
                       Reject
                     </button>
                   </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => decide("approved_with_conditions")}
+                      disabled={busy}
+                      className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      Approve with conditions
+                    </button>
+                    <button
+                      onClick={() => decide("returned_for_correction")}
+                      disabled={busy}
+                      className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                    >
+                      Return for correction
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2 border-t border-zinc-100 pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Delegate</p>
-                  <input
-                    value={delegateUserId}
-                    onChange={(e) => setDelegateUserId(e.target.value)}
-                    placeholder="Delegate to (user ID)"
-                    className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  />
+                  <UserPicker value={delegateUserId} onChange={setDelegateUserId} placeholder="Delegate to…" />
                   <input
                     value={delegateReason}
                     onChange={(e) => setDelegateReason(e.target.value)}

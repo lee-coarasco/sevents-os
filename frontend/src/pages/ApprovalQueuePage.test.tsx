@@ -39,6 +39,11 @@ function mockDefaultResponses() {
   apiFetch.mockImplementation((path: string) => {
     if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
     if (path === "/approvals/a1") return Promise.resolve({ detail: DETAIL });
+    if (path === "/admin/users") {
+      return Promise.resolve({
+        users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }],
+      });
+    }
     return Promise.resolve({});
   });
 }
@@ -93,19 +98,65 @@ describe("ApprovalQueuePage", () => {
     expect(apiFetch).not.toHaveBeenCalledWith("/approvals/a1/decide", expect.anything(), expect.anything());
   });
 
-  it("delegates the approval to another user", async () => {
+  it("delegates the approval to another user via the picker", async () => {
     render(<ApprovalQueuePage />);
     await userEvent.click(await screen.findByText("Approve PO-1002"));
     await screen.findByText("Within your limit");
 
-    await userEvent.type(screen.getByPlaceholderText("Delegate to (user ID)"), "user-99");
+    const delegateSearch = screen.getByPlaceholderText("Delegate to…");
+    await userEvent.click(delegateSearch);
+    await userEvent.type(delegateSearch, "Uma");
+    await userEvent.click(await screen.findByText("Uma One (u1@sevents.test)"));
     await userEvent.click(screen.getByRole("button", { name: /delegate this approval/i }));
 
     await waitFor(() =>
       expect(apiFetch).toHaveBeenCalledWith(
         "/tasks/a1/delegate",
         "test-token",
-        expect.objectContaining({ method: "POST", body: JSON.stringify({ delegateUserId: "user-99", reason: null }) }),
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ delegateUserId: "u1", reason: null }) }),
+      ),
+    );
+  });
+
+  it("approves with conditions, carrying the comment as reason", async () => {
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+    await screen.findByText("Within your limit");
+
+    await userEvent.type(screen.getByPlaceholderText("Comment (required if rejecting)"), "Subject to revised schedule");
+    await userEvent.click(screen.getByRole("button", { name: /approve with conditions/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/approvals/a1/decide",
+        "test-token",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ decision: "approved_with_conditions", reason: "Subject to revised schedule" }),
+        }),
+      ),
+    );
+  });
+
+  it("returns for correction, requiring a reason", async () => {
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+    await screen.findByText("Within your limit");
+
+    await userEvent.click(screen.getByRole("button", { name: /return for correction/i }));
+    expect(await screen.findByText(/reason is required/i)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText("Comment (required if rejecting)"), "Missing cost backup");
+    await userEvent.click(screen.getByRole("button", { name: /return for correction/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/approvals/a1/decide",
+        "test-token",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ decision: "returned_for_correction", reason: "Missing cost backup" }),
+        }),
       ),
     );
   });
