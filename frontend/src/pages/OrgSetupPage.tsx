@@ -25,6 +25,13 @@ interface Project {
   location: string | null;
 }
 
+const statusColors: Record<string, string> = {
+  active: "bg-emerald-50 text-emerald-700",
+  planning: "bg-blue-50 text-blue-700",
+  on_hold: "bg-amber-50 text-amber-700",
+  closed: "bg-zinc-100 text-zinc-500",
+};
+
 export function OrgSetupPage() {
   const { session } = useAuth();
   const { has, loading: permissionsLoading } = usePermissions();
@@ -137,141 +144,175 @@ export function OrgSetupPage() {
     : [];
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-slate-900">Company / Branch / Project setup</h2>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+    <div className="space-y-8">
+      <div>
+        <h1 className="font-brand text-2xl font-bold text-zinc-900">Company / Branch / Project</h1>
+        <p className="mt-1 text-sm text-zinc-400">Set up your tenant hierarchy</p>
+      </div>
 
-      <section className="rounded-lg bg-white p-6 shadow">
-        <h3 className="mb-3 text-sm font-medium text-slate-500">Companies</h3>
-        {companies === null && <p className="text-sm text-slate-500">Loading…</p>}
-        {companies?.length === 0 && <p className="text-sm text-slate-500">No companies yet.</p>}
-        {companies && companies.length > 0 && (
-          <ul className="mb-4 space-y-2">
-            {companies.map((company) => (
-              <li key={company.id}>
+      {error && (
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {/* Companies */}
+      <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+        <div className="border-b border-zinc-100 px-6 py-4">
+          <h2 className="font-brand text-base font-semibold text-zinc-900">Companies</h2>
+        </div>
+        <div className="p-6">
+          {companies === null && <p className="text-sm text-zinc-400">Loading…</p>}
+          {companies?.length === 0 && <p className="mb-4 text-sm text-zinc-400">No companies yet.</p>}
+          {companies && companies.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {companies.map((company) => (
                 <button
+                  key={company.id}
                   onClick={() => setSelectedCompanyId(company.id)}
-                  className={`w-full rounded border px-3 py-2 text-left text-sm ${
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
                     company.id === selectedCompanyId
-                      ? "border-slate-900 bg-slate-100"
-                      : "border-slate-200 hover:bg-slate-50"
+                      ? "border-brand bg-brand-soft text-zinc-900"
+                      : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
                   }`}
                 >
-                  {company.legal_name}
+                  <span>{company.legal_name}</span>
+                  {company.id === selectedCompanyId && (
+                    <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {!permissionsLoading && has("tenancy.company.manage") && (
-          <form onSubmit={handleCreateCompany} className="flex gap-2">
-            <input
-              value={newCompanyName}
-              onChange={(e) => setNewCompanyName(e.target.value)}
-              placeholder="Legal name"
-              className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={creatingCompany || !newCompanyName.trim()}
-              className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-            >
-              {creatingCompany ? "Creating…" : "Add company"}
-            </button>
-          </form>
-        )}
-        {!permissionsLoading && !has("tenancy.company.manage") && (
-          <p className="text-xs text-slate-400">You don't have permission to create companies.</p>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+          {!permissionsLoading && has("tenancy.company.manage") && (
+            <form onSubmit={handleCreateCompany} className="flex gap-2">
+              <input
+                value={newCompanyName}
+                onChange={(e) => setNewCompanyName(e.target.value)}
+                placeholder="Legal name"
+                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <button
+                type="submit"
+                disabled={creatingCompany || !newCompanyName.trim()}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+              >
+                {creatingCompany ? "Adding…" : "Add company"}
+              </button>
+            </form>
+          )}
+          {!permissionsLoading && !has("tenancy.company.manage") && (
+            <p className="text-xs text-zinc-400">You don't have permission to create companies.</p>
+          )}
+        </div>
+      </div>
 
       {selectedCompany && (
         <>
-          <section className="rounded-lg bg-white p-6 shadow">
-            <h3 className="mb-3 text-sm font-medium text-slate-500">
-              Branches — {selectedCompany.legal_name}
-            </h3>
-            {branches === null && <p className="mb-3 text-sm text-slate-500">Loading…</p>}
-            {branches?.length === 0 && (
-              <p className="mb-3 text-sm text-slate-500">No branches yet.</p>
-            )}
-            {branches && branches.length > 0 && (
-              <ul className="mb-4 space-y-2">
-                {branches.map((branch) => (
-                  <li key={branch.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                    {branch.name}
-                    {branch.operating_region ? ` — ${branch.operating_region}` : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!permissionsLoading && has("tenancy.branch.manage") && (
-              <form onSubmit={handleCreateBranch} className="flex gap-2">
-                <input
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                  placeholder="Branch name"
-                  className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={creatingBranch || !newBranchName.trim()}
-                  className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-                >
-                  {creatingBranch ? "Creating…" : "Add branch"}
-                </button>
-              </form>
-            )}
-            {!permissionsLoading && !has("tenancy.branch.manage") && (
-              <p className="text-xs text-slate-400">You don't have permission to create branches.</p>
-            )}
-          </section>
+          {/* Branches */}
+          <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+            <div className="border-b border-zinc-100 px-6 py-4">
+              <h2 className="font-brand text-base font-semibold text-zinc-900">
+                Branches
+              </h2>
+              <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+            </div>
+            <div className="p-6">
+              {branches === null && <p className="mb-3 text-sm text-zinc-400">Loading…</p>}
+              {branches?.length === 0 && (
+                <p className="mb-4 text-sm text-zinc-400">No branches yet.</p>
+              )}
+              {branches && branches.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  {branches.map((branch) => (
+                    <div key={branch.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                      <span className="font-medium text-zinc-800">{branch.name}</span>
+                      {branch.operating_region && (
+                        <span className="text-xs text-zinc-400">{branch.operating_region}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!permissionsLoading && has("tenancy.branch.manage") && (
+                <form onSubmit={handleCreateBranch} className="flex gap-2">
+                  <input
+                    value={newBranchName}
+                    onChange={(e) => setNewBranchName(e.target.value)}
+                    placeholder="Branch name"
+                    className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={creatingBranch || !newBranchName.trim()}
+                    className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {creatingBranch ? "Adding…" : "Add branch"}
+                  </button>
+                </form>
+              )}
+              {!permissionsLoading && !has("tenancy.branch.manage") && (
+                <p className="text-xs text-zinc-400">You don't have permission to create branches.</p>
+              )}
+            </div>
+          </div>
 
-          <section className="rounded-lg bg-white p-6 shadow">
-            <h3 className="mb-3 text-sm font-medium text-slate-500">
-              Projects — {selectedCompany.legal_name}
-            </h3>
-            {projects === null && <p className="text-sm text-slate-500">Loading…</p>}
-            {projects && projectsForSelected.length === 0 && (
-              <p className="mb-3 text-sm text-slate-500">No projects yet.</p>
-            )}
-            {projectsForSelected.length > 0 && (
-              <ul className="mb-4 space-y-2">
-                {projectsForSelected.map((project) => (
-                  <li key={project.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                    {project.name}
-                    {project.code ? ` (${project.code})` : ""} — {project.status}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!permissionsLoading && has("tenancy.project.manage") && (
-              <form onSubmit={handleCreateProject} className="flex gap-2">
-                <input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Project name"
-                  className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <input
-                  value={newProjectCode}
-                  onChange={(e) => setNewProjectCode(e.target.value)}
-                  placeholder="Code (optional)"
-                  className="w-32 rounded border border-slate-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={creatingProject || !newProjectName.trim()}
-                  className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-                >
-                  {creatingProject ? "Creating…" : "Add project"}
-                </button>
-              </form>
-            )}
-            {!permissionsLoading && !has("tenancy.project.manage") && (
-              <p className="text-xs text-slate-400">You don't have permission to create projects.</p>
-            )}
-          </section>
+          {/* Projects */}
+          <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+            <div className="border-b border-zinc-100 px-6 py-4">
+              <h2 className="font-brand text-base font-semibold text-zinc-900">Projects</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+            </div>
+            <div className="p-6">
+              {projects === null && <p className="text-sm text-zinc-400">Loading…</p>}
+              {projects && projectsForSelected.length === 0 && (
+                <p className="mb-4 text-sm text-zinc-400">No projects yet.</p>
+              )}
+              {projectsForSelected.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  {projectsForSelected.map((project) => (
+                    <div key={project.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                      <div>
+                        <span className="font-medium text-zinc-800">{project.name}</span>
+                        {project.code && (
+                          <span className="ml-2 font-mono text-xs text-zinc-400">({project.code})</span>
+                        )}
+                      </div>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] ?? "bg-zinc-100 text-zinc-600"}`}>
+                        {project.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!permissionsLoading && has("tenancy.project.manage") && (
+                <form onSubmit={handleCreateProject} className="flex gap-2">
+                  <input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Project name"
+                    className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <input
+                    value={newProjectCode}
+                    onChange={(e) => setNewProjectCode(e.target.value)}
+                    placeholder="Code (optional)"
+                    className="w-32 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={creatingProject || !newProjectName.trim()}
+                    className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {creatingProject ? "Adding…" : "Add project"}
+                  </button>
+                </form>
+              )}
+              {!permissionsLoading && !has("tenancy.project.manage") && (
+                <p className="text-xs text-zinc-400">You don't have permission to create projects.</p>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>

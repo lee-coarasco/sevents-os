@@ -136,132 +136,159 @@ export function DepartmentsRolesPage() {
   const departmentsForSelected = departments ?? [];
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-slate-900">Departments & Roles</h2>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+    <div className="space-y-8">
+      <div>
+        <h1 className="font-brand text-2xl font-bold text-zinc-900">Departments &amp; Roles</h1>
+        <p className="mt-1 text-sm text-zinc-400">Manage your organisation structure and permissions</p>
+      </div>
 
-      <section className="rounded-lg bg-white p-6 shadow">
-        <h3 className="mb-3 text-sm font-medium text-slate-500">Departments</h3>
-        {companies === null && <p className="text-sm text-slate-500">Loading companies…</p>}
-        {companies && companies.length > 0 && (
-          <label className="mb-3 block text-sm">
-            Company
-            <select
-              value={selectedCompanyId}
-              onChange={(e) => setSelectedCompanyId(e.target.value)}
-              className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.legal_name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {departments === null && selectedCompanyId && (
-          <p className="mb-3 text-sm text-slate-500">Loading departments…</p>
-        )}
-        {departments !== null && departmentsForSelected.length === 0 && (
-          <p className="mb-3 text-sm text-slate-500">No departments yet.</p>
-        )}
-        {departmentsForSelected.length > 0 && (
-          <ul className="mb-4 space-y-2">
-            {departmentsForSelected.map((department) => (
-              <li key={department.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                {department.name}
-              </li>
-            ))}
-          </ul>
-        )}
-        {!permissionsLoading && has("authority.department.manage") && companies && companies.length > 0 && (
-          <form onSubmit={handleCreateDepartment} className="flex gap-2">
-            <input
-              value={newDepartmentName}
-              onChange={(e) => setNewDepartmentName(e.target.value)}
-              placeholder="Department name"
-              className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={creatingDepartment || !newDepartmentName.trim()}
-              className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-            >
-              {creatingDepartment ? "Creating…" : "Add department"}
-            </button>
-          </form>
-        )}
-        {!permissionsLoading && !has("authority.department.manage") && (
-          <p className="text-xs text-slate-400">You don't have permission to create departments.</p>
-        )}
-      </section>
+      {error && (
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
 
-      <section className="rounded-lg bg-white p-6 shadow">
-        <h3 className="mb-3 text-sm font-medium text-slate-500">Role assignments</h3>
-        <p className="mb-3 text-xs text-slate-400">
-          There is still no endpoint to list users by name — enter the user id directly.
-        </p>
-        {roleAssignments === null && <p className="mb-3 text-sm text-slate-500">Loading…</p>}
-        {roleAssignments?.length === 0 && (
-          <p className="mb-3 text-sm text-slate-500">No role assignments yet.</p>
-        )}
-        {roleAssignments && roleAssignments.length > 0 && (
-          <ul className="mb-4 space-y-2">
-            {roleAssignments.map((assignment) => (
-              <li key={assignment.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                user {assignment.user_id} → role {roleLabel(assignment.role_id)}
-                {assignment.department_id ? ` (dept ${assignment.department_id})` : ""}
-              </li>
-            ))}
-          </ul>
-        )}
-        {!permissionsLoading && has("authority.role_assignment.manage") && (
-          <form onSubmit={handleCreateRoleAssignment} className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                value={assignUserId}
-                onChange={(e) => setAssignUserId(e.target.value)}
-                placeholder="User id"
-                className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+      {/* Departments */}
+      <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+        <div className="border-b border-zinc-100 px-6 py-4">
+          <h2 className="font-brand text-base font-semibold text-zinc-900">Departments</h2>
+        </div>
+        <div className="p-6">
+          {companies === null && <p className="text-sm text-zinc-400">Loading companies…</p>}
+          {companies && companies.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                Company
+              </label>
               <select
-                value={assignRoleId}
-                onChange={(e) => setAssignRoleId(e.target.value)}
-                className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="mt-2 block w-full max-w-sm rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
               >
-                <option value="">Select a role…</option>
-                {(roles ?? []).map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={assignDepartmentId}
-                onChange={(e) => setAssignDepartmentId(e.target.value)}
-                className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="">No department</option>
-                {departmentsForSelected.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.legal_name}
                   </option>
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              disabled={creatingAssignment || !assignUserId.trim() || !assignRoleId}
-              className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-            >
-              {creatingAssignment ? "Creating…" : "Assign role"}
-            </button>
-          </form>
-        )}
-        {!permissionsLoading && !has("authority.role_assignment.manage") && (
-          <p className="text-xs text-slate-400">You don't have permission to assign roles.</p>
-        )}
-      </section>
+          )}
+          {departments === null && selectedCompanyId && (
+            <p className="mb-3 text-sm text-zinc-400">Loading departments…</p>
+          )}
+          {departments !== null && departmentsForSelected.length === 0 && (
+            <p className="mb-4 text-sm text-zinc-400">No departments yet.</p>
+          )}
+          {departmentsForSelected.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {departmentsForSelected.map((department) => (
+                <div key={department.id} className="flex items-center rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm font-medium text-zinc-800">
+                  <svg className="mr-3 h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  {department.name}
+                </div>
+              ))}
+            </div>
+          )}
+          {!permissionsLoading && has("authority.department.manage") && companies && companies.length > 0 && (
+            <form onSubmit={handleCreateDepartment} className="flex gap-2">
+              <input
+                value={newDepartmentName}
+                onChange={(e) => setNewDepartmentName(e.target.value)}
+                placeholder="Department name"
+                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <button
+                type="submit"
+                disabled={creatingDepartment || !newDepartmentName.trim()}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+              >
+                {creatingDepartment ? "Adding…" : "Add department"}
+              </button>
+            </form>
+          )}
+          {!permissionsLoading && !has("authority.department.manage") && (
+            <p className="text-xs text-zinc-400">You don't have permission to create departments.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Role assignments */}
+      <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+        <div className="border-b border-zinc-100 px-6 py-4">
+          <h2 className="font-brand text-base font-semibold text-zinc-900">Role assignments</h2>
+          <p className="mt-0.5 text-xs text-zinc-400">
+            No user directory yet — enter the user ID directly.
+          </p>
+        </div>
+        <div className="p-6">
+          {roleAssignments === null && <p className="mb-3 text-sm text-zinc-400">Loading…</p>}
+          {roleAssignments?.length === 0 && (
+            <p className="mb-4 text-sm text-zinc-400">No role assignments yet.</p>
+          )}
+          {roleAssignments && roleAssignments.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {roleAssignments.map((assignment) => (
+                <div key={assignment.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                  <span className="font-mono text-xs text-zinc-500">{assignment.user_id.slice(0, 12)}…</span>
+                  <span className="mx-2 text-zinc-300">→</span>
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700">
+                    {roleLabel(assignment.role_id)}
+                  </span>
+                  {assignment.department_id && (
+                    <span className="ml-2 text-xs text-zinc-400">in dept {assignment.department_id.slice(0, 8)}…</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!permissionsLoading && has("authority.role_assignment.manage") && (
+            <form onSubmit={handleCreateRoleAssignment} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={assignUserId}
+                  onChange={(e) => setAssignUserId(e.target.value)}
+                  placeholder="User ID"
+                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+                <select
+                  value={assignRoleId}
+                  onChange={(e) => setAssignRoleId(e.target.value)}
+                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">Select a role…</option>
+                  {(roles ?? []).map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={assignDepartmentId}
+                  onChange={(e) => setAssignDepartmentId(e.target.value)}
+                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">No department</option>
+                  {departmentsForSelected.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={creatingAssignment || !assignUserId.trim() || !assignRoleId}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+              >
+                {creatingAssignment ? "Assigning…" : "Assign role"}
+              </button>
+            </form>
+          )}
+          {!permissionsLoading && !has("authority.role_assignment.manage") && (
+            <p className="text-xs text-zinc-400">You don't have permission to assign roles.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
