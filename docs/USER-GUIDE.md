@@ -207,11 +207,10 @@ M04-M10 in CLAUDE.md's official build order.
 
 ## M13 — Documents, Drawings & Records
 
-**Status:** backend built, `testing` — not yet owner-verified (ticket
-0104/M13a only). The umbrella ticket 0103 is `done` in the sense that
-its architect breakdown work is finished; M13b (approval stamps/IFC
-release gate, ticket 0105) and M13c (transmittals/document requests,
-ticket 0106) are not built yet.
+**Status:** backend built, `testing` — not yet owner-verified (tickets
+0104/M13a and 0105/M13b). The umbrella ticket 0103 is `done` in the sense
+that its architect breakdown work is finished; M13c (transmittals/document
+requests, ticket 0106) is not built yet.
 
 **What's built (M13a — document register & revision control):**
 Backend `documents` module: a general-purpose document-control spine
@@ -252,10 +251,42 @@ quality, M27 legal, etc.) will attach records to.
 **Out of scope for M13a (left for later tickets or other modules):**
 file upload/binary storage wiring, OCR/extraction, retention/legal hold
 (already generic and reusable via ticket 0079's `retention_policies`/
-`legal_holds`), approval-stamp/IFC release gating (M13b), transmittals
-and document requests (M13c).
+`legal_holds`), transmittals and document requests (M13c).
 
-**How to use it:** Nothing to click yet — backend only, no frontend.
+**What's built (M13b — approval stamps & IFC release gate, FR-DOC-003):**
+Reuses the exact M08 `request_approval` workflow seam already used for
+baseline changes (ticket 0075), estimates (ticket 0097) and bid/no-bid
+decisions (ticket 0098) — no second approval mechanism.
+- `POST /documents/revisions/:id/submit-for-release` — starts a workflow
+  instance against a caller-named published workflow definition (same
+  "no automatic resolution" convention as the estimate/bid seams: this
+  module does not guess which definition to run). Only a revision whose
+  `status` is `under_review` may be submitted (409 otherwise); the
+  instance id is recorded on the revision as `workflow_instance_id`.
+- `POST /documents/revisions/:id/resolve-approval` — the polling half:
+  re-reads the linked workflow instance's step outcome and applies it
+  once. On approval: sets `status=approved`, stamps `approved_at`, makes
+  the revision the document's `current_revision_id`, and supersedes the
+  previously-approved revision if one exists (a safety net — M13a's
+  create-time auto-supersede should already have done this). On
+  rejection or "returned for correction": both land on the existing
+  `rejected` status (no new rejection vocabulary) which, like `draft`, is
+  editable in place.
+- "IFC" (Issued For Construction) is not a separate flag or status — it
+  is just "approved and current" for a drawing-type document; the
+  workflow gate itself satisfies FR-DOC-003's review requirement.
+- Configuring *which* reviews/approvals a document type needs is M06
+  Configuration Studio's job, not hard-coded here.
+- Gated by the same `documents.register.manage` permission as M13a's
+  writes.
+
+**Out of scope for M13b:** which approval workflow definition applies to
+which document type (M06 configures that); an event feed/webhook for the
+approval outcome (the caller polls `resolve-approval`, same as the
+estimate/bid seams).
+
+**How to use it:** Nothing to click yet — backend only, no frontend (the
+UI is tracked separately in ticket 0118).
 
 ---
 

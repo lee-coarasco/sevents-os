@@ -1,7 +1,7 @@
 ---
 id: 105
 title: "M13b — Approval stamps & IFC release gate"
-status: in-progress
+status: testing
 roles: [backend-engineer]
 priority: 16
 created: 2026-10-16
@@ -62,3 +62,30 @@ before it can be reviewed/released.
 ## Progress
 - 2026-10-16 18:10 UTC: Filed as the second of three M13 sub-tickets
   per ticket 0103's split.
+- 2026-10-16 17:16 UTC (prior session): Built `submitRevisionForRelease`
+  and `resolveRevisionApproval` in `modules/documents/service.ts`, routes
+  `POST /documents/revisions/:id/submit-for-release` and
+  `POST /documents/revisions/:id/resolve-approval`, migration
+  `20261016000019_m13b_ifc_release_approval_gate.sql` (adds
+  `workflow_instance_id`/`approved_at` to `document_revisions`), and
+  tests — but left the ticket at `in-progress` with no progress note.
+  Migration was applied live later the same evening (see
+  daily-log/2026-10-16.md "applied all 31 pending Supabase migrations").
+- 2026-10-16 21:35 UTC: Picked this up as the `next` ticket. Verified
+  rather than rebuilt: ran the full backend suite
+  (`npm --prefix backend run test`) — 56 files / 581 tests pass,
+  including the documents module's 41; `npm --prefix backend run lint`
+  (tsc --noEmit) clean. Confirmed against the acceptance list: submit
+  only accepts `under_review` revisions (409 otherwise, tested),
+  approval stamps `approved_at` and runs the supersede safety-net,
+  rejection/returned-for-correction both land on the existing `rejected`
+  status (no new vocabulary), tenant isolation covered, RLS already
+  enabled on `document_revisions` by ticket 0104's migration (0105's
+  migration only adds columns to that same table). Permission gate
+  reuses `documents.register.manage`, same as every other write on this
+  module — no new permission minted. Updated `docs/USER-GUIDE.md`'s M13
+  entry with the new endpoints and status. Found a gap while checking
+  the Definition of Done's notification checklist — see ticket 0122
+  (filed separately rather than scope-creeping it into this one, since
+  it spans every module built since M31, not just this ticket's code).
+  Moving to `status: testing`.
