@@ -16,7 +16,7 @@ export async function apiFetch<T>(path: string, accessToken: string, init: Reque
     headers: {
       ...init.headers,
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
+      ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
   });
   const body = await response.json().catch(() => ({}));
