@@ -62,6 +62,11 @@ export interface CreateProjectTypeInput {
   code?: string | null;
 }
 
+export interface UpdateProjectTypeInput {
+  name?: string;
+  code?: string | null;
+}
+
 export interface CreateWBSNodeInput {
   project_id: string;
   parent_wbs_node_id?: string | null;
@@ -217,6 +222,8 @@ export interface ProjectsRepository {
   updateProject(accessToken: string, projectId: string, input: UpdateProjectInput): Promise<Project | null>;
   createProjectType(accessToken: string, input: CreateProjectTypeInput): Promise<ProjectType>;
   listProjectTypes(accessToken: string): Promise<ProjectType[]>;
+  updateProjectType(accessToken: string, id: string, input: UpdateProjectTypeInput): Promise<ProjectType | null>;
+  archiveProjectType(accessToken: string, id: string): Promise<ProjectType | null>;
 
   createWBSNode(accessToken: string, input: CreateWBSNodeInput): Promise<WBSNode>;
   listWBSNodes(accessToken: string, projectId: string): Promise<WBSNode[]>;
@@ -357,6 +364,30 @@ export function createSupabaseProjectsRepository(
       const { data, error } = await client.from("project_types").select("*");
       if (error) throw new Error(`listProjectTypes: ${error.message}`);
       return (data as ProjectType[]) ?? [];
+    },
+
+    async updateProjectType(accessToken, id, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_types")
+        .update(input)
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateProjectType: ${error.message}`);
+      return (data as ProjectType | null) ?? null;
+    },
+
+    async archiveProjectType(accessToken, id) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("project_types")
+        .update({ is_active: false })
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`archiveProjectType: ${error.message}`);
+      return (data as ProjectType | null) ?? null;
     },
 
     async createWBSNode(accessToken, input) {

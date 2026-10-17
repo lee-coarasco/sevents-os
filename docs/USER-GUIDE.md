@@ -408,6 +408,39 @@ leaving everything at "immediate delivery, no quiet hours").
 
 ---
 
+## M33 — Master Data & Configuration
+
+**Status:** backend `in-progress` (ticket 0114), no frontend yet.
+
+**What's built:** six tenant-scoped master-data tables backend only —
+units of measure (`uom`), currencies (`currencies`, exactly one base
+currency enforced per tenant), cost codes (`cost_codes`, self-referencing
+hierarchy), document types (`document_types`), numbering schemes
+(`numbering_schemes`, atomic "issue next number" via optimistic-
+concurrency retry, no Postgres function), and project types (already
+existed from ticket 0073/M09a — only the missing `is_active` column and
+edit/archive endpoints were added, not a second table). All writes
+gated by `master-data.manage` except project-types' own pre-existing
+`tenancy.project.manage` (kept as-is rather than split across two
+permissions for one entity). Reads open to any authenticated tenant
+member. `documents.document_type_id` and `estimate_lines.cost_code_id`
+nullable FKs added so those modules can move off free text once their
+own forms gain a picker — no existing row is affected, the old text
+columns are untouched.
+
+**Out of scope for this pass:** the "every monetary field gets a
+companion `currency_code` column" instruction in the ticket was too
+broad to act on without the owner naming which fields qualify beyond
+what already exists (`projects.contract_currency`/`budget_currency`,
+free text, from ticket 0073) — deferred rather than guessed at, per
+CLAUDE.md's "don't invent" rule. No frontend yet (the "Master Data"
+nav section, six list/create/edit/archive screens) — ticket 0114 is
+still `in-progress`.
+
+**How to use it:** Nothing to click yet — backend only, no frontend.
+
+---
+
 ## Not started yet
 
 Everything from M12 onward in CLAUDE.md's build order table except M13a

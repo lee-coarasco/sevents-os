@@ -18,6 +18,7 @@ import type {
   UpdateCloseoutItemInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
+  UpdateProjectTypeInput,
   UpdateRegisterEntryInput,
   UpdateScheduleActivityInput,
   UpdateWBSNodeInput,
@@ -126,9 +127,28 @@ export class FakeProjectsRepository implements ProjectsRepository {
       tenant_id,
       name: input.name,
       code: input.code ?? null,
+      is_active: true,
     };
     this.projectTypes.set(projectType.id, projectType);
     return projectType;
+  }
+
+  async updateProjectType(accessToken: string, id: string, input: UpdateProjectTypeInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const projectType = this.projectTypes.get(id);
+    if (!projectType || projectType.tenant_id !== tenant_id) return null;
+    const updated = { ...projectType, ...input };
+    this.projectTypes.set(id, updated);
+    return updated;
+  }
+
+  async archiveProjectType(accessToken: string, id: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    const projectType = this.projectTypes.get(id);
+    if (!projectType || projectType.tenant_id !== tenant_id) return null;
+    const archived = { ...projectType, is_active: false };
+    this.projectTypes.set(id, archived);
+    return archived;
   }
 
   async listProjectTypes(accessToken: string) {

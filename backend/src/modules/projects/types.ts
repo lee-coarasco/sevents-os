@@ -31,6 +31,7 @@ export interface ProjectType {
   tenant_id: string;
   name: string;
   code: string | null;
+  is_active: boolean;
 }
 
 /**

@@ -217,4 +217,42 @@ describe("POST/GET /project-types", () => {
 
     expect(response.statusCode).toBe(403);
   });
+
+  it("edits a project type and archives it", async () => {
+    const { app } = appWithFakeRepos();
+    const created = await app.inject({
+      method: "POST",
+      url: "/project-types",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Civil", code: "CIV" },
+    });
+    const id = created.json().projectType.id;
+
+    const edited = await app.inject({
+      method: "PATCH",
+      url: `/project-types/${id}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { name: "Civil Works" },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().projectType.name).toBe("Civil Works");
+
+    const archived = await app.inject({
+      method: "POST",
+      url: `/project-types/${id}/archive`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json().projectType.is_active).toBe(false);
+  });
+
+  it("404s archiving a project type that doesn't exist", async () => {
+    const { app } = appWithFakeRepos();
+    const response = await app.inject({
+      method: "POST",
+      url: "/project-types/does-not-exist/archive",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    });
+    expect(response.statusCode).toBe(404);
+  });
 });

@@ -70,6 +70,11 @@ import {
   createSupabaseDocumentsRepository,
   type DocumentsRepository,
 } from "./modules/documents/repository.js";
+import { masterDataRoutes } from "./modules/masterdata/routes.js";
+import {
+  createSupabaseMasterDataRepository,
+  type MasterDataRepository,
+} from "./modules/masterdata/repository.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -108,6 +113,8 @@ export interface BuildAppOptions {
   getBiddingRepository?: () => BiddingRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getDocumentsRepository?: () => DocumentsRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getMasterDataRepository?: () => MasterDataRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -247,6 +254,15 @@ function defaultDocumentsRepository(): DocumentsRepository {
   return cachedDocumentsRepository;
 }
 
+let cachedMasterDataRepository: MasterDataRepository | null = null;
+
+function defaultMasterDataRepository(): MasterDataRepository {
+  if (!cachedMasterDataRepository) {
+    cachedMasterDataRepository = createSupabaseMasterDataRepository(createUserScopedClient);
+  }
+  return cachedMasterDataRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -335,6 +351,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(documentsRoutes, {
     getRepository: options.getDocumentsRepository ?? defaultDocumentsRepository,
     getWorkflowRepository: options.getWorkflowRepository ?? defaultWorkflowRepository,
+    requirePermission: guard,
+  });
+
+  app.register(masterDataRoutes, {
+    getRepository: options.getMasterDataRepository ?? defaultMasterDataRepository,
     requirePermission: guard,
   });
 

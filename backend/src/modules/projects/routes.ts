@@ -8,6 +8,7 @@ import {
   NoCurrentBaselineError,
   NotFoundError,
   addScheduleActivityDependency,
+  archiveProjectType,
   completeCloseoutItem,
   computeProjectHealth,
   createMilestone,
@@ -37,6 +38,7 @@ import {
   setInitialBaseline,
   updateMilestone,
   updateProject,
+  updateProjectType,
   updateRegisterEntry,
   updateScheduleActivity,
   updateWBSNode,
@@ -213,6 +215,47 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
     const projectTypes = await listProjectTypes(options.getRepository(), token);
     return { projectTypes };
   });
+
+  app.patch<{ Params: { id: string }; Body: { name?: string; code?: string | null } }>(
+    "/project-types/:id",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const projectType = await updateProjectType(
+          options.getRepository(),
+          token,
+          request.params.id,
+          request.body ?? {},
+        );
+        return { projectType };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: "project type not found" };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/project-types/:id/archive",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const projectType = await archiveProjectType(options.getRepository(), token, request.params.id);
+        return { projectType };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: "project type not found" };
+        }
+        throw error;
+      }
+    },
+  );
 
   app.post<{
     Params: { projectId: string };

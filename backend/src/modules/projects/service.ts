@@ -11,6 +11,7 @@ import type {
   RecordProgressEntryInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
+  UpdateProjectTypeInput,
   UpdateRegisterEntryInput,
   UpdateScheduleActivityInput,
   UpdateWBSNodeInput,
@@ -96,6 +97,27 @@ export async function createProjectType(
 
 export async function listProjectTypes(repo: ProjectsRepository, accessToken: string): Promise<ProjectType[]> {
   return repo.listProjectTypes(accessToken);
+}
+
+export async function updateProjectType(
+  repo: ProjectsRepository,
+  accessToken: string,
+  id: string,
+  input: UpdateProjectTypeInput,
+): Promise<ProjectType> {
+  const updated = await repo.updateProjectType(accessToken, id, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
+}
+
+export async function archiveProjectType(
+  repo: ProjectsRepository,
+  accessToken: string,
+  id: string,
+): Promise<ProjectType> {
+  const archived = await repo.archiveProjectType(accessToken, id);
+  if (!archived) throw new NotFoundError();
+  return archived;
 }
 
 export async function createWBSNode(
