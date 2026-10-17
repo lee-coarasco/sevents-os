@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { healthRoute } from "./routes/health.js";
 import { identityRoutes } from "./modules/identity/routes.js";
@@ -75,6 +76,8 @@ import {
   createSupabaseMasterDataRepository,
   type MasterDataRepository,
 } from "./modules/masterdata/repository.js";
+import { storageRoutes } from "./modules/storage/routes.js";
+import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -272,6 +275,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     origin: env.corsOrigins,
     credentials: true,
   });
+
+  app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } }); // 50 MB cap
 
   app.register(healthRoute, {
     getSupabaseClient: options.getSupabaseClient ?? createServiceClient,
