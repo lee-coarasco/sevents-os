@@ -147,6 +147,18 @@ export class FakeIdentityRepository implements IdentityRepository {
       .sort((a, b) => (a.display_name ?? a.email).localeCompare(b.display_name ?? b.email));
   }
 
+  async updateAppUser(userId: string, fields: { displayName?: string | null }) {
+    const user = this.users.get(userId);
+    if (!user) throw new Error(`user ${userId} not found`);
+    const updated = { ...user, display_name: fields.displayName !== undefined ? fields.displayName : user.display_name };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async sendPasswordResetEmail(_email: string) {
+    // no-op in tests
+  }
+
   async listOwnAuditLog(_accessToken: string, userId: string) {
     return this.auditLog
       .filter((entry) => entry.user_id === userId)

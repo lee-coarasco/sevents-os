@@ -78,6 +78,7 @@ import {
 } from "./modules/masterdata/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
+import { adminUsersRoutes } from "./modules/admin/users/routes.js";
 import {
   createAnonClient,
   createServiceClient,
@@ -370,6 +371,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(dashboardRoutes, {
     getUserScopedClient: createUserScopedClient,
+  });
+
+  app.register(adminUsersRoutes, {
+    getServiceClient: createServiceClient,
+    requirePermission: guard,
   });
 
   return app;

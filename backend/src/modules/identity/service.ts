@@ -115,6 +115,24 @@ export async function enrollMfa(repo: IdentityRepository, accessToken: string) {
   return factor;
 }
 
+export async function updateUser(
+  repo: IdentityRepository,
+  userId: string,
+  fields: { displayName?: string | null },
+): Promise<AppUser> {
+  return repo.updateAppUser(userId, fields);
+}
+
+export async function sendPasswordReset(
+  repo: IdentityRepository,
+  userId: string,
+): Promise<void> {
+  const user = await repo.getAppUserById(userId);
+  if (!user) throw new Error(`user ${userId} not found`);
+  await repo.sendPasswordResetEmail(user.email);
+  await repo.insertAuditEvent(userId, "password_reset_requested", { triggered_by: "admin" });
+}
+
 export async function verifyMfa(
   repo: IdentityRepository,
   accessToken: string,

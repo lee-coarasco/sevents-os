@@ -37,6 +37,8 @@ export interface IdentityRepository {
    * independently of this handler, same convention as `listOwnAuditLog`.
    */
   listUsers(accessToken: string): Promise<AppUser[]>;
+  updateAppUser(userId: string, fields: { displayName?: string | null }): Promise<AppUser>;
+  sendPasswordResetEmail(email: string): Promise<void>;
   signInWithPassword(
     email: string,
     password: string,
@@ -206,6 +208,24 @@ export function createSupabaseIdentityRepository(
         .order("display_name", { ascending: true, nullsFirst: false });
       if (error) throw new Error(`listUsers: ${error.message}`);
       return (data as AppUser[]) ?? [];
+    },
+
+    async updateAppUser(userId, fields) {
+      const patch: Record<string, unknown> = {};
+      if (fields.displayName !== undefined) patch.display_name = fields.displayName;
+      const { data, error } = await serviceClient
+        .from("app_users")
+        .update(patch)
+        .eq("id", userId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`updateAppUser: ${error?.message ?? "no row returned"}`);
+      return data as AppUser;
+    },
+
+    async sendPasswordResetEmail(email) {
+      const { error } = await serviceClient.auth.resetPasswordForEmail(email);
+      if (error) throw new Error(`sendPasswordResetEmail: ${error.message}`);
     },
 
     async listOwnAuditLog(accessToken, userId) {
