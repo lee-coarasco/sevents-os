@@ -1055,3 +1055,35 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal API
   design are explicitly agent-decidable per CLAUDE.md, same weight as
   every prior module split recorded here).
+
+## 2026-10-17 00:36 UTC - Ticket 0125 (M05 catalogue admin UI): built the shared `<PermissionGate>` component for the first time; `workflow_template_id` picked from the existing `GET /workflow/definitions/published` list, not a new endpoint
+- Decision: Finished ticket 0125's frontend half (the backend half —
+  joined `WorkItemSummary` + wired `search` — was already committed by
+  the prior session). Two things worth recording: (1) every page built
+  before this one (`EmployeesPage`, `DepartmentsRolesPage`, etc.) gates
+  write actions by calling `has(...)` inline rather than through the
+  `<PermissionGate>` component CLAUDE.md's shared-component table
+  requires — that component had never actually been built. Ticket
+  0125's own acceptance explicitly asks for writes "wrapped in
+  `<PermissionGate permission="catalogue.workitem.manage">`," so built
+  `frontend/src/components/PermissionGate.tsx` now, per CLAUDE.md's "if
+  one is missing and the module needs it, build the shared component as
+  part of that module's ticket" rule, rather than deferring a fourth
+  time. Did not retrofit the existing inline-`has()` pages to use it —
+  no regression risk either way, and rewriting already-shipped,
+  already-tested pages for a style-only change is out of this ticket's
+  scope. (2) The edit form's `workflow_template_id` field uses a
+  `<select>` populated from `GET /workflow/definitions/published`
+  (found already built, permission-light, for an M11 picker need) rather
+  than a free-text id box, per the "no raw UUIDs" rule — no new backend
+  endpoint was needed. `capability_key` stayed free text: it's a
+  descriptive matching key, not a foreign key to one specific row, so
+  there's nothing to pick from a list.
+- Why: (1) is a direct reading of CLAUDE.md's own shared-component rule
+  applied to a gap nobody had closed yet; (2) reuses existing,
+  already-permission-scoped infrastructure instead of inventing a
+  second lookup endpoint for the same table.
+- Approved by: agent (UI component structure and internal API reuse are
+  both explicitly agent-decidable per CLAUDE.md; recorded here because
+  (1) is a standing gap across every prior frontend ticket, not just an
+  implementation detail of this one).

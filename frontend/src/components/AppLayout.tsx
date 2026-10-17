@@ -54,6 +54,12 @@ export function AppLayout() {
             </svg>
             Departments &amp; Roles
           </NavLink>
+          <NavLink to="/catalogue" className={navLinkClass}>
+            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21m13.378.217l.217-.86A3 3 0 0018.75 12l-.395-.197a3 3 0 00-2.682 0l-.218.11a3 3 0 01-2.682 0l-.218-.11a3 3 0 00-2.682 0l-.395.197a3 3 0 00-1.995 2.567l.217.86m13.378.217L19.428 15.428zM3.75 12h.007v.008H3.75V12zm0-6h.007v.008H3.75V6zm0 12h.007v.008H3.75V18zM4.5 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0-6a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
+            Work-Item Catalogue
+          </NavLink>
 
           <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
             Work

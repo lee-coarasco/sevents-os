@@ -69,15 +69,33 @@ every other screen.
 
 ## M05 — Work-Item Catalogue & Disposition
 
-**Status:** testing (ticket 0058)
+**Status:** testing (ticket 0058 backend; ticket 0125 admin UI)
 
-**What's built:** Backend `catalogue` module only — the 1,308-row source
+**What's built:** Backend `catalogue` module — the 1,308-row source
 catalogue imported and classified (995 configure-workflow rows, 215
-configure-approval rows, etc.). No REST API meant for end users; it's
-configuration input for M06's workflow definitions, not a thing you browse
-directly.
+configure-approval rows, etc.) — plus a Work-Item Catalogue admin screen to
+browse, search, filter, reclassify and retire those rows. `GET
+/catalogue/work-items` now returns a joined summary (item name, description,
+who's responsible, source department) instead of a bare definition row, and
+its `search` querystring does a case-insensitive match against item name +
+description. Adding a brand-new catalogue item or bulk CSV import/re-import
+through the UI is still out of scope — see ticket 0126 — because there is no
+authenticated INSERT path for either underlying table (import stays a
+service-role CLI script).
 
-**How to use it:** Nothing to click — this is internal data, not a screen.
+**How to use it:** Platform Administrator (or anyone holding
+`catalogue.workitem.manage`) → sidebar **Work-Item Catalogue**.
+- Search box matches item name/description; Department, Disposition and
+  Status dropdowns filter the list; retired items are hidden unless you tick
+  **Show archived**.
+- **Edit** opens a form for disposition, status, priority, risk tier, phase
+  target, capability key, the linked published workflow (picked from a
+  dropdown, not typed as an id) and an optional change note — saving bumps
+  the item's version.
+- **Retire** sets status to `retired` in one click; it then only shows up
+  with **Show archived** ticked.
+- Without `catalogue.workitem.manage` you can still browse and search, but
+  the Edit/Retire actions are hidden.
 
 ## M06 — Configuration Studio & Workflow Engine
 

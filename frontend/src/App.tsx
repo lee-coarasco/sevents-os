@@ -15,6 +15,7 @@ import { OpportunityDetailPage } from "./pages/OpportunityDetailPage";
 import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
+import { CataloguePage } from "./pages/CataloguePage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -50,6 +51,7 @@ export function App() {
             <Route path="tendering/tender-submissions/:id" element={<TenderSubmissionDetailPage />} />
             <Route path="documents" element={<DocumentsPage />} />
             <Route path="documents/:id" element={<DocumentDetailPage />} />
+            <Route path="catalogue" element={<CataloguePage />} />
           </Route>
         </Routes>
       </BrowserRouter>
