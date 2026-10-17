@@ -1148,3 +1148,35 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering is explicitly
   agent-decidable per CLAUDE.md, same weight as every prior module
   split recorded here).
+
+## 2026-10-17 03:09 UTC - Ticket 0115 ("systemic UI foundations") closed with no code — fully duplicate of tickets already split from 0111, plus one prior shared-component ticket; only genuine gap (EntityPicker + StatusBadge) carved into new ticket 0140
+- Decision: Ticket 0115 (owner-filed, same day as ticket 0111) listed
+  twelve items. Ten were already independently ticketed: `<PermissionGate>`
+  and `<UserPicker>` are already built (0125, 0108); notification bell is
+  already built and `testing` (0128); `<ActivityThread>` (0133),
+  `<FileAttachment>` (0132), `<CurrencyInput>`/`<CurrencyDisplay>` (0134),
+  profile/My Account page (0130), dashboard real data (0131), and the
+  first-time setup wizard (0135, blocked on an owner question) all came
+  out of ticket 0111's eight-way split earlier the same day; `<DatePicker>`
+  plus a PermissionGate/CurrencyInput retrofit sweep is ticket 0123, filed
+  the day before. Rather than rebuild any of that, closed 0115 `done` with
+  an item-by-item mapping in its own Progress section and no code. The two
+  items genuinely uncovered anywhere — `<EntityPicker>` and `<StatusBadge>`
+  — were split into new ticket 0140 and built this session (see below).
+- Note on `<EntityPicker>` specifically: ticket 0108's close-out had
+  explicitly chosen per-form `<select>`s over a generic `<EntityPicker>`
+  for its own six gaps, calling a generic component scope creep for that
+  ticket. CLAUDE.md's Definition of Done table lists `<EntityPicker
+  type="...">` as its own required shared component regardless of any one
+  module's ticket, so building it now closes a standing gap rather than
+  reopening that earlier (correct, for its own narrow scope) call. Existing
+  per-form selects were not retrofitted — out of scope, same
+  already-shipped-already-tested reasoning as the PermissionGate retrofit
+  (0129).
+- Why: avoids three different tickets (0115 and whatever picked it up,
+  0111's split tickets, 0123) independently rebuilding the same
+  components; same oversized/duplicate-ticket-split precedent used
+  throughout this backlog (0111, 0112).
+- Approved by: agent (ticket classification/ordering and internal
+  component-boundary decisions are explicitly agent-decidable per
+  CLAUDE.md).

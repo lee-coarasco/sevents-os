@@ -462,6 +462,29 @@ banner instead of silently failing.
 
 ---
 
+## Shared frontend components (not a module — reused across all of them)
+
+These live in `frontend/src/components/` and aren't a screen of their own,
+but every module above uses one or more of them:
+
+- `<PermissionGate permission="x.y.z">` — hides an action button when the
+  signed-in user lacks the named permission.
+- `<UserPicker>` — name/email search-to-user-id picker. Used anywhere a
+  form needs to reference a person (assignee, reviewer, approver, owner).
+- `<EntityPicker type="project|client|document|cost-code|document-type|
+  currency|uom">` — same search pattern as `<UserPicker>`, for referencing
+  another entity instead of a person. New forms should reach for this
+  instead of a raw `<select>` or, worse, a text box expecting a UUID.
+- `<StatusBadge status="...">` — colour-coded status pill covering every
+  status string used across the built modules (project, milestone,
+  document revision, estimate/bid, workflow/task, employment, CRM
+  opportunity stage). Unknown statuses render as a neutral grey pill with
+  the status text, rather than breaking.
+- `<NotificationBell>` — header bell with unread count and a drawer; see
+  M31 above.
+
+---
+
 ## Not started yet
 
 Everything from M12 onward in CLAUDE.md's build order table except M13a

@@ -1,12 +1,15 @@
 ---
 id: 115
 title: Systemic UI foundations — shared components and AppLayout features
-status: next
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
 updated: 2026-10-17
 ---
+
+**Closed with no code — fully superseded by tickets filed earlier the same
+day. See Progress for the item-by-item mapping.**
 
 Before any further module UIs can be considered "done" (per the Definition of
 Done in CLAUDE.md), these eight shared components and AppLayout features must
@@ -126,3 +129,28 @@ immediately.
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-17 (session): This ticket's twelve items turn out to duplicate
+  work already split out of ticket 0111 earlier the same day, plus one
+  earlier shared-component ticket. Mapping (no code needed for any of
+  these ten — just cross-referencing):
+  1. `<PermissionGate>` — already built (ticket 0125). Retrofit across
+     existing pages tracked in ticket 0129.
+  2. `<UserPicker>` — already built (ticket 0108).
+  3. `<EntityPicker>` — not covered by any existing ticket. Split out as
+     new ticket 0140, built this session.
+  4. `<ActivityThread>` — ticket 0133.
+  5. `<FileAttachment>` — ticket 0132.
+  6. `<CurrencyInput>`/`<CurrencyDisplay>` — ticket 0134 (+ retrofit in
+     0123).
+  7. `<DatePicker>` — ticket 0123.
+  8. `<StatusBadge>` — not covered by any existing ticket. Split out as
+     new ticket 0140, built this session.
+  9. Notification bell — already built, `status: testing` (ticket 0128).
+  10. Profile/My Account page — ticket 0130.
+  11. Dashboard real data — ticket 0131.
+  12. First-time setup wizard — ticket 0135 (`status: blocked`, owner
+      question pending).
+  Closing this ticket `done` with no code of its own: items 1/2/9 are
+  already shipped, items 3/8 are carved into new ticket 0140 (built this
+  session), and the rest already have their own tickets in the backlog.
+  Logged in DECISIONS.md.
