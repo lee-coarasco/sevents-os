@@ -85,6 +85,7 @@ function applyFilters(definitions: WorkItemDefinition[], filters: WorkItemFilter
     if (filters.riskTier && definition.risk_tier !== filters.riskTier) return false;
     if (filters.missingData && !matchesMissingData(definition)) return false;
     if (filters.department && definition.department_cluster !== filters.department) return false;
+    if (filters.excludeRetired && definition.status === "retired") return false;
     return true;
   });
 }

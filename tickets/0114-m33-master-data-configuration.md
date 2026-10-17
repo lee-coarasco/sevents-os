@@ -1,7 +1,7 @@
 ---
 id: 114
 title: M33: Master Data & Configuration
-status: testing
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17

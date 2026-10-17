@@ -1,7 +1,7 @@
 ---
 id: 132
 title: Shared <FileAttachment> component (Supabase Storage wiring)
-status: next
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer]
 priority: 2
 created: 2026-10-17
@@ -35,3 +35,5 @@ tickets have used.
   still passes.
 
 ## Progress
+
+2026-10-17: Built backend storage proxy (`backend/src/modules/storage/routes.ts`) with POST /storage/upload, DELETE /storage/*, and GET /storage/signed-url/* endpoints using service-role Supabase client against the `attachments` bucket. Installed and registered `@fastify/multipart` (50 MB limit) in app.ts. Built `frontend/src/components/FileAttachment.tsx` with `<FileAttachment onUploaded={...}>` upload button and `<AttachmentLink attachment={...}>` display component. Upload uses raw `fetch` with `FormData` to avoid overriding the multipart Content-Type boundary. Both modules wired into `app.ts`; TypeScript checks pass.

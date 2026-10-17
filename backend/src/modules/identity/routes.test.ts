@@ -92,37 +92,8 @@ describe("POST /identity/invite", () => {
   });
 });
 
-describe("GET /admin/users", () => {
-  it("401s with no bearer token", async () => {
-    const { app } = appWithFakeRepo();
-
-    const response = await app.inject({ method: "GET", url: "/admin/users" });
-
-    expect(response.statusCode).toBe(401);
-  });
-
-  it("200s with the tenant's user directory for any valid session", async () => {
-    const { app, repo } = appWithFakeRepo();
-    const inviteResponse = await app.inject({
-      method: "POST",
-      url: "/identity/invite",
-      headers: adminHeaders,
-      payload: { email: "pick-me@sevents.test", displayName: "Pick Me" },
-    });
-    repo.addSession("valid-token", inviteResponse.json().user.id);
-
-    const response = await app.inject({
-      method: "GET",
-      url: "/admin/users",
-      headers: { authorization: "Bearer valid-token" },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json().users).toEqual(
-      expect.arrayContaining([expect.objectContaining({ email: "pick-me@sevents.test" })]),
-    );
-  });
-});
+// GET /admin/users was moved to the admin/users module (ticket 0149);
+// it is now tested in src/modules/admin/users/routes.test.ts.
 
 describe("GET /identity/audit-log", () => {
   it("401s with no bearer token", async () => {

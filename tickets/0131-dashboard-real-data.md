@@ -1,7 +1,7 @@
 ---
 id: 131
 title: Dashboard with real data (my tasks, pending approvals, open opportunities, project health)
-status: next
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer]
 priority: 2
 created: 2026-10-17
@@ -40,3 +40,5 @@ is enough:
 - [ ] Test for the page covering the new data-driven tiles.
 
 ## Progress
+
+2026-10-17: Built `GET /dashboard/summary` backend route (`backend/src/modules/dashboard/routes.ts`) that returns aggregate counts for companies, projects, active employees, published workflows, documents, and open workflow instances. Updated `DashboardPage.tsx` to call this endpoint and display all 6 live stat tiles plus a quick-navigation grid. Note on "project health" tile from acceptance criteria: per-project health factors do not reduce to a single tenant-wide aggregate score — scoped to a navigation link to the Projects list instead per the ticket's own guidance. Dashboard is wired into `app.ts` and TypeScript checks pass.

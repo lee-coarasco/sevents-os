@@ -72,7 +72,8 @@ describe("GET /catalogue/work-items", () => {
       headers: { authorization: `Bearer ${TOKEN}` },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json().workItems).toHaveLength(1);
+    expect(response.json().items).toHaveLength(1);
+    expect(response.json().total).toBe(1);
   });
 
   it("403s without the permission", async () => {

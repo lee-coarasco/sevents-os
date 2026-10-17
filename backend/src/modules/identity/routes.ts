@@ -9,8 +9,10 @@ import {
   getOwnAuditLog,
   inviteUser,
   listUsers,
+  sendPasswordReset,
   signIn,
   signOut,
+  updateUser,
   verifyMfa,
 } from "./service.js";
 
@@ -117,26 +119,40 @@ export async function identityRoutes(app: FastifyInstance, options: IdentityRout
     },
   );
 
-  // Ticket 0108: directory lookup backing the shared <UserPicker> —
-  // M03/M04/M07/M08 all need to resolve a name/email search to a user id
-  // without the caller ever typing a raw UUID.
-  app.get("/admin/users", async (request, reply) => {
-    const token = bearerToken(request.headers.authorization);
-    if (!token) {
-      reply.code(401);
-      return { error: "missing bearer token" };
-    }
-    try {
-      const users = await listUsers(options.getRepository(), token);
-      return { users };
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        reply.code(401);
-        return { error: error.message };
+  // Ticket 0108: GET /admin/users moved to the dedicated admin/users module (ticket 0149)
+  // which returns richer data (role_id, role_label). UserPicker continues to call that endpoint.
+
+  app.patch<{ Params: { id: string }; Body: { displayName?: string | null } }>(
+    "/admin/users/:id",
+    { preHandler: options.requirePermission("identity.user.invite") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization);
+      if (!token) { reply.code(401); return { error: "missing bearer token" }; }
+      try {
+        const user = await updateUser(options.getRepository(), request.params.id, request.body ?? {});
+        return { user };
+      } catch (error) {
+        if (error instanceof UnauthorizedError) { reply.code(401); return { error: error.message }; }
+        throw error;
       }
-      throw error;
-    }
-  });
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/admin/users/:id/reset-password",
+    { preHandler: options.requirePermission("identity.user.invite") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization);
+      if (!token) { reply.code(401); return { error: "missing bearer token" }; }
+      try {
+        await sendPasswordReset(options.getRepository(), request.params.id);
+        return { ok: true };
+      } catch (error) {
+        if (error instanceof UnauthorizedError) { reply.code(401); return { error: error.message }; }
+        throw error;
+      }
+    },
+  );
 
   app.get("/identity/audit-log", async (request, reply) => {
     const token = bearerToken(request.headers.authorization);

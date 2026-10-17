@@ -135,4 +135,12 @@ export interface WorkItemFilters {
   missingData?: boolean;
   search?: string;
   sourceSerial?: number;
+  excludeRetired?: boolean;
+}
+
+export interface PaginatedWorkItems {
+  items: WorkItemSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
