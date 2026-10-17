@@ -1,5 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
 import { env } from "./env.js";
+
+// ws is compatible at runtime but its types diverge from the WebSocket interface on Node 20
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const wsTransport = ws as any;
 
 /**
  * Service-role client for server-side use only. Never expose this client,
@@ -8,6 +13,7 @@ import { env } from "./env.js";
 export function createServiceClient(): SupabaseClient {
   return createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
     auth: { persistSession: false },
+    realtime: { transport: wsTransport },
   });
 }
 
@@ -20,6 +26,7 @@ export function createUserScopedClient(accessToken: string): SupabaseClient {
   return createClient(env.supabaseUrl, env.supabaseAnonKey, {
     auth: { persistSession: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    realtime: { transport: wsTransport },
   });
 }
 
@@ -27,5 +34,6 @@ export function createUserScopedClient(accessToken: string): SupabaseClient {
 export function createAnonClient(): SupabaseClient {
   return createClient(env.supabaseUrl, env.supabaseAnonKey, {
     auth: { persistSession: false },
+    realtime: { transport: wsTransport },
   });
 }
