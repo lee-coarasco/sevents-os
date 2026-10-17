@@ -34,6 +34,7 @@ import type {
   GateException,
   SimulationTestCase,
   SlaDefinition,
+  TaskDetail,
   TaskQueueEntry,
   WorkflowCondition,
   WorkflowDefinition,
@@ -1132,6 +1133,24 @@ export async function addTaskComment(
     payload: { commentId: comment.id },
   });
   return comment;
+}
+
+/** Ticket 0145 (M07/M08): backs the task drawer's `<ActivityThread>` — same event-filtering shape getApprovalDetail already uses for auditHistory. */
+export async function getTaskDetail(
+  repository: WorkflowRepository,
+  accessToken: string,
+  stepInstanceId: string,
+): Promise<TaskDetail> {
+  const step = await requireStepInstance(repository, accessToken, stepInstanceId);
+  const [comments, events] = await Promise.all([
+    repository.listTaskComments(accessToken, stepInstanceId),
+    repository.listEvents(accessToken, step.workflow_instance_id),
+  ]);
+  return {
+    stepInstance: step,
+    comments,
+    events: events.filter((e) => e.step_instance_id === stepInstanceId || e.step_instance_id === null),
+  };
 }
 
 export async function attachTaskEvidence(

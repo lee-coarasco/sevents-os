@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { UserPicker } from "../components/UserPicker";
+import { ActivityThread } from "../components/ActivityThread";
+import { usePermissions } from "../hooks/usePermissions";
 
 type StepInstanceStatus = "pending" | "active" | "waiting" | "completed" | "skipped" | "failed";
 type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -47,13 +49,6 @@ const priorityColors: Record<TaskPriority, string> = {
   urgent: "bg-red-50 text-red-700",
 };
 
-const decisionColors: Record<ApprovalChainDecision, string> = {
-  approved: "bg-emerald-50 text-emerald-700",
-  approved_with_conditions: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-red-50 text-red-700",
-  returned_for_correction: "bg-amber-50 text-amber-700",
-};
-
 const decisionLabels: Record<ApprovalChainDecision, string> = {
   approved: "Approved",
   approved_with_conditions: "Approved with conditions",
@@ -63,6 +58,7 @@ const decisionLabels: Record<ApprovalChainDecision, string> = {
 
 export function ApprovalQueuePage() {
   const { session } = useAuth();
+  const { has } = usePermissions();
 
   const [approvals, setApprovals] = useState<TaskQueueEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,17 +79,31 @@ export function ApprovalQueuePage() {
 
   useEffect(load, [session]);
 
-  useEffect(() => {
+  function loadDetail() {
     if (!session || !selectedId) {
       setDetail(null);
       return;
     }
-    setDetail(null);
     setDetailError(null);
     apiFetch<{ detail: ApprovalDetail }>(`/approvals/${selectedId}`, session.access_token)
       .then((data) => setDetail(data.detail))
       .catch((err) => setDetailError(err instanceof ApiError ? err.message : "Could not load this approval"));
+  }
+
+  useEffect(() => {
+    setDetail(null);
+    loadDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, selectedId]);
+
+  async function postComment(body: string) {
+    if (!session || !selectedId) return;
+    await apiFetch(`/workflow/steps/${selectedId}/comments`, session.access_token, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+    loadDetail();
+  }
 
   function selectApproval(id: string) {
     setSelectedId(id);
@@ -229,21 +239,14 @@ export function ApprovalQueuePage() {
                   </div>
                 )}
 
-                {detail.decisions.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Decisions so far</p>
-                    <div className="mt-1 space-y-2">
-                      {detail.decisions.map((d) => (
-                        <div key={d.id} className="rounded-lg bg-stone-50 px-3 py-2 text-xs">
-                          <span className={`rounded-full px-2 py-0.5 font-medium ${decisionColors[d.decision]}`}>
-                            {decisionLabels[d.decision]}
-                          </span>
-                          {d.reason && <p className="mt-1 text-zinc-600">{d.reason}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <ActivityThread
+                  comments={detail.comments}
+                  decisions={detail.decisions}
+                  decisionLabels={decisionLabels}
+                  onPostComment={postComment}
+                  canPost={has("workflow.instance.act")}
+                  busy={busy}
+                />
 
                 <div className="space-y-2 border-t border-zinc-100 pt-4">
                   <textarea

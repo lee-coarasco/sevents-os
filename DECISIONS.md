@@ -1238,3 +1238,18 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   component/API-boundary decisions are explicitly agent-decidable per
   CLAUDE.md, same weight as every prior split recorded here).
+
+## 2026-10-17 (session, cont'd) - Ticket 0133 closed as duplicate of 0145, absorbed rather than built twice
+- Decision: While building 0145 (split from 0117 earlier this session),
+  found ticket 0133 ("Shared `<ActivityThread>` component") already asked
+  for the identical component with near-identical acceptance criteria.
+  This was missed when 0117 was split because the survey checked live
+  code for an ActivityThread component, not the open ticket list, for an
+  existing ticket already covering the gap. Closed 0133 `done` with no
+  separate code — 0145's build (component + wiring into both the M07 task
+  drawer and M08 approval drawer) is a strict superset of 0133's "wire
+  into at least one real screen" ask.
+- Why: avoids a future session picking up 0133 and rebuilding the same
+  component a second time.
+- Approved by: agent (ticket classification/ordering is agent-decidable
+  per CLAUDE.md).

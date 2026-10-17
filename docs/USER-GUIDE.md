@@ -175,7 +175,12 @@ Frontend: `TaskInboxPage`, nav label "My Work", at `/my-work`.
 progress / Blocked / Done. Click a task to open its detail drawer: mark it
 complete, block it with a reason, unblock it, reassign it to someone else,
 or delegate it — both reassign and delegate use the shared name/email
-`<UserPicker>` search, never a raw user ID.
+`<UserPicker>` search, never a raw user ID. If the task has a due date, a
+coloured countdown shows how much time is left (green: more than a day,
+amber: under a day, red: overdue). Below that, an Activity panel lists
+every comment on the task (newest at the bottom, author resolved to a real
+name) with a box to post a new one — posting requires the same permission
+as acting on the task.
 
 ## M08 — Approvals & Delegation
 
@@ -194,7 +199,9 @@ assigned to you. Click one to see the request's context fields, any
 decisions already recorded, and whether it's within your authority limit.
 Approve, reject, approve with conditions, or return for correction (all but
 a clean approve require a comment), or delegate it to another user via the
-`<UserPicker>` search.
+`<UserPicker>` search. Below the actions, an Activity panel merges every
+prior decision and comment into one timeline (oldest first), with a box to
+add a new comment.
 
 ## M09 — Project & Portfolio Management
 

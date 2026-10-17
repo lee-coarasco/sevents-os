@@ -6,6 +6,7 @@ import {
   addTaskComment,
   attachTaskEvidence,
   clearTaskBlocked,
+  getTaskDetail,
   setTaskBlocked,
 } from "./service.js";
 
@@ -107,5 +108,70 @@ describe("task comments and evidence (ticket 0070, M07a)", () => {
 
     expect(repo.evidenceLinks.get("file-object-1")).toBe(step.id);
     expect(repo.events.some((e) => e.event_type === "evidence_attached")).toBe(true);
+  });
+});
+
+describe("task detail — comments and events for the ActivityThread (ticket 0145, M07/M08)", () => {
+  let repo: FakeWorkflowRepository;
+
+  beforeEach(() => {
+    repo = new FakeWorkflowRepository();
+  });
+
+  async function openStep() {
+    const instance = await repo.createInstance(TOKEN, {
+      definitionId: "def-1",
+      versionId: "version-1",
+      startedBy: "admin-user",
+      context: {},
+    });
+    return repo.createStepInstance(TOKEN, {
+      instanceId: instance.id,
+      nodeId: "node-1",
+      status: "waiting",
+      assignedTo: "alice",
+    });
+  }
+
+  it("returns the step instance with its comments and its own events", async () => {
+    const step = await openStep();
+    await addTaskComment(repo, TOKEN, step.id, "alice", "started on this");
+    await setTaskBlocked(repo, TOKEN, step.id, "waiting on client sign-off");
+
+    const detail = await getTaskDetail(repo, TOKEN, step.id);
+
+    expect(detail.stepInstance.id).toBe(step.id);
+    expect(detail.comments).toHaveLength(1);
+    expect(detail.comments[0]!.body).toBe("started on this");
+    expect(detail.events.some((e) => e.event_type === "comment_added")).toBe(true);
+    expect(detail.events.some((e) => e.event_type === "task_blocked")).toBe(true);
+  });
+
+  it("excludes events from other step instances in the same workflow instance", async () => {
+    const instance = await repo.createInstance(TOKEN, {
+      definitionId: "def-1",
+      versionId: "version-1",
+      startedBy: "admin-user",
+      context: {},
+    });
+    const stepA = await repo.createStepInstance(TOKEN, {
+      instanceId: instance.id,
+      nodeId: "node-1",
+      status: "waiting",
+      assignedTo: "alice",
+    });
+    const stepB = await repo.createStepInstance(TOKEN, {
+      instanceId: instance.id,
+      nodeId: "node-2",
+      status: "waiting",
+      assignedTo: "bob",
+    });
+    await addTaskComment(repo, TOKEN, stepA.id, "alice", "a comment on step A");
+    await addTaskComment(repo, TOKEN, stepB.id, "bob", "a comment on step B");
+
+    const detail = await getTaskDetail(repo, TOKEN, stepA.id);
+
+    expect(detail.comments).toHaveLength(1);
+    expect(detail.events.filter((e) => e.event_type === "comment_added")).toHaveLength(1);
   });
 });

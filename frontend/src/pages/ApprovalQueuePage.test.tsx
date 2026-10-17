@@ -138,6 +138,43 @@ describe("ApprovalQueuePage", () => {
     );
   });
 
+  it("shows comments and decisions in the ActivityThread, and posts a new comment", async () => {
+    apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
+      if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
+      if (path === "/authority/effective-permissions") return Promise.resolve({ permissions: ["workflow.instance.act"] });
+      if (path === "/approvals/a1") {
+        return Promise.resolve({
+          detail: {
+            ...DETAIL,
+            comments: [{ id: "c1", author_id: "u1", body: "please review the schedule impact", created_at: new Date().toISOString() }],
+            decisions: [{ id: "d1", approver_id: "u1", decision: "returned_for_correction", reason: "needs revision", decided_at: new Date().toISOString() }],
+          },
+        });
+      }
+      if (path === "/workflow/steps/a1/comments" && init?.method === "POST") return Promise.resolve({ comment: {} });
+      if (path === "/admin/users") return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
+      return Promise.resolve({});
+    });
+
+    render(<ApprovalQueuePage />);
+    await userEvent.click(await screen.findByText("Approve PO-1002"));
+
+    expect(await screen.findByText("please review the schedule impact")).toBeInTheDocument();
+    expect(screen.getByText("Returned for correction")).toBeInTheDocument();
+    expect(screen.getByText("needs revision")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText("Add a comment…"), "fixed, please re-review");
+    await userEvent.click(screen.getByRole("button", { name: /post comment/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/workflow/steps/a1/comments",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ body: "fixed, please re-review" }) }),
+      ),
+    );
+  });
+
   it("returns for correction, requiring a reason", async () => {
     render(<ApprovalQueuePage />);
     await userEvent.click(await screen.findByText("Approve PO-1002"));

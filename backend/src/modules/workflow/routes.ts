@@ -60,6 +60,7 @@ import {
   evaluateStepSla,
   executeMigration,
   getApprovalDetail,
+  getTaskDetail,
   getVersionGraph,
   getWorkflowDefinition,
   getWorkflowInstance,
@@ -695,6 +696,24 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
         await attachTaskEvidence(options.getRepository(), token, request.params.stepId, fileObjectId);
         reply.code(201);
         return { ok: true };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // Task detail — comments + events for the <ActivityThread> (ticket 0145)
+  // ---------------------------------------------------------------------
+
+  app.get<{ Params: { stepInstanceId: string } }>(
+    "/tasks/:stepInstanceId",
+    { preHandler: requireActOrOwnTask(options.getRepository, options.requirePermission) },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const detail = await getTaskDetail(options.getRepository(), token, request.params.stepInstanceId);
+        return { detail };
       } catch (error) {
         return handleServiceError(error, reply);
       }

@@ -118,6 +118,40 @@ describe("TaskInboxPage", () => {
     );
   });
 
+  it("shows an SLA countdown and the overdue colour, and posts a comment to the ActivityThread", async () => {
+    const overdueDueAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const tasksWithDue = [{ ...TASKS[0], due_at: overdueDueAt }];
+    apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
+      if (path === "/tasks/my-work") return Promise.resolve({ items: tasksWithDue });
+      if (path === "/authority/effective-permissions") return Promise.resolve({ permissions: ["workflow.instance.act"] });
+      if (path === "/tasks/t1") {
+        return Promise.resolve({
+          detail: { stepInstance: tasksWithDue[0], comments: [{ id: "c1", author_id: "u1", body: "first comment", created_at: new Date().toISOString() }] },
+        });
+      }
+      if (path === "/workflow/steps/t1/comments" && init?.method === "POST") return Promise.resolve({ comment: {} });
+      if (path === "/admin/users") return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
+      return Promise.resolve({});
+    });
+
+    render(<TaskInboxPage />);
+    await userEvent.click(await screen.findByText("Review drawing"));
+
+    expect(await screen.findByText(/overdue by/i)).toBeInTheDocument();
+    expect(await screen.findByText("first comment")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText("Add a comment…"), "looking into it");
+    await userEvent.click(screen.getByRole("button", { name: /post comment/i }));
+
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/workflow/steps/t1/comments",
+        "test-token",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ body: "looking into it" }) }),
+      ),
+    );
+  });
+
   it("delegates a task to another user via the picker", async () => {
     render(<TaskInboxPage />);
     await userEvent.click(await screen.findByText("Review drawing"));

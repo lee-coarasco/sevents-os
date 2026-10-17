@@ -1,7 +1,7 @@
 ---
 id: 145
 title: "ActivityThread shared component wired into M07 task drawer + M08 approval drawer; M07 SLA countdown"
-status: next
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer]
 priority: 1
 created: 2026-10-17
@@ -84,5 +84,41 @@ task drawer file and is small.
 - [ ] `docs/USER-GUIDE.md` M07 and M08 entries updated
 
 ## Progress
-- 2026-10-17: Split from ticket 0117 after re-survey (see 0117's close-out
-  and DECISIONS.md). Not yet picked up.
+- 2026-10-17: Built and tested. Found ticket 0133 ("Shared `<ActivityThread>`
+  component") already covered this exact scope — closed it `done` as
+  absorbed into this ticket (my mistake not to cross-check before splitting
+  0117; see 0133's own Progress note and DECISIONS.md).
+  Backend: added `GET /tasks/:stepInstanceId` (routes.ts, gated by the same
+  `requireActOrOwnTask` guard reassign/delegate already use) and
+  `getTaskDetail` in service.ts, returning `{ stepInstance, comments,
+  events }` for a plain task — reused `repository.listTaskComments`/
+  `listEvents`, no schema change. M08 needed no backend change: `GET
+  /approvals/:id` already returned `comments`+`decisions`, the frontend
+  just wasn't rendering `comments`. Note: posting a comment
+  (`POST /workflow/steps/:id/comments`) still requires the broad
+  `workflow.instance.act` permission (ticket 0070's original scope,
+  unchanged) — it does NOT have the own-task exemption reassign/delegate
+  have, so an assignee without that permission can read their task's
+  comments but not post one. Scoped as-is rather than widening that
+  permission check, since loosening who can write audit-trailed comments
+  felt like a decision bigger than this ticket; flagged here for whoever
+  next touches task permissions.
+  Frontend: new `frontend/src/components/ActivityThread.tsx` (comments +
+  optional decisions merged into one timeline, oldest-first, author
+  resolved via the existing `useUsers` lookup, a post box gated by
+  `canPost`). Wired into `TaskInboxPage.tsx` (fetches `/tasks/:id` on
+  selection, SLA countdown added next to the due date — green >24h, amber
+  <24h, red overdue, re-ticks every 60s) and `ApprovalQueuePage.tsx`
+  (replaced the old static "Decisions so far" block with `<ActivityThread>`
+  reusing the `comments`/`decisions` it already fetched; removed the now-
+  unused `decisionColors` map).
+  Tests: 2 new backend unit tests (`task.test.ts`), 3 new backend route
+  tests (`routes.test.ts` — own-task read, 403 for a non-owner without
+  permission, 401 with no token; also hoisted the shared
+  `startWaitingStepAssignedTo` test helper to module scope so both
+  describe blocks could use it), 2 new frontend tests (SLA countdown +
+  comment post in `TaskInboxPage.test.tsx`, comments/decisions render +
+  comment post in `ApprovalQueuePage.test.tsx`). Backend: 621/621 passing,
+  `lint`/`build` clean. Frontend: 98/98 passing, `lint`/`build` clean.
+  Set `status: testing` — no DB migration involved, so nothing blocks the
+  owner trying this once a build is deployed.

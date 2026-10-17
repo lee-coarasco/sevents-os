@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
+import { ActivityThread, type ActivityComment } from "../components/ActivityThread";
 
 type StepInstanceStatus = "pending" | "active" | "waiting" | "completed" | "skipped" | "failed";
 type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -41,6 +42,34 @@ function groupOf(task: TaskQueueEntry): Group {
   return "to_do";
 }
 
+interface TaskDetail {
+  stepInstance: TaskQueueEntry;
+  comments: ActivityComment[];
+}
+
+function formatDuration(ms: number): string {
+  const abs = Math.abs(ms);
+  const hours = abs / (1000 * 60 * 60);
+  if (hours >= 24) {
+    const days = Math.round(hours / 24);
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (hours >= 1) {
+    const wholeHours = Math.round(hours);
+    return `${wholeHours} hour${wholeHours === 1 ? "" : "s"}`;
+  }
+  const minutes = Math.max(1, Math.round(abs / (1000 * 60)));
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+/** Ticket 0145 (M07): green when there's more than a day left, amber under 24h, red once overdue. */
+function slaCountdown(dueAt: string, now: number): { label: string; className: string } {
+  const diffMs = new Date(dueAt).getTime() - now;
+  if (diffMs < 0) return { label: `Overdue by ${formatDuration(diffMs)}`, className: "bg-red-50 text-red-700" };
+  if (diffMs < 24 * 60 * 60 * 1000) return { label: `Due in ${formatDuration(diffMs)}`, className: "bg-amber-50 text-amber-700" };
+  return { label: `Due in ${formatDuration(diffMs)}`, className: "bg-emerald-50 text-emerald-700" };
+}
+
 export function TaskInboxPage() {
   const { session } = useAuth();
   const { has, loading: permissionsLoading } = usePermissions();
@@ -48,11 +77,13 @@ export function TaskInboxPage() {
   const [tasks, setTasks] = useState<TaskQueueEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [reassignUserId, setReassignUserId] = useState("");
   const [delegateUserId, setDelegateUserId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   function load() {
     if (!session) return;
@@ -62,6 +93,32 @@ export function TaskInboxPage() {
   }
 
   useEffect(load, [session]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function loadDetail() {
+    if (!session || !selectedTaskId) {
+      setDetail(null);
+      return;
+    }
+    apiFetch<{ detail: TaskDetail }>(`/tasks/${selectedTaskId}`, session.access_token)
+      .then((data) => setDetail(data.detail))
+      .catch(() => setDetail(null));
+  }
+
+  useEffect(loadDetail, [session, selectedTaskId]);
+
+  async function handlePostComment(body: string) {
+    if (!session || !selectedTaskId) return;
+    await apiFetch(`/workflow/steps/${selectedTaskId}/comments`, session.access_token, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+    loadDetail();
+  }
 
   const selectedTask = tasks?.find((t) => t.id === selectedTaskId) ?? null;
   const canAct = has("workflow.instance.act");
@@ -242,6 +299,13 @@ export function TaskInboxPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Due</p>
                 <p className="mt-1 text-sm text-zinc-800">{new Date(selectedTask.due_at).toLocaleString()}</p>
+                {selectedTask.status !== "completed" && selectedTask.status !== "skipped" && (
+                  <span
+                    className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${slaCountdown(selectedTask.due_at, now).className}`}
+                  >
+                    {slaCountdown(selectedTask.due_at, now).label}
+                  </span>
+                )}
               </div>
             )}
             {selectedTask.blocked_reason && (
@@ -316,6 +380,8 @@ export function TaskInboxPage() {
             {!permissionsLoading && !canAct && (
               <p className="text-xs text-zinc-400">You don't have permission to act on tasks.</p>
             )}
+
+            <ActivityThread comments={detail?.comments ?? []} onPostComment={handlePostComment} canPost={canAct} busy={busy} />
           </div>
         </div>
       )}

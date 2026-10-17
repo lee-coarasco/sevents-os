@@ -502,6 +502,13 @@ export interface ApprovalDetail {
   riskFlags: never[];
 }
 
+/** Ticket 0145 (M07/M08): backs the `<ActivityThread>` in the task drawer — comments plus this step's own events (assigned, reassigned, blocked, etc.), same filter approval detail's auditHistory already uses. */
+export interface TaskDetail {
+  stepInstance: WorkflowStepInstance;
+  comments: TaskComment[];
+  events: WorkflowEvent[];
+}
+
 export interface WorkflowMigrationInstanceResult {
   id: string;
   tenant_id: string;
