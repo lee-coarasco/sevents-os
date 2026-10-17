@@ -66,13 +66,14 @@ export async function adminUsersRoutes(app: FastifyInstance, options: AdminUsers
     }
 
     const users: TenantUser[] = (appUsers ?? []).map(
-      (u: { id: string; email: string; display_name: string | null; status: string; created_at: string }) => ({
+      (u: { id: string; email: string; display_name: string | null; status: string; invited_at: string; created_at: string }) => ({
         id: u.id,
         email: u.email,
         display_name: u.display_name,
         role_id: rolesByUser.get(u.id)?.role_id ?? null,
         role_label: rolesByUser.get(u.id)?.role_label ?? null,
         status: u.status,
+        invited_at: u.invited_at,
         created_at: u.created_at,
       }),
     );
