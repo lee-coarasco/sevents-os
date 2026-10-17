@@ -1087,3 +1087,41 @@ approved (agent-autonomous or you).
   both explicitly agent-decidable per CLAUDE.md; recorded here because
   (1) is a standing gap across every prior frontend ticket, not just an
   implementation detail of this one).
+
+## 2026-10-17 00:50 UTC - Ticket 0111 (owner-filed "systemic UI foundations") split into eight sub-tickets 0128-0135, one per bullet; 0135 (first-time setup wizard) filed blocked on an authentication-scope question
+- Decision: Ticket 0111 listed eight distinct, already well-scoped
+  pieces of work (notification bell, My Account page, real dashboard
+  data, `<PermissionGate>` retrofit, `<FileAttachment>`,
+  `<ActivityThread>`, `<CurrencyInput>`/`<CurrencyDisplay>`, first-time
+  setup wizard) with no stated dependency order between most of them —
+  same "too large for one ticket" shape every other oversized ticket in
+  this project has hit. Closed it with no code and split 1:1 into
+  tickets 0128-0135, since each bullet was already a clean, independent
+  unit (no further internal splitting needed, unlike M06/M07/M09 which
+  needed the architect to invent the seams). Ordered by priority: 0128
+  (notification bell) first because CLAUDE.md's own Definition of Done
+  already requires it for every notification-triggering module's UI,
+  several of which are already `testing`/`done` — this is a standing gap,
+  not new scope. 0129 (`<PermissionGate>` retrofit) second because it's
+  small/mechanical and ticket 0125 just built the component it retrofits
+  onto. The rest are priority 2-3 with no forced ordering among them.
+  Ticket 0135 (first-time setup wizard) was filed `status: blocked` with
+  its own `## Needs approval` question rather than left `next`-with-a-
+  warning: wrapping tenant/first-admin creation in a UI wizard is a
+  security-shaped scope question (who can run it, how are they
+  authenticated before any role exists to check) that CLAUDE.md's "never
+  guess on an approval-required item" rule says must go to the owner, not
+  get silently resolved by whoever picks the ticket up later.
+- Why: same dependency-ordered-split precedent used for every prior
+  oversized ticket (M06/M07/M09/M31/M35/M10/M11); the 0135 question
+  follows directly from the existing tenant-creation/first-role-grant
+  bootstrap precedent (tickets 0055/0056) — building a self-service
+  wizard around those without an explicit answer on who's allowed to run
+  it would risk reopening the exact unauthenticated-privilege-escalation
+  gap those tickets closed.
+- Approved by: agent (ticket classification/ordering is explicitly
+  agent-decidable per CLAUDE.md, same weight as every prior module
+  split recorded here; the 0135 question itself is logged in that
+  ticket, not here, per the ground rules — this entry only records the
+  decision to split and to raise it as a per-ticket block rather than a
+  NEEDS_APPROVAL.md-wide stop).
