@@ -282,7 +282,13 @@ export function createSupabaseCatalogueRepository(
 
     async listWorkItems(accessToken, filters) {
       const client = userScopedClientFactory(accessToken);
-      let query = client.from("work_item_definitions").select("*");
+      // Use embedded select to join source_work_items in one query, avoiding a
+      // large .in() that would exceed PostgREST's URL length limit at 1,308 rows.
+      // .range(0, 1999) overrides PostgREST's 1000-row default.
+      let query = client
+        .from("work_item_definitions")
+        .select("*, source_work_items(*)")
+        .range(0, 1999);
       if (filters.canonicalRoleId) query = query.eq("canonical_role_id", filters.canonicalRoleId);
       if (filters.disposition) query = query.eq("disposition", filters.disposition);
       if (filters.status) query = query.eq("status", filters.status);
@@ -290,17 +296,10 @@ export function createSupabaseCatalogueRepository(
       if (filters.department) query = query.eq("department_cluster", filters.department);
       const { data, error } = await query;
       if (error) throw new Error(`listWorkItems: ${error.message}`);
-      let rows = (data as WorkItemDefinition[]) ?? [];
+      type RowWithSource = WorkItemDefinition & { source_work_items: SourceWorkItem | null };
+      let rows = (data as RowWithSource[]) ?? [];
       if (filters.missingData) rows = rows.filter(matchesMissingData);
-
-      const sourceIds = rows.map((r) => r.source_work_item_id);
-      const { data: sources, error: sourcesError } = await client
-        .from("source_work_items")
-        .select("*")
-        .in("id", sourceIds.length > 0 ? sourceIds : [""]);
-      if (sourcesError) throw new Error(`listWorkItems (source join): ${sourcesError.message}`);
-      const sourceById = new Map(((sources as SourceWorkItem[]) ?? []).map((s) => [s.id, s]));
-      const summaries = rows.map((r) => toSummary(r, sourceById.get(r.source_work_item_id)));
+      const summaries = rows.map((r) => toSummary(r, r.source_work_items ?? undefined));
       return applySearch(summaries, filters.search);
     },
 
