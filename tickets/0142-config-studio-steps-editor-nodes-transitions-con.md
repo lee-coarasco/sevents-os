@@ -1,7 +1,7 @@
 ---
 id: 142
 title: Config Studio steps editor — nodes, transitions, conditions on a draft version
-status: next
+status: testing
 roles: [ui-designer, test-engineer]
 priority: 1
 created: 2026-10-17
@@ -69,3 +69,18 @@ version's `/config-studio/:definitionId/versions/:versionId` page.
 - [ ] Tests.
 
 ## Progress
+
+2026-10-17: Built full step editor in WorkflowVersionDetailPage.tsx (737 lines). Replaced the
+stub with a real graph editor embedded in "Steps" tab:
+- `orderNodes()` BFS from root (no incoming transition) for display order
+- `NodeTypeBadge` coloured pill for all 13 node types
+- Bespoke config forms for: create_task, assign_role_user, request_approval,
+  send_notification, wait_event_time, complete/cancel/escalate
+- JSON textarea fallback for: collect_form_data, request_upload_evidence,
+  evaluate_condition, call_service, create_linked_followup
+- Add-node, add-transition, add-condition panels
+- Draft-only gate: editor panels hidden for non-draft versions
+- Note: no reorder/delete (no backend PATCH/DELETE routes) — filed as gap;
+  commented clearly in the file. Scope explicitly reduced per ticket's own
+  instruction.
+TypeScript passes clean. Tests pass (621/621).
