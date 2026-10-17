@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 type OpportunityStage = "lead" | "qualified" | "site_visit" | "tender" | "negotiation" | "won" | "lost";
 
@@ -52,7 +52,6 @@ const inputClass =
 
 export function CrmPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const [tab, setTab] = useState<Tab>("clients");
 
   const [clients, setClients] = useState<Client[] | null>(null);
@@ -64,8 +63,6 @@ export function CrmPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const canManage = has("crm.lead.manage");
 
   // Client form
   const [showClientForm, setShowClientForm] = useState(false);
@@ -361,14 +358,14 @@ export function CrmPage() {
               placeholder="Search clients by name"
               className={`w-full max-w-sm ${inputClass}`}
             />
-            {!permissionsLoading && canManage && (
+            <PermissionGate permission="crm.lead.manage">
               <button
                 onClick={startClientCreate}
                 className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim"
               >
                 New client
               </button>
-            )}
+            </PermissionGate>
           </div>
 
           {actionError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
@@ -408,11 +405,11 @@ export function CrmPage() {
                       <td className="px-6 py-4 text-zinc-600">{c.trade_license_number ?? "—"}</td>
                       <td className="px-6 py-4 text-zinc-600">{c.registration_country ?? "—"}</td>
                       <td className="px-6 py-4 text-right">
-                        {!permissionsLoading && canManage && (
+                        <PermissionGate permission="crm.lead.manage">
                           <button onClick={() => startClientEdit(c)} className="text-xs text-zinc-400 hover:text-brand-dim">
                             Edit
                           </button>
-                        )}
+                        </PermissionGate>
                       </td>
                     </tr>
                   ))}
@@ -432,14 +429,14 @@ export function CrmPage() {
               placeholder="Search contacts by name, email or phone"
               className={`w-full max-w-sm ${inputClass}`}
             />
-            {!permissionsLoading && canManage && (
+            <PermissionGate permission="crm.lead.manage">
               <button
                 onClick={startContactCreate}
                 className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim"
               >
                 New contact
               </button>
-            )}
+            </PermissionGate>
           </div>
 
           {actionError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
@@ -503,11 +500,11 @@ export function CrmPage() {
                       <td className="px-6 py-4 text-zinc-600">{contact.email ?? "—"}</td>
                       <td className="px-6 py-4 text-zinc-600">{contact.phone ?? "—"}</td>
                       <td className="px-6 py-4 text-right">
-                        {!permissionsLoading && canManage && (
+                        <PermissionGate permission="crm.lead.manage">
                           <button onClick={() => startContactEdit(contact)} className="text-xs text-zinc-400 hover:text-brand-dim">
                             Edit
                           </button>
-                        )}
+                        </PermissionGate>
                       </td>
                     </tr>
                   ))}
@@ -520,7 +517,7 @@ export function CrmPage() {
 
       {tab === "pipeline" && (
         <div className="space-y-4">
-          {!permissionsLoading && canManage && (
+          <PermissionGate permission="crm.lead.manage">
             <div className="flex justify-end">
               <button
                 onClick={startOpportunityCreate}
@@ -529,7 +526,7 @@ export function CrmPage() {
                 New opportunity
               </button>
             </div>
-          )}
+          </PermissionGate>
 
           {actionError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>}
 
@@ -596,11 +593,11 @@ export function CrmPage() {
                             <Link to={`/crm/opportunities/${opp.id}`} className="font-medium text-zinc-800 hover:text-brand-dim">
                               {opp.title}
                             </Link>
-                            {!permissionsLoading && canManage && (
+                            <PermissionGate permission="crm.lead.manage">
                               <button onClick={() => startOpportunityEdit(opp)} className="shrink-0 text-xs text-zinc-400 hover:text-brand-dim">
                                 Edit
                               </button>
-                            )}
+                            </PermissionGate>
                           </div>
                           <p className="mt-0.5 text-xs text-zinc-400">{resolveClientName(opp.client_id)}</p>
                           {opp.expected_value !== null && (

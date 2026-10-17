@@ -277,32 +277,29 @@ No-Bid.
 
 **How to use it:**
 - **Tender Documents tab:** list of uploaded documents (type, title,
-  storage reference, uploaded date) and an "Upload document" form
-  (document type, title, document number, revision, received date,
-  storage reference — a pointer string, not a real file upload).
-- **Estimates tab:** list of estimate versions with a status badge
+  uploaded file, date) and an "Upload document" form (document type,
+  title, document number, revision, received date, and a real file
+  upload via `<FileAttachment>` — the uploaded file is stored via
+  `/storage/upload` and displayed as a clickable link once attached).
+  All create/delete actions require the `tendering.document.manage`
+  permission (hidden via `<PermissionGate>` when absent).
+- **Estimates tab:** list of estimate versions with a `<StatusBadge>`
   (draft/pending approval/approved/rejected/returned for
-  correction/superseded) and total amount. "New estimate version" form
-  captures assumptions/inclusions/exclusions text and taxes/overheads/
-  contingency/margin percentages (the backend has no separate "version
-  label" or "scope summary" field — version numbers are assigned
-  automatically and scope lives in inclusions/exclusions). "Manage lines"
-  on a row expands a line-items sub-table (item, qty, unit, unit rate,
-  cost category — add and remove; there is no per-line markup %, only the
-  estimate-level margin). "Submit for approval" picks a published
-  workflow definition from a dropdown (`GET
-  /workflow/definitions/published`, ticket 0109's addition — the existing
-  `GET /workflow/definitions` needs `workflow.definition.manage`, which
-  estimators don't hold) and starts the approval instance. A non-draft
-  estimate shows a "New version" button (FR-EST-003's only legal way to
-  change a locked estimate).
-- **Bid / No-Bid tab:** pick an estimate version from a dropdown, then
-  either create a decision (recommendation: bid/no bid) or manage the
-  existing one — score criteria (one of five fixed criteria, a score, a
-  rationale; add/remove while draft), "Submit for approval" (same
-  published-definition picker as Estimates), and once the decision is
-  approved, a "Bid submissions" section appears (submitted-to,
-  submitted-at, evidence reference).
+  correction/superseded) and `<CurrencyDisplay>` for the total amount
+  (currency determined by the tenant's base currency from
+  `/master-data/currencies`). "New estimate version" form captures
+  assumptions/inclusions/exclusions text and taxes/overheads/
+  contingency/margin percentages. "Manage lines" expands a line-items
+  sub-table (item, qty, `<EntityPicker type="uom">` for the unit,
+  `<CurrencyInput>` for unit rate, cost category — add and remove; all
+  amounts display via `<CurrencyDisplay>`). "Submit for approval" picks
+  a published workflow definition and starts the approval instance. A
+  non-draft estimate shows a "New version" button.
+- **Bid / No-Bid tab:** pick an estimate version, then create or manage
+  the bid/no-bid decision — score criteria (five fixed criteria, score,
+  rationale; add/remove while draft), "Submit for approval", and once
+  approved a "Bid submissions" section (submitted-to, submitted-at,
+  evidence reference). Decision status uses `<StatusBadge>`.
 
 ---
 
@@ -314,24 +311,26 @@ ticket 0103 is `done` in the sense that its architect breakdown work is
 finished; M13c (transmittals/document requests, ticket 0106) is not built
 yet.
 
-**Frontend (ticket 0109):** `DocumentsPage` at `/documents` (nav label
-"Documents & Drawings") — a filterable list (type, project, discipline)
-with a "New document" form (title, type, document number, project picker,
-discipline, access class). Each row opens `DocumentDetailPage` at
-`/documents/:id`: a metadata panel, a revisions list (revision code,
-status badge, reviewer, "Current" tag on the document's current
-revision), an "Add revision" form (revision code, storage reference,
-reviewer via `<UserPicker>`), a "Show superseded/rejected" checkbox, and
-per-revision actions — "Submit for IFC release" (pick a published
-workflow definition, same `GET /workflow/definitions/published` picker as
-M11) on an `under_review` revision, "Check approval status" once a
-submission is in flight, and "Supersede" on an older `approved` revision
-(PATCHes its status to `superseded` directly — manually pointing
-`superseded_by_revision_id` at a specific newer revision is not exposed by
-the API; that field is only ever set by the automatic create-a-new-
-revision and approval-resolution flows, so a manual supersede here is a
-status-only override, scoped out of this ticket rather than adding new
-backend surface for it).
+**Frontend (ticket 0109/0118):** `DocumentsPage` at `/documents` (nav
+label "Documents & Drawings") — a filterable list with four filters:
+keyword title search (debounced 300 ms, client-side), free-text type
+filter (client-side substring match), project picker (`<EntityPicker
+type="project">` — filters server-side via `?projectId=`), and
+free-text discipline filter. "New document" button is wrapped in
+`<PermissionGate permission="documents.register.manage">`. The create
+form uses `<EntityPicker type="document-type">` for document type and
+`<EntityPicker type="project">` for optional project association.
+
+Each row opens `DocumentDetailPage` at `/documents/:id`: a metadata
+panel (type, document number, discipline, access class, project link),
+a revisions list with `<StatusBadge>` per revision, reviewer name, and
+"Current" tag. "Add revision" form uses `<FileAttachment>` (real file
+upload to `/storage/upload`) plus `<AttachmentLink>` to display the
+attached file, and `<UserPicker>` for reviewer. "Show superseded/
+rejected" checkbox. Per-revision actions wrapped in `<PermissionGate
+permission="documents.register.manage">` — "Submit for IFC release"
+(pick a published workflow definition), "Check approval status" once
+in-flight, "Supersede" on an older approved revision.
 
 **What's built (M13a — document register & revision control):**
 Backend `documents` module: a general-purpose document-control spine
@@ -406,8 +405,9 @@ which document type (M06 configures that); an event feed/webhook for the
 approval outcome (the caller polls `resolve-approval`, same as the
 estimate/bid seams).
 
-**How to use it:** Nothing to click yet — backend only, no frontend (the
-UI is tracked separately in ticket 0118).
+**How to use it:** See the Frontend section above — full UI is built and
+available at `/documents`. All revision actions (submit for release,
+check approval, supersede) require `documents.register.manage`.
 
 ---
 

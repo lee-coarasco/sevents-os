@@ -45,7 +45,12 @@ export async function identityRoutes(app: FastifyInstance, options: IdentityRout
         return { error: "email is required" };
       }
       const invitedBy = (request as AuthenticatedRequest).authUserId ?? null;
-      const user = await inviteUser(options.getRepository(), email, displayName, invitedBy);
+      const tenantId = (request as AuthenticatedRequest).authTenantId;
+      if (!tenantId) {
+        reply.code(401);
+        return { error: "missing tenant context" };
+      }
+      const user = await inviteUser(options.getRepository(), email, displayName, invitedBy, tenantId);
       reply.code(201);
       return { user };
     },

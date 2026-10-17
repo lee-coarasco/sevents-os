@@ -4,7 +4,8 @@ import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { PermissionGate } from "../components/PermissionGate";
-import type { WorkflowVersion } from "./WorkflowDefinitionDetailPage";
+import type { WorkflowVersion, VersionStatus } from "./WorkflowDefinitionDetailPage";
+import type { DefinitionStatus, WorkflowDefinition } from "./WorkflowDefinitionsPage";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -642,6 +643,342 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
   );
 }
 
+// ── Validation Panel ───────────────────────────────────────────────────────────
+
+interface ValidationFinding {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  nodeId?: string;
+}
+
+interface ValidationRun {
+  id: string;
+  result: "pass" | "fail";
+  findings: ValidationFinding[];
+  started_at: string;
+  finished_at: string;
+}
+
+const SEVERITY_CLASS: Record<"error" | "warning", string> = {
+  error: "bg-red-50 text-red-700 border-red-200",
+  warning: "bg-amber-50 text-amber-700 border-amber-200",
+};
+
+function ValidationPanel({
+  definitionId,
+  versionId,
+  versionStatus,
+  definitionStatus,
+  onDefinitionReload,
+  onGoToStep,
+}: {
+  definitionId: string;
+  versionId: string;
+  versionStatus: VersionStatus;
+  definitionStatus: DefinitionStatus;
+  onDefinitionReload: () => void;
+  onGoToStep: (nodeId: string) => void;
+}) {
+  const { session } = useAuth();
+
+  const [run, setRun] = useState<ValidationRun | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [validateError, setValidateError] = useState<string | null>(null);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [approveDecision, setApproveDecision] = useState<"approved" | "rejected" | "">("");
+  const [approveComment, setApproveComment] = useState("");
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishConfirm, setPublishConfirm] = useState(false);
+
+  async function handleValidate() {
+    if (!session) return;
+    setValidating(true);
+    setValidateError(null);
+    try {
+      const data = await apiFetch<{ run: ValidationRun }>(
+        `/workflow/versions/${versionId}/validate`,
+        session.access_token,
+        { method: "POST" },
+      );
+      setRun(data.run);
+    } catch (err) {
+      setValidateError(err instanceof ApiError ? err.message : "Validation failed");
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!session) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await apiFetch(`/workflow/definitions/${definitionId}/submit`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({ versionId }),
+      });
+      onDefinitionReload();
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleApprove(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || !approveDecision) return;
+    setApproving(true);
+    setApproveError(null);
+    try {
+      await apiFetch(`/workflow/definitions/${definitionId}/approve`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          versionId,
+          decision: approveDecision,
+          comment: approveComment.trim() || null,
+        }),
+      });
+      onDefinitionReload();
+    } catch (err) {
+      setApproveError(err instanceof ApiError ? err.message : "Action failed");
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  async function handlePublish() {
+    if (!session) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await apiFetch(`/workflow/definitions/${definitionId}/publish`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({ versionId }),
+      });
+      onDefinitionReload();
+      setPublishConfirm(false);
+    } catch (err) {
+      setPublishError(err instanceof ApiError ? err.message : "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  const validationPassed = run?.result === "pass";
+  const canPublish = definitionStatus === "approved" && versionStatus === "draft" && validationPassed;
+  const canPublishReason = !validationPassed
+    ? "Run validation first — publish requires a passing run."
+    : definitionStatus !== "approved"
+    ? "The definition must be in Approved status before publishing."
+    : versionStatus !== "draft"
+    ? "Only draft versions can be published."
+    : null;
+
+  return (
+    <div className="space-y-6">
+      {/* ── Validation ─────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-brand text-lg font-bold text-zinc-900">Validation</h2>
+          <PermissionGate permission="workflow.definition.manage">
+            <button
+              onClick={handleValidate}
+              disabled={validating}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+            >
+              {validating ? "Running…" : "Run Validation"}
+            </button>
+          </PermissionGate>
+        </div>
+
+        {validateError && (
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{validateError}</div>
+        )}
+
+        {run && (
+          run.result === "pass" ? (
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+              <span>✓</span>
+              <span>Validation passed — no issues found.</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-red-700">
+                Validation failed — {run.findings.length} {run.findings.length === 1 ? "issue" : "issues"} found:
+              </p>
+              {run.findings.map((f, i) => (
+                <div key={i} className={`rounded-lg border px-4 py-3 text-sm ${SEVERITY_CLASS[f.severity]}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <span className="font-semibold">[{f.severity.toUpperCase()}] {f.code}</span>
+                      <p className="mt-0.5">{f.message}</p>
+                    </div>
+                    {f.nodeId && (
+                      <button
+                        onClick={() => onGoToStep(f.nodeId!)}
+                        className="shrink-0 text-xs underline opacity-70 hover:opacity-100"
+                      >
+                        Go to step
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {!run && !validateError && (
+          <p className="text-sm text-zinc-400">
+            Run validation to check this version for structural errors before submitting for review.
+          </p>
+        )}
+      </div>
+
+      {/* ── Submit for Review (draft → under_review) ───────────────── */}
+      {definitionStatus === "draft" && versionStatus === "draft" && (
+        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 font-brand text-lg font-bold text-zinc-900">Submit for Review</h2>
+          <p className="mb-4 text-sm text-zinc-500">
+            Submit this version for review. The definition moves to <strong>Under Review</strong>; a
+            publisher must approve it before it can go live.
+          </p>
+          {submitError && (
+            <div className="mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</div>
+          )}
+          <PermissionGate permission="workflow.definition.manage">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+            >
+              {submitting ? "Submitting…" : "Submit for Review"}
+            </button>
+          </PermissionGate>
+        </div>
+      )}
+
+      {/* ── Approve / Reject (under_review) ────────────────────────── */}
+      {definitionStatus === "under_review" && (
+        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 font-brand text-lg font-bold text-zinc-900">Approval Decision</h2>
+          <p className="mb-4 text-sm text-zinc-500">
+            Review this workflow version and record your decision.
+          </p>
+          <form onSubmit={handleApprove} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Decision</label>
+              <select
+                value={approveDecision}
+                onChange={(e) => setApproveDecision(e.target.value as "approved" | "rejected" | "")}
+                required
+                className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="">Select…</option>
+                <option value="approved">Approve</option>
+                <option value="rejected">Reject</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Comment (optional)</label>
+              <textarea
+                value={approveComment}
+                onChange={(e) => setApproveComment(e.target.value)}
+                rows={3}
+                placeholder="Any notes for the author…"
+                className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </div>
+            {approveError && (
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{approveError}</div>
+            )}
+            <PermissionGate permission="workflow.definition.publish">
+              <button
+                type="submit"
+                disabled={approving || !approveDecision}
+                className={`rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50 ${
+                  approveDecision === "rejected"
+                    ? "bg-red-100 text-red-700 hover:bg-red-200"
+                    : "bg-brand text-zinc-900 hover:bg-brand-dim"
+                }`}
+              >
+                {approving ? "Saving…" : approveDecision === "rejected" ? "Reject" : "Approve"}
+              </button>
+            </PermissionGate>
+          </form>
+        </div>
+      )}
+
+      {/* ── Publish (approved) ─────────────────────────────────────── */}
+      {(definitionStatus === "approved" || !canPublishReason && definitionStatus !== "published") && (
+        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 font-brand text-lg font-bold text-zinc-900">Publish</h2>
+          <p className="mb-4 text-sm text-zinc-500">
+            Make this version the active version for all new workflow instances.
+          </p>
+          {canPublishReason && (
+            <p className="mb-3 text-sm text-zinc-400 italic">{canPublishReason}</p>
+          )}
+          {publishError && (
+            <div className="mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{publishError}</div>
+          )}
+          {publishConfirm ? (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                This will become the active version for all new instances. Are you sure?
+              </div>
+              <div className="flex gap-2">
+                <PermissionGate permission="workflow.definition.publish">
+                  <button
+                    onClick={handlePublish}
+                    disabled={publishing}
+                    className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {publishing ? "Publishing…" : "Confirm Publish"}
+                  </button>
+                </PermissionGate>
+                <button
+                  onClick={() => setPublishConfirm(false)}
+                  className="rounded-lg border border-zinc-200 px-5 py-2 text-sm text-zinc-600 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <PermissionGate permission="workflow.definition.publish">
+              <button
+                onClick={() => setPublishConfirm(true)}
+                disabled={!canPublish}
+                title={canPublishReason ?? undefined}
+                className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Publish
+              </button>
+            </PermissionGate>
+          )}
+        </div>
+      )}
+
+      {/* Show nothing actionable when already published/retired */}
+      {(definitionStatus === "published" || definitionStatus === "retired") && (
+        <div className="rounded-xl bg-stone-50 p-4 text-sm text-zinc-400">
+          This definition is {definitionStatus} — no further approval actions available.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export function WorkflowVersionDetailPage() {
@@ -649,14 +986,24 @@ export function WorkflowVersionDetailPage() {
   const { session } = useAuth();
 
   const [versions, setVersions] = useState<WorkflowVersion[] | null>(null);
+  const [definition, setDefinition] = useState<WorkflowDefinition | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "steps">("steps");
+  const [activeTab, setActiveTab] = useState<"steps" | "validation" | "overview">("steps");
+
+  function loadDefinition() {
+    if (!session || !definitionId) return;
+    apiFetch<{ definition: WorkflowDefinition }>(`/workflow/definitions/${definitionId}`, session.access_token)
+      .then((data) => setDefinition(data.definition))
+      .catch(() => { /* non-fatal — definition metadata is supplementary */ });
+  }
 
   useEffect(() => {
     if (!session || !definitionId) return;
     apiFetch<{ versions: WorkflowVersion[] }>(`/workflow/definitions/${definitionId}/versions`, session.access_token)
       .then((data) => setVersions(data.versions))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
+    loadDefinition();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, definitionId]);
 
   const version = versions?.find((v) => v.id === versionId) ?? null;
@@ -701,7 +1048,7 @@ export function WorkflowVersionDetailPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-zinc-100">
-            {(["steps", "overview"] as const).map((tab) => (
+            {(["steps", "validation", "overview"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -721,13 +1068,33 @@ export function WorkflowVersionDetailPage() {
             <StepsEditor versionId={versionId} isDraft={version.status === "draft"} />
           )}
 
+          {activeTab === "validation" && versionId && definitionId && (
+            definition ? (
+              <ValidationPanel
+                definitionId={definitionId}
+                versionId={versionId}
+                versionStatus={version.status}
+                definitionStatus={definition.status}
+                onDefinitionReload={() => {
+                  loadDefinition();
+                  apiFetch<{ versions: WorkflowVersion[] }>(
+                    `/workflow/definitions/${definitionId}/versions`,
+                    session!.access_token,
+                  ).then((d) => setVersions(d.versions)).catch(() => {});
+                }}
+                onGoToStep={() => setActiveTab("steps")}
+              />
+            ) : (
+              <p className="text-sm text-zinc-400">Loading definition…</p>
+            )
+          )}
+
           {activeTab === "overview" && (
             <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm text-sm text-zinc-600 space-y-2">
               <p><span className="font-semibold text-zinc-800">Status:</span> {version.status}</p>
               <p><span className="font-semibold text-zinc-800">Version number:</span> {version.version}</p>
               {version.effective_from && <p><span className="font-semibold text-zinc-800">Effective from:</span> {version.effective_from}</p>}
               {version.effective_to && <p><span className="font-semibold text-zinc-800">Effective to:</span> {version.effective_to}</p>}
-              <p className="pt-2 text-xs text-zinc-400">Validation and publish panel: ticket 0143.</p>
             </div>
           )}
         </>

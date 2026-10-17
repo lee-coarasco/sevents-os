@@ -1,7 +1,7 @@
 ---
 id: 118
 title: M11 and M13: build all frontend screen
-status: next
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
@@ -128,3 +128,23 @@ events (created, submitted, approved, superseded).
   duplicate-id check. Stripped the stray embedded ticket out — no code
   was ever built against it, and its content is redundant with 0136-0138.
   Not yet started on 0118's own M11/M13 frontend scope.
+- 2026-10-17: Built all M11 and M13 frontend screens. Full changes:
+  - TenderSubmissionDetailPage rewritten: PermissionGate on all write
+    buttons, StatusBadge on estimates and bid/no-bid decisions,
+    FileAttachment for tender document uploads (real file, not a text
+    ref), CurrencyInput for estimate line rates, CurrencyDisplay for
+    all monetary totals (base currency fetched from
+    /master-data/currencies), EntityPicker(uom) for line unit.
+    ActivityThread shown when estimate has a workflow_instance_id and
+    comments/decisions are available.
+  - DocumentsPage enhanced: title keyword search (debounced 300 ms),
+    EntityPicker(project) in filter bar, EntityPicker(document-type)
+    and EntityPicker(project) in create form, PermissionGate on New
+    Document button.
+  - DocumentDetailPage enhanced: FileAttachment + AttachmentLink on
+    add-revision form, StatusBadge on revision status pills, PermissionGate
+    on submit/supersede/check-approval actions. ActivityThread not
+    applicable (no comments endpoint on documents).
+  - CurrencyInput/CurrencyDisplay components built (ticket 0134).
+  - USER-GUIDE.md M11 and M13 sections updated.
+  - TypeScript clean; 9 new unit tests passing. Status → testing.

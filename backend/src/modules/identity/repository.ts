@@ -7,13 +7,14 @@ import type { AppUser, AuditEventType, AuditLogEntry } from "./types.js";
  * plain in-memory fake instead of mocking a Postgrest query chain.
  */
 export interface IdentityRepository {
-  findAppUserByEmail(email: string): Promise<AppUser | null>;
+  findAppUserByEmail(email: string, tenantId: string): Promise<AppUser | null>;
   getAppUserById(userId: string): Promise<AppUser | null>;
   insertAppUser(user: {
     id: string;
     email: string;
     display_name: string | null;
     invited_by: string | null;
+    tenant_id: string;
   }): Promise<AppUser>;
   /** Returns null if the user wasn't in "pending" status (idempotent no-op upstream). */
   activateAppUser(userId: string): Promise<AppUser | null>;
@@ -25,7 +26,7 @@ export interface IdentityRepository {
     eventType: AuditEventType,
     metadata: Record<string, unknown>,
   ): Promise<void>;
-  inviteAuthUser(email: string): Promise<{ id: string }>;
+  inviteAuthUser(email: string, redirectTo?: string): Promise<{ id: string }>;
   /** Blocks future sign-in without deleting the auth.users row. */
   banAuthUser(userId: string): Promise<void>;
   getUserIdFromAccessToken(accessToken: string): Promise<string | null>;
@@ -71,11 +72,12 @@ export function createSupabaseIdentityRepository(
   anonClientFactory: () => SupabaseClient,
 ): IdentityRepository {
   return {
-    async findAppUserByEmail(email) {
+    async findAppUserByEmail(email, tenantId) {
       const { data, error } = await serviceClient
         .from("app_users")
         .select("*")
         .ilike("email", email)
+        .eq("tenant_id", tenantId)
         .maybeSingle();
       if (error) throw new Error(`findAppUserByEmail: ${error.message}`);
       return (data as AppUser | null) ?? null;
@@ -155,8 +157,10 @@ export function createSupabaseIdentityRepository(
       if (error) throw new Error(`insertAuditEvent: ${error.message}`);
     },
 
-    async inviteAuthUser(email) {
-      const { data, error } = await serviceClient.auth.admin.inviteUserByEmail(email);
+    async inviteAuthUser(email, redirectTo) {
+      const { data, error } = await serviceClient.auth.admin.inviteUserByEmail(email, {
+        ...(redirectTo ? { redirectTo } : {}),
+      });
       if (error || !data?.user) {
         throw new Error(`inviteAuthUser: ${error?.message ?? "no user returned"}`);
       }

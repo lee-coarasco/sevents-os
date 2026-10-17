@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { useUsers } from "../hooks/useUsers";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 interface Company {
   id: string;
@@ -32,7 +32,6 @@ interface RoleAssignment {
 
 export function DepartmentsRolesPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const { users } = useUsers();
 
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -197,26 +196,28 @@ export function DepartmentsRolesPage() {
               ))}
             </div>
           )}
-          {!permissionsLoading && has("authority.department.manage") && companies && companies.length > 0 && (
-            <form onSubmit={handleCreateDepartment} className="flex gap-2">
-              <input
-                value={newDepartmentName}
-                onChange={(e) => setNewDepartmentName(e.target.value)}
-                placeholder="Department name"
-                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-              />
-              <button
-                type="submit"
-                disabled={creatingDepartment || !newDepartmentName.trim()}
-                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
-              >
-                {creatingDepartment ? "Adding…" : "Add department"}
-              </button>
-            </form>
-          )}
-          {!permissionsLoading && !has("authority.department.manage") && (
-            <p className="text-xs text-zinc-400">You don't have permission to create departments.</p>
-          )}
+          <PermissionGate
+            permission="authority.department.manage"
+            fallback={<p className="text-xs text-zinc-400">You don't have permission to create departments.</p>}
+          >
+            {companies && companies.length > 0 && (
+              <form onSubmit={handleCreateDepartment} className="flex gap-2">
+                <input
+                  value={newDepartmentName}
+                  onChange={(e) => setNewDepartmentName(e.target.value)}
+                  placeholder="Department name"
+                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+                <button
+                  type="submit"
+                  disabled={creatingDepartment || !newDepartmentName.trim()}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+                >
+                  {creatingDepartment ? "Adding…" : "Add department"}
+                </button>
+              </form>
+            )}
+          </PermissionGate>
         </div>
       </div>
 
@@ -246,7 +247,10 @@ export function DepartmentsRolesPage() {
               ))}
             </div>
           )}
-          {!permissionsLoading && has("authority.role_assignment.manage") && (
+          <PermissionGate
+            permission="authority.role_assignment.manage"
+            fallback={<p className="text-xs text-zinc-400">You don't have permission to assign roles.</p>}
+          >
             <form onSubmit={handleCreateRoleAssignment} className="space-y-3">
               <div className="flex gap-2">
                 <UserPicker value={assignUserId} onChange={setAssignUserId} className="flex-1" />
@@ -283,10 +287,7 @@ export function DepartmentsRolesPage() {
                 {creatingAssignment ? "Assigning…" : "Assign role"}
               </button>
             </form>
-          )}
-          {!permissionsLoading && !has("authority.role_assignment.manage") && (
-            <p className="text-xs text-zinc-400">You don't have permission to assign roles.</p>
-          )}
+          </PermissionGate>
         </div>
       </div>
     </div>

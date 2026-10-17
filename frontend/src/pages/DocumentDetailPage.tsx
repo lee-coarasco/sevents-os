@@ -5,6 +5,9 @@ import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
 import { useUsers } from "../hooks/useUsers";
+import { PermissionGate } from "../components/PermissionGate";
+import { StatusBadge } from "../components/StatusBadge";
+import { FileAttachment, AttachmentLink, type AttachmentResult } from "../components/FileAttachment";
 
 interface DocumentRecord {
   id: string;
@@ -39,22 +42,6 @@ interface WorkflowDefinitionOption {
   name: string;
 }
 
-const REVISION_STATUS_LABELS: Record<RevisionStatus, string> = {
-  draft: "Draft",
-  under_review: "Under review",
-  approved: "Approved",
-  superseded: "Superseded",
-  rejected: "Rejected",
-};
-
-const REVISION_STATUS_COLORS: Record<RevisionStatus, string> = {
-  draft: "bg-zinc-100 text-zinc-500",
-  under_review: "bg-amber-50 text-amber-700",
-  approved: "bg-emerald-50 text-emerald-700",
-  superseded: "bg-zinc-100 text-zinc-500",
-  rejected: "bg-red-50 text-red-700",
-};
-
 const inputClass =
   "rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20";
 
@@ -75,14 +62,17 @@ export function DocumentDetailPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [revisionCode, setRevisionCode] = useState("");
-  const [storageReference, setStorageReference] = useState("");
+  const [revisionAttachment, setRevisionAttachment] = useState<AttachmentResult | null>(null);
   const [reviewerId, setReviewerId] = useState("");
 
   const [definitionByRevision, setDefinitionByRevision] = useState<Record<string, string>>({});
 
   function loadRevisions() {
     if (!session || !id) return;
-    apiFetch<{ revisions: Revision[] }>(`/documents/${id}/revisions?includeSuperseded=${showArchived}`, session.access_token)
+    apiFetch<{ revisions: Revision[] }>(
+      `/documents/${id}/revisions?includeSuperseded=${showArchived}`,
+      session.access_token,
+    )
       .then((data) => setRevisions(data.revisions))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }
@@ -109,13 +99,13 @@ export function DocumentDetailPage() {
         method: "POST",
         body: JSON.stringify({
           revisionCode: revisionCode.trim(),
-          storageReference: storageReference.trim() || undefined,
+          storageReference: revisionAttachment?.path ?? undefined,
           reviewerId: reviewerId || undefined,
         }),
       });
       setShowForm(false);
       setRevisionCode("");
-      setStorageReference("");
+      setRevisionAttachment(null);
       setReviewerId("");
       loadRevisions();
     } catch (err) {
@@ -231,9 +221,24 @@ export function DocumentDetailPage() {
             </div>
             <div className="space-y-4 p-6">
               {showForm && (
-                <form onSubmit={handleAddRevision} className="grid grid-cols-1 gap-2 rounded-xl bg-stone-50 p-4 sm:grid-cols-3">
-                  <input value={revisionCode} onChange={(e) => setRevisionCode(e.target.value)} placeholder="Revision code (e.g. A, B, P1)" className={inputClass} />
-                  <input value={storageReference} onChange={(e) => setStorageReference(e.target.value)} placeholder="Storage reference" className={inputClass} />
+                <form
+                  onSubmit={handleAddRevision}
+                  className="grid grid-cols-1 gap-2 rounded-xl bg-stone-50 p-4 sm:grid-cols-3"
+                >
+                  <input
+                    value={revisionCode}
+                    onChange={(e) => setRevisionCode(e.target.value)}
+                    placeholder="Revision code (e.g. A, B, P1)"
+                    className={inputClass}
+                  />
+                  <div className="flex flex-col gap-1">
+                    <FileAttachment
+                      onUploaded={setRevisionAttachment}
+                      accept="application/pdf,image/*,.dwg,.dwf,.dxf"
+                      label="Attach file"
+                    />
+                    {revisionAttachment && <AttachmentLink attachment={revisionAttachment} />}
+                  </div>
                   <UserPicker value={reviewerId} onChange={setReviewerId} placeholder="Reviewer…" />
                   <div className="col-span-full flex gap-2">
                     <button
@@ -243,7 +248,14 @@ export function DocumentDetailPage() {
                     >
                       Add
                     </button>
-                    <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForm(false);
+                        setRevisionAttachment(null);
+                      }}
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                    >
                       Cancel
                     </button>
                   </div>
@@ -260,57 +272,72 @@ export function DocumentDetailPage() {
                           <p className="text-sm font-medium text-zinc-800">
                             Revision {rev.revision_code}
                             {document.current_revision_id === rev.id && (
-                              <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-dim">Current</span>
+                              <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-dim">
+                                Current
+                              </span>
                             )}
                           </p>
                           <p className="mt-0.5 text-xs text-zinc-400">
-                            Reviewer: {reviewerLabel(rev.reviewer_id)} · Created {new Date(rev.created_at).toLocaleDateString()}
+                            Reviewer: {reviewerLabel(rev.reviewer_id)} · Created{" "}
+                            {new Date(rev.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${REVISION_STATUS_COLORS[rev.status]}`}>
-                          {REVISION_STATUS_LABELS[rev.status]}
-                        </span>
+                        <StatusBadge status={rev.status} />
                       </div>
 
-                      {canManage && rev.status === "under_review" && (
-                        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3">
-                          {rev.workflow_instance_id ? (
-                            <button onClick={() => handleResolveApproval(rev.id)} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-white">
-                              Check approval status
-                            </button>
-                          ) : (
-                            <>
-                              <select
-                                value={definitionByRevision[rev.id] ?? ""}
-                                onChange={(e) => setDefinitionByRevision((prev) => ({ ...prev, [rev.id]: e.target.value }))}
-                                className={`max-w-xs ${inputClass}`}
-                              >
-                                <option value="">Select approval workflow…</option>
-                                {definitions?.map((d) => (
-                                  <option key={d.id} value={d.id}>
-                                    {d.name}
-                                  </option>
-                                ))}
-                              </select>
+                      {rev.status === "under_review" && (
+                        <PermissionGate permission="documents.register.manage">
+                          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3">
+                            {rev.workflow_instance_id ? (
                               <button
-                                onClick={() => handleSubmitForRelease(rev.id)}
-                                disabled={!definitionByRevision[rev.id]}
-                                className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                                onClick={() => handleResolveApproval(rev.id)}
+                                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-white"
                               >
-                                Submit for IFC release
+                                Check approval status
                               </button>
-                            </>
-                          )}
-                        </div>
+                            ) : (
+                              <>
+                                <select
+                                  value={definitionByRevision[rev.id] ?? ""}
+                                  onChange={(e) =>
+                                    setDefinitionByRevision((prev) => ({ ...prev, [rev.id]: e.target.value }))
+                                  }
+                                  className={`max-w-xs ${inputClass}`}
+                                >
+                                  <option value="">Select approval workflow…</option>
+                                  {definitions?.map((d) => (
+                                    <option key={d.id} value={d.id}>
+                                      {d.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => handleSubmitForRelease(rev.id)}
+                                  disabled={!definitionByRevision[rev.id]}
+                                  className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                                >
+                                  Submit for IFC release
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </PermissionGate>
                       )}
 
-                      {canManage && rev.status === "approved" && document.current_revision_id !== rev.id && !rev.superseded_by_revision_id && (
-                        <div className="mt-3 border-t border-zinc-200 pt-3">
-                          <button onClick={() => handleSupersede(rev.id)} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-white">
-                            Supersede
-                          </button>
-                        </div>
-                      )}
+                      {rev.status === "approved" &&
+                        document.current_revision_id !== rev.id &&
+                        !rev.superseded_by_revision_id && (
+                          <PermissionGate permission="documents.register.manage">
+                            <div className="mt-3 border-t border-zinc-200 pt-3">
+                              <button
+                                onClick={() => handleSupersede(rev.id)}
+                                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-white"
+                              >
+                                Supersede
+                              </button>
+                            </div>
+                          </PermissionGate>
+                        )}
                     </div>
                   ))}
                 </div>

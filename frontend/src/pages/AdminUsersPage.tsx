@@ -13,7 +13,7 @@ interface AppUser {
 
 interface RoleDefinition {
   id: string;
-  name: string;
+  label: string;
 }
 
 interface RoleAssignment {
@@ -70,7 +70,7 @@ export function AdminUsersPage() {
     const assignment = assignments.find((a) => a.user_id === userId);
     if (!assignment) return "—";
     const role = roles.find((r) => r.id === assignment.role_id);
-    return role?.name ?? assignment.role_id;
+    return role?.label ?? assignment.role_id;
   }
 
   async function handleInvite(e: FormEvent) {
@@ -291,7 +291,7 @@ export function AdminUsersPage() {
                             <option value="">Choose role…</option>
                             {roles.map((r) => (
                               <option key={r.id} value={r.id}>
-                                {r.name}
+                                {r.label}
                               </option>
                             ))}
                           </select>

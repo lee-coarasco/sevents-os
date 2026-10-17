@@ -21,7 +21,7 @@ describe("inviteUser", () => {
   });
 
   it("creates a pending user and an 'invited' audit entry", async () => {
-    const user = await inviteUser(repo, "new.hire@sevents.test", "New Hire", null);
+    const user = await inviteUser(repo, "new.hire@sevents.test", "New Hire", null, "tenant-test");
 
     expect(user.status).toBe("pending");
     expect(user.email).toBe("new.hire@sevents.test");
@@ -30,8 +30,8 @@ describe("inviteUser", () => {
   });
 
   it("is idempotent: re-inviting the same email returns the existing row, not a new one", async () => {
-    const first = await inviteUser(repo, "dup@sevents.test", "Dup", null);
-    const second = await inviteUser(repo, "dup@sevents.test", "Dup", null);
+    const first = await inviteUser(repo, "dup@sevents.test", "Dup", null, "tenant-test");
+    const second = await inviteUser(repo, "dup@sevents.test", "Dup", null, "tenant-test");
 
     expect(second.id).toBe(first.id);
     expect(repo.users.size).toBe(1);
@@ -40,8 +40,8 @@ describe("inviteUser", () => {
   });
 
   it("re-invite is case-insensitive on email", async () => {
-    const first = await inviteUser(repo, "Case@Sevents.Test", "Case", null);
-    const second = await inviteUser(repo, "case@sevents.test", "Case", null);
+    const first = await inviteUser(repo, "Case@Sevents.Test", "Case", null, "tenant-test");
+    const second = await inviteUser(repo, "case@sevents.test", "Case", null, "tenant-test");
 
     expect(second.id).toBe(first.id);
     expect(repo.users.size).toBe(1);
@@ -51,7 +51,7 @@ describe("inviteUser", () => {
 describe("acceptInvite", () => {
   it("activates a pending user and records invite_accepted", async () => {
     const repo = new FakeIdentityRepository();
-    const invited = await inviteUser(repo, "activate@sevents.test", undefined, null);
+    const invited = await inviteUser(repo, "activate@sevents.test", undefined, null, "tenant-test");
 
     const activated = await acceptInvite(repo, invited.id);
 
@@ -62,7 +62,7 @@ describe("acceptInvite", () => {
 
   it("is idempotent: accepting twice does not re-activate or duplicate the audit row", async () => {
     const repo = new FakeIdentityRepository();
-    const invited = await inviteUser(repo, "twice@sevents.test", undefined, null);
+    const invited = await inviteUser(repo, "twice@sevents.test", undefined, null, "tenant-test");
 
     await acceptInvite(repo, invited.id);
     const second = await acceptInvite(repo, invited.id);
@@ -80,7 +80,7 @@ describe("acceptInvite", () => {
 describe("deactivateUser", () => {
   it("soft-deactivates: row and audit trail remain, sign-in is blocked", async () => {
     const repo = new FakeIdentityRepository();
-    const invited = await inviteUser(repo, "leaving@sevents.test", undefined, null);
+    const invited = await inviteUser(repo, "leaving@sevents.test", undefined, null, "tenant-test");
     await acceptInvite(repo, invited.id);
     repo.addSession("token-leaving", invited.id);
 
@@ -97,7 +97,7 @@ describe("deactivateUser", () => {
 describe("signIn / signOut", () => {
   it("signs in with the right password and logs sign_in", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "signin@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "signin@sevents.test", undefined, null, "tenant-test");
     await acceptInvite(repo, user.id);
     repo.setPassword(user.id, "correct-password");
 
@@ -111,7 +111,7 @@ describe("signIn / signOut", () => {
 
   it("rejects the wrong password and logs sign_in_failed without attributing a user", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "wrongpw@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "wrongpw@sevents.test", undefined, null, "tenant-test");
     await acceptInvite(repo, user.id);
     repo.setPassword(user.id, "correct-password");
 
@@ -123,7 +123,7 @@ describe("signIn / signOut", () => {
 
   it("rejects sign-in for a deactivated (banned) user", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "banned@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "banned@sevents.test", undefined, null, "tenant-test");
     await acceptInvite(repo, user.id);
     repo.setPassword(user.id, "correct-password");
     await deactivateUser(repo, user.id);
@@ -135,7 +135,7 @@ describe("signIn / signOut", () => {
 
   it("signs out and revokes the session, logging sign_out", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "signout@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "signout@sevents.test", undefined, null, "tenant-test");
     await acceptInvite(repo, user.id);
     repo.setPassword(user.id, "correct-password");
     const { accessToken } = await signIn(repo, "signout@sevents.test", "correct-password");
@@ -157,8 +157,8 @@ describe("getOwnAuditLog", () => {
 
   it("returns only the caller's own audit entries", async () => {
     const repo = new FakeIdentityRepository();
-    const userA = await inviteUser(repo, "a@sevents.test", undefined, null);
-    const userB = await inviteUser(repo, "b@sevents.test", undefined, null);
+    const userA = await inviteUser(repo, "a@sevents.test", undefined, null, "tenant-test");
+    const userB = await inviteUser(repo, "b@sevents.test", undefined, null, "tenant-test");
     repo.addSession("token-a", userA.id);
 
     const entries = await getOwnAuditLog(repo, "token-a");
@@ -176,9 +176,9 @@ describe("listUsers", () => {
 
   it("lists every non-deactivated user, sorted by display name", async () => {
     const repo = new FakeIdentityRepository();
-    const userA = await inviteUser(repo, "a@sevents.test", "Zara", null);
-    await inviteUser(repo, "b@sevents.test", "Amir", null);
-    const userC = await inviteUser(repo, "c@sevents.test", "Deactivated", null);
+    const userA = await inviteUser(repo, "a@sevents.test", "Zara", null, "tenant-test");
+    await inviteUser(repo, "b@sevents.test", "Amir", null, "tenant-test");
+    const userC = await inviteUser(repo, "c@sevents.test", "Deactivated", null, "tenant-test");
     await deactivateUser(repo, userC.id);
     repo.addSession("token-a", userA.id);
 
@@ -192,7 +192,7 @@ describe("listUsers", () => {
 describe("MFA enrollment and verification", () => {
   it("enrolls a factor and logs mfa_enrolled", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "mfa@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "mfa@sevents.test", undefined, null, "tenant-test");
     repo.addSession("token-mfa", user.id);
 
     const factor = await enrollMfa(repo, "token-mfa");
@@ -203,7 +203,7 @@ describe("MFA enrollment and verification", () => {
 
   it("logs mfa_verified on success", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "mfa-ok@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "mfa-ok@sevents.test", undefined, null, "tenant-test");
     repo.addSession("token-mfa-ok", user.id);
     repo.verifyShouldSucceed = true;
 
@@ -218,7 +218,7 @@ describe("MFA enrollment and verification", () => {
 
   it("logs mfa_verification_failed and throws on bad code", async () => {
     const repo = new FakeIdentityRepository();
-    const user = await inviteUser(repo, "mfa-bad@sevents.test", undefined, null);
+    const user = await inviteUser(repo, "mfa-bad@sevents.test", undefined, null, "tenant-test");
     repo.addSession("token-mfa-bad", user.id);
     repo.verifyShouldSucceed = false;
 

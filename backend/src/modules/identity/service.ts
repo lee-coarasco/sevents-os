@@ -13,18 +13,23 @@ export async function inviteUser(
   email: string,
   displayName: string | undefined,
   invitedBy: string | null,
+  tenantId: string,
 ): Promise<AppUser> {
-  const existing = await repo.findAppUserByEmail(email);
+  const existing = await repo.findAppUserByEmail(email, tenantId);
   if (existing) {
     return existing;
   }
 
-  const authUser = await repo.inviteAuthUser(email);
+  const redirectTo = process.env.APP_FRONTEND_URL
+    ? `${process.env.APP_FRONTEND_URL}/accept-invite`
+    : undefined;
+  const authUser = await repo.inviteAuthUser(email, redirectTo);
   const appUser = await repo.insertAppUser({
     id: authUser.id,
     email,
     display_name: displayName ?? null,
     invited_by: invitedBy,
+    tenant_id: tenantId,
   });
   await repo.insertAuditEvent(appUser.id, "invited", { email, invited_by: invitedBy });
   return appUser;

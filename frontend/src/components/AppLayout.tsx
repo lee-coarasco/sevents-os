@@ -16,9 +16,9 @@ export function AppLayout() {
   const initials = session?.user.email?.slice(0, 2).toUpperCase() ?? "?";
 
   return (
-    <div className="flex min-h-screen bg-stone-50 font-body">
+    <div className="flex h-screen overflow-hidden bg-stone-50 font-body">
       {/* Sidebar */}
-      <aside className="flex w-60 shrink-0 flex-col bg-zinc-900">
+      <aside className="flex w-60 shrink-0 flex-col bg-zinc-900 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center gap-2 px-5 py-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
@@ -160,9 +160,9 @@ export function AppLayout() {
       </aside>
 
       {/* Main */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-14 items-center justify-between border-b border-zinc-100 bg-white px-8">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-100 bg-white px-8">
           <div />
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -171,7 +171,7 @@ export function AppLayout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 p-8">
+        <main className="flex-1 overflow-y-auto p-8">
           <Outlet />
         </main>
       </div>

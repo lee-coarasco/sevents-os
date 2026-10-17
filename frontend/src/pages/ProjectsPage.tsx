@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 type ProjectStatus = "active" | "on_hold" | "closed";
 
@@ -42,7 +42,6 @@ function formatAmount(amount: number | null, currency: string | null): string {
 
 export function ProjectsPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +103,6 @@ export function ProjectsPage() {
     }
   }
 
-  const canManage = has("tenancy.project.manage");
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,14 +110,14 @@ export function ProjectsPage() {
           <h1 className="font-brand text-2xl font-bold text-zinc-900">Projects</h1>
           <p className="mt-1 text-sm text-zinc-400">Project register</p>
         </div>
-        {!permissionsLoading && canManage && (
+        <PermissionGate permission="tenancy.project.manage">
           <button
             onClick={() => setShowForm((prev) => !prev)}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim"
           >
             {showForm ? "Cancel" : "New project"}
           </button>
-        )}
+        </PermissionGate>
       </div>
 
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

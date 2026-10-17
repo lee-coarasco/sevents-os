@@ -21,6 +21,7 @@ import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { WorkflowDefinitionsPage } from "./pages/WorkflowDefinitionsPage";
 import { WorkflowDefinitionDetailPage } from "./pages/WorkflowDefinitionDetailPage";
 import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -35,6 +36,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route
             path="/"
             element={

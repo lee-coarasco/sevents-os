@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
 import { ActivityThread, type ActivityComment } from "../components/ActivityThread";
+import { PermissionGate } from "../components/PermissionGate";
 
 type StepInstanceStatus = "pending" | "active" | "waiting" | "completed" | "skipped" | "failed";
 type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -72,7 +73,7 @@ function slaCountdown(dueAt: string, now: number): { label: string; className: s
 
 export function TaskInboxPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
+  const { has } = usePermissions();
 
   const [tasks, setTasks] = useState<TaskQueueEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -317,7 +318,11 @@ export function TaskInboxPage() {
 
             {actionError && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{actionError}</div>}
 
-            {!permissionsLoading && canAct && selectedTask.status !== "completed" && selectedTask.status !== "skipped" && (
+            <PermissionGate
+              permission="workflow.instance.act"
+              fallback={<p className="text-xs text-zinc-400">You don't have permission to act on tasks.</p>}
+            >
+              {selectedTask.status !== "completed" && selectedTask.status !== "skipped" && (
               <div className="space-y-3 border-t border-zinc-100 pt-4">
                 <button
                   onClick={handleComplete}
@@ -376,10 +381,8 @@ export function TaskInboxPage() {
                   </button>
                 </div>
               </div>
-            )}
-            {!permissionsLoading && !canAct && (
-              <p className="text-xs text-zinc-400">You don't have permission to act on tasks.</p>
-            )}
+              )}
+            </PermissionGate>
 
             <ActivityThread comments={detail?.comments ?? []} onPostComment={handlePostComment} canPost={canAct} busy={busy} />
           </div>
