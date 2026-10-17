@@ -16,6 +16,7 @@ import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
 import { CataloguePage } from "./pages/CataloguePage";
+import { MasterDataPage } from "./pages/masterdata/MasterDataPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -52,6 +53,7 @@ export function App() {
             <Route path="documents" element={<DocumentsPage />} />
             <Route path="documents/:id" element={<DocumentDetailPage />} />
             <Route path="catalogue" element={<CataloguePage />} />
+            <Route path="master-data" element={<MasterDataPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

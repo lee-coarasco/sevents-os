@@ -244,6 +244,15 @@ describe("POST/GET /project-types", () => {
     });
     expect(archived.statusCode).toBe(200);
     expect(archived.json().projectType.is_active).toBe(false);
+
+    const restored = await app.inject({
+      method: "PATCH",
+      url: `/project-types/${id}`,
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      payload: { is_active: true },
+    });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.json().projectType.is_active).toBe(true);
   });
 
   it("404s archiving a project type that doesn't exist", async () => {

@@ -9,6 +9,7 @@ export interface CreateUomInput {
 export interface UpdateUomInput {
   code?: string;
   description?: string | null;
+  is_active?: boolean;
 }
 
 export interface CreateCurrencyInput {
@@ -27,6 +28,7 @@ export interface UpdateCurrencyInput {
   is_base_currency?: boolean;
   exchange_rate_to_base?: number;
   effective_date?: string | null;
+  is_active?: boolean;
 }
 
 export interface CreateCostCodeInput {
@@ -41,6 +43,7 @@ export interface UpdateCostCodeInput {
   code?: string;
   description?: string | null;
   category?: CostCodeCategory;
+  is_active?: boolean;
 }
 
 export interface CreateDocumentTypeInput {
@@ -51,6 +54,7 @@ export interface CreateDocumentTypeInput {
 export interface UpdateDocumentTypeInput {
   code?: string;
   label?: string;
+  is_active?: boolean;
 }
 
 export interface CreateNumberingSchemeInput {

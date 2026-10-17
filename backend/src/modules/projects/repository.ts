@@ -65,6 +65,7 @@ export interface CreateProjectTypeInput {
 export interface UpdateProjectTypeInput {
   name?: string;
   code?: string | null;
+  is_active?: boolean;
 }
 
 export interface CreateWBSNodeInput {

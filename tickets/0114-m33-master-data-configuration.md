@@ -1,7 +1,7 @@
 ---
 id: 114
 title: M33: Master Data & Configuration
-status: in-progress
+status: testing
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
@@ -99,16 +99,20 @@ Each list follows the Definition-of-Done shared component rules:
 
 - [x] All six master-data entity types have full CRUD via REST API
 - [x] `numbering-schemes/:id/next` is atomic (no duplicate numbers under concurrent calls)
-- [ ] Master Data nav section visible to platform_administrator only
-- [ ] All six screens have list, create form, edit form, archive/restore
+- [x] Master Data nav section visible to platform_administrator only
+- [x] All six screens have list, create form, edit form, archive/restore
 - [x] Archiving a document type that is in use returns a 409 with the count of
       referencing documents
 - [x] `documents.document_type_id` FK exists; document create/edit form uses
-      the document-types picker (FK done, picker not — no frontend yet)
+      the document-types picker (FK + master-data screen done; retrofitting
+      DocumentsPage's own form to use the picker is ticket 0139, filed as a
+      follow-on rather than silently left undone)
 - [x] `projects.project_type_id` FK exists (already existed, ticket 0073);
       project create form uses the picker (already did, ticket 0108)
 - [x] `estimate_lines.cost_code_id` FK exists; estimate-line form uses the picker
-      (FK done, picker not — no frontend yet)
+      (FK + master-data screen done; no estimate-line UI exists yet to
+      retrofit — tracked in ticket 0139, blocked on the M11 ticket that
+      builds that form)
 - [x] Tests cover the numbering-scheme atomic-increment, archive-block, and all
       CRUD endpoints
 - [x] USER-GUIDE.md updated with M33 entry
@@ -161,3 +165,42 @@ _Created by lee-coarasco in the AppYard dashboard._
   for the five new screens, `tenancy.project.manage` for the
   project-types screen specifically) and then apply the pending
   migration once Supabase MCP is reachable.
+- 2026-10-17 03:04 UTC: Built the frontend half. One `MasterDataPage`
+  (`frontend/src/pages/masterdata/`) with six tabs (one component per
+  entity: `UomSection`, `CurrenciesSection`, `CostCodesSection`,
+  `DocumentTypesSection`, `ProjectTypesSection`, `NumberingSchemesSection`),
+  each with its own list (default-hides archived, "Show archived" toggle),
+  inline-edit-in-place row, and add form at the bottom — same visual
+  pattern as `CataloguePage`/`DepartmentsRolesPage`, not a new shared
+  abstraction, since no two of the six entities share an identical field
+  shape. Added a "Master Data" nav link in `AppLayout.tsx` wrapped in
+  `<PermissionGate permission="master-data.manage">` so it's invisible to
+  non-platform-administrators, and the `/master-data` route in `App.tsx`.
+  Cost Codes renders as an indented tree (parent/child walk over the flat
+  list, computed client-side — no new backend endpoint needed since
+  `GET /master-data/cost-codes` already returns the full flat list) with
+  an "Add child" button per row that pre-fills the create form's parent
+  picker. Numbering Schemes' list fetches `GET …/:id/preview` per row to
+  show the live next-number preview the ticket asked for, without
+  consuming a sequence number (that stays a separate, not-yet-wired
+  `/next` endpoint for other modules to call at record-creation time).
+  Archive buttons existed already (ticket 0114's backend half); restore
+  did not — rather than add a new `/restore` route, added `is_active` to
+  the four entities' existing `Update*Input` types (`uom`, `currencies`,
+  `cost_codes`, `document_types`) and to `project_types`' own PATCH body
+  type, so "Restore" is just `PATCH { is_active: true }` on the update
+  endpoint each entity already had. Supabase MCP tools were still
+  unreachable this session (same gap as the backend half) — the pending
+  migration `20261017000001_m33_master_data_configuration.sql` has **not**
+  been applied to the live database; the UI will error against a real
+  backend until a session with MCP access applies it. Tests: 21 new
+  frontend tests across 7 files (one per section + the tab-shell page) plus
+  2 new backend tests (`uom`/`document_types` restore-via-update) and 1 new
+  project-types restore test — full suites green (80/80 frontend, 616/616
+  backend), both `lint`/`build` clean on both sides. Filed ticket 0139 as a
+  follow-on for retrofitting `DocumentsPage`'s own create/edit form to use
+  the new document-types picker instead of free text (out of this ticket's
+  scope — it's another module's form, not a master-data screen) rather than
+  leaving it an unticketed gap. Set `status: testing` — code and tests are
+  complete; the owner (or a session with Supabase MCP access) still needs
+  to apply the migration before the screens work against live data.

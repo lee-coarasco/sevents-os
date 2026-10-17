@@ -410,34 +410,55 @@ leaving everything at "immediate delivery, no quiet hours").
 
 ## M33 — Master Data & Configuration
 
-**Status:** backend `in-progress` (ticket 0114), no frontend yet.
+**Status:** backend + frontend built (ticket 0114), `status: testing` —
+**the migration that creates the five new tables (`uom`, `currencies`,
+`cost_codes`, `document_types`, `numbering_schemes`) has not been applied
+to the live database yet** (Supabase MCP tools were unreachable in every
+session that touched this ticket so far). The UI will 404/error until a
+session with MCP access runs `supabase/migrations/
+20261017000001_m33_master_data_configuration.sql`.
 
-**What's built:** six tenant-scoped master-data tables backend only —
-units of measure (`uom`), currencies (`currencies`, exactly one base
-currency enforced per tenant), cost codes (`cost_codes`, self-referencing
-hierarchy), document types (`document_types`), numbering schemes
-(`numbering_schemes`, atomic "issue next number" via optimistic-
-concurrency retry, no Postgres function), and project types (already
-existed from ticket 0073/M09a — only the missing `is_active` column and
-edit/archive endpoints were added, not a second table). All writes
-gated by `master-data.manage` except project-types' own pre-existing
-`tenancy.project.manage` (kept as-is rather than split across two
-permissions for one entity). Reads open to any authenticated tenant
-member. `documents.document_type_id` and `estimate_lines.cost_code_id`
+**What's built:** six tenant-scoped master-data entities, each with full
+list/create/edit/archive/restore in the UI — units of measure (`uom`),
+currencies (`currencies`, exactly one base currency enforced per tenant,
+with a "Set as base currency" checkbox in the UI), cost codes
+(`cost_codes`, self-referencing hierarchy shown as an indented tree with
+an "Add child" action per row), document types (`document_types`),
+numbering schemes (`numbering_schemes`, atomic "issue next number" via
+optimistic-concurrency retry, no Postgres function — the list screen
+shows a live preview of each scheme's next formatted number), and project
+types (already existed from ticket 0073/M09a — only the missing
+`is_active` column and edit/archive endpoints were added, not a second
+table). All writes gated by `master-data.manage` except project-types'
+own pre-existing `tenancy.project.manage` (kept as-is rather than split
+across two permissions for one entity). Reads open to any authenticated
+tenant member. `documents.document_type_id` and `estimate_lines.cost_code_id`
 nullable FKs added so those modules can move off free text once their
 own forms gain a picker — no existing row is affected, the old text
-columns are untouched.
+columns are untouched. Restore (un-archive) is done via `PATCH … {
+is_active: true }` on the same update endpoint each entity already had —
+no separate `/restore` route was added, since the existing PATCH handler
+only needed `is_active` added to its accepted body fields.
 
 **Out of scope for this pass:** the "every monetary field gets a
 companion `currency_code` column" instruction in the ticket was too
 broad to act on without the owner naming which fields qualify beyond
 what already exists (`projects.contract_currency`/`budget_currency`,
 free text, from ticket 0073) — deferred rather than guessed at, per
-CLAUDE.md's "don't invent" rule. No frontend yet (the "Master Data"
-nav section, six list/create/edit/archive screens) — ticket 0114 is
-still `in-progress`.
+CLAUDE.md's "don't invent" rule.
 
-**How to use it:** Nothing to click yet — backend only, no frontend.
+**How to use it:** Platform Administrators see a "Master Data" item in
+the sidebar (hidden from everyone else via `<PermissionGate
+permission="master-data.manage">` — Project Types' write actions instead
+check `tenancy.project.manage`, matching its own permission). The page is
+one screen with six tabs — Units of Measure, Currencies, Cost Codes,
+Document Types, Project Types, Numbering Schemes. Each tab has its own
+list (archived items hidden unless "Show archived" is ticked), an inline
+edit-in-place row, and an "Add" form at the bottom. Cost Codes additionally
+shows an "Add child" button per row that pre-fills the parent in the add
+form. Archiving a cost code or document type that's still referenced by
+an estimate line or a document returns the referencing count in the error
+banner instead of silently failing.
 
 ---
 

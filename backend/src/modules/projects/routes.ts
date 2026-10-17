@@ -216,7 +216,7 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
     return { projectTypes };
   });
 
-  app.patch<{ Params: { id: string }; Body: { name?: string; code?: string | null } }>(
+  app.patch<{ Params: { id: string }; Body: { name?: string; code?: string | null; is_active?: boolean } }>(
     "/project-types/:id",
     { preHandler: options.requirePermission("tenancy.project.manage") },
     async (request, reply) => {

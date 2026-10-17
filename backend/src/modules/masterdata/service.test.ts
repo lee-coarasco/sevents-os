@@ -7,6 +7,7 @@ import {
   NumberingSchemeNotActiveError,
   archiveCostCode,
   archiveDocumentType,
+  archiveUom,
   createCostCode,
   createCurrency,
   createDocumentType,
@@ -15,7 +16,9 @@ import {
   issueNextNumber,
   previewNextNumber,
   updateCurrency,
+  updateDocumentType,
   updateNumberingScheme,
+  updateUom,
 } from "./service.js";
 
 const TOKEN = "token-a";
@@ -33,6 +36,15 @@ describe("uom", () => {
     const uom = await createUom(repo, TOKEN, { code: "kg", description: "Kilogram" });
     expect(uom.code).toBe("kg");
     expect(uom.is_active).toBe(true);
+  });
+
+  it("restores an archived uom via update", async () => {
+    const repo = repoWithSession();
+    const uom = await createUom(repo, TOKEN, { code: "nr", description: "Number" });
+    await archiveUom(repo, TOKEN, uom.id);
+
+    const restored = await updateUom(repo, TOKEN, uom.id, { is_active: true });
+    expect(restored.is_active).toBe(true);
   });
 });
 
@@ -103,6 +115,15 @@ describe("document types", () => {
     const documentType = await createDocumentType(repo, TOKEN, { code: "SPEC", label: "Specification" });
     const archived = await archiveDocumentType(repo, TOKEN, documentType.id);
     expect(archived.is_active).toBe(false);
+  });
+
+  it("restores an archived document type via update", async () => {
+    const repo = repoWithSession();
+    const documentType = await createDocumentType(repo, TOKEN, { code: "BOQ", label: "Bill of Quantities" });
+    await archiveDocumentType(repo, TOKEN, documentType.id);
+
+    const restored = await updateDocumentType(repo, TOKEN, documentType.id, { is_active: true });
+    expect(restored.is_active).toBe(true);
   });
 });
 

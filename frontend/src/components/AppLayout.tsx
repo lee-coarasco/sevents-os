@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBell } from "./NotificationBell";
+import { PermissionGate } from "./PermissionGate";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -61,6 +62,14 @@ export function AppLayout() {
             </svg>
             Work-Item Catalogue
           </NavLink>
+          <PermissionGate permission="master-data.manage">
+            <NavLink to="/master-data" className={navLinkClass}>
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7zm4-2v4m8-4v4M4 11h16" />
+              </svg>
+              Master Data
+            </NavLink>
+          </PermissionGate>
 
           <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
             Work
