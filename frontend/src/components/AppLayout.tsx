@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthContext";
+import { NotificationBell } from "./NotificationBell";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -138,6 +139,7 @@ export function AppLayout() {
         <header className="flex h-14 items-center justify-between border-b border-zinc-100 bg-white px-8">
           <div />
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50">
               Feedback
             </button>

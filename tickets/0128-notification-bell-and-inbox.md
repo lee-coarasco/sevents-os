@@ -1,7 +1,7 @@
 ---
 id: 128
 title: Notification bell + inbox in AppLayout, wired to M31 backend
-status: next
+status: in-progress
 roles: [ui-designer, backend-engineer, test-engineer]
 priority: 1
 created: 2026-10-17
