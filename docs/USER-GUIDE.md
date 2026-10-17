@@ -99,23 +99,46 @@ service-role CLI script).
 
 ## M06 — Configuration Studio & Workflow Engine
 
-**Status:** testing (tickets 0059 → split into 0060 definition/version CRUD +
-publish/rollback, 0061 validation/simulation, 0062 runtime/instance engine,
-0063 migration of running instances)
+**Status:** testing (backend: tickets 0059 → split into 0060 definition/
+version CRUD + publish/rollback, 0061 validation/simulation, 0062 runtime/
+instance engine, 0063 migration of running instances. Frontend: ticket 0116
+→ split into 0141 (built, this entry), 0142/0143/0144 still to come)
 
 **What's built:** Backend `workflow` module — the single largest module.
 Covers workflow definitions and versions (draft → validate → publish →
 rollback), the validation/simulation engine that gates publishing, the
 runtime engine that actually runs instances and advances steps, and audited
-migration of in-flight instances to a newer published version. No
-"Configuration Studio" UI exists yet — there is no screen to visually build a
-workflow definition.
+migration of in-flight instances to a newer published version.
 
-**How to use it:** Nothing to click yet for authoring workflows — that needs
-a designer screen that hasn't been built. What you *can* reach today is the
-runtime output of workflows that already exist: the My Work queue (M07) and
-Approval queue (M08) below are both reading from this engine's step
-instances.
+A first slice of the "Configuration Studio" UI now exists at
+`/config-studio`: browsing definitions, creating a new one, and managing
+versions (drafting a new version from the current published one, rolling
+back to any prior published version). The actual steps/graph editor
+(adding the node-by-node logic inside a draft version), the validation
+panel, and submit/approve/publish actions are not built yet — a version's
+detail page currently just shows its metadata as a placeholder.
+
+**How to use it:** New build needed. Sign in as a Platform Administrator or
+Document Controller (holds `workflow.definition.manage`) and click
+**Configuration Studio** in the sidebar.
+1. The list page shows every workflow definition, its key, status and
+   current published version. Filter by status with the dropdown.
+2. **New Definition** opens a form for key/name/description — creates a
+   draft definition with its first draft version.
+3. Click a definition's name to open its detail page: header info plus a
+   **Versions** table. **New Version** drafts a new version copying the
+   current published one (if any). Clicking a version number opens a
+   placeholder page with its metadata — the real steps editor lands in a
+   follow-on ticket.
+4. On a published version's row, **Rollback to this version** (needs
+   `workflow.definition.publish`) asks for an optional reason, then makes
+   that version active for all new instances again.
+
+What you still can't do from the UI: actually define the steps inside a
+draft version, run validation, or submit/approve/publish a version — those
+all still require inserting rows directly, same as before this ticket.
+The My Work queue (M07) and Approval queue (M08) below both read the
+runtime output of workflows that already exist in the database.
 
 ## M04 — Employee Directory & Workforce
 

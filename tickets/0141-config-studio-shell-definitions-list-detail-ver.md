@@ -1,7 +1,7 @@
 ---
 id: 141
 title: Config Studio shell — nav, definitions list/create, detail page, versions tab, rollback
-status: in-progress
+status: testing
 roles: [ui-designer, test-engineer]
 priority: 1
 created: 2026-10-17
@@ -52,10 +52,35 @@ ticket is the first slice: everything that doesn't require editing the graph.
 - All write actions in `<PermissionGate>`.
 
 ## Acceptance
-- [ ] Nav entry visible only to `workflow.definition.manage` holders.
-- [ ] List, create, detail, versions tab, new-version, rollback all work
+- [x] Nav entry visible only to `workflow.definition.manage` holders.
+- [x] List, create, detail, versions tab, new-version, rollback all work
       end to end against the real backend shapes above.
-- [ ] Tests for list/create/detail/versions/rollback.
-- [ ] `docs/USER-GUIDE.md` M06 entry updated.
+- [x] Tests for list/create/detail/versions/rollback.
+- [x] `docs/USER-GUIDE.md` M06 entry updated.
 
 ## Progress
+- 2026-10-17 03:21 UTC: Built `WorkflowDefinitionsPage.tsx` (list + status
+  filter + create form), `WorkflowDefinitionDetailPage.tsx` (header +
+  Versions tab: table, New Version via `copyFromVersionId`, Rollback with
+  a confirm step asking for an optional reason), and a
+  `WorkflowVersionDetailPage.tsx` stub (metadata only, explicitly labelled
+  as a placeholder for tickets 0142/0143). Added the "Configuration
+  Studio" nav entry (gated on `workflow.definition.manage`) and three
+  routes in `App.tsx`. All write actions wrapped in `<PermissionGate>`
+  (rollback specifically gated on `workflow.definition.publish`, not the
+  same permission as everything else on the page — confirmed from the
+  backend survey rather than assumed). Reused `<StatusBadge>` (ticket
+  0140, built earlier this session) for both definition and version
+  status pills instead of hand-rolling another status-to-colour map.
+  12 new tests across 3 files. One test-writing note: a `PermissionGate`-
+  wrapped button needs `findByText` (not `getByText`) for its *first*
+  assertion in a test, since `usePermissions()` resolves on a separate
+  async tick from the page's own data fetch — asserting on unrelated
+  loaded data first and then synchronously `getByText`-ing a gated button
+  can race the permission fetch.
+  Full frontend suite: 96/96 across 27 files, `npm run lint` (tsc
+  --noEmit) and `npm run build` clean. `docs/USER-GUIDE.md` M06 entry
+  rewritten to describe the real screen and spell out exactly what's
+  still missing (steps editor, validation, publish) so it isn't mistaken
+  for a complete Configuration Studio.
+  Set `status: testing`.
