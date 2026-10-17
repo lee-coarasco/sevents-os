@@ -1,11 +1,12 @@
 ---
 id: 156
 title: "M12d: As-built closeout"
-status: next
+status: testing
 roles: [backend-engineer, ui-designer, test-engineer]
 priority: 1
 created: 2026-10-17
 updated: 2026-10-17
+done: 2026-10-17
 depends_on: [119]
 ---
 

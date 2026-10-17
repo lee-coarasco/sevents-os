@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { UserPicker } from "../components/UserPicker";
 import { PermissionGate } from "../components/PermissionGate";
+import { EngineeringSection } from "../components/EngineeringSection";
 
 type ProjectStatus = "active" | "on_hold" | "closed";
 type MilestoneStatus = "pending" | "achieved" | "missed";
@@ -609,6 +610,8 @@ export function ProjectDetailPage() {
               </div>
             </div>
           </div>
+
+          {session && <EngineeringSection projectId={id as string} token={session.access_token} />}
 
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
