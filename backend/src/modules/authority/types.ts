@@ -10,6 +10,7 @@ export interface RoleDefinition {
   id: string;
   tenant_id: string | null;
   label: string;
+  department_cluster: string | null;
   is_platform_role: boolean;
 }
 

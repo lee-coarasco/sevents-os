@@ -21,6 +21,7 @@ interface RoleDefinition {
   id: string;
   label: string;
   is_platform_role: boolean;
+  department_cluster: string | null;
 }
 
 interface RoleAssignment {
@@ -44,8 +45,10 @@ export function DepartmentsRolesPage() {
 
   const [newDepartmentName, setNewDepartmentName] = useState("");
   const [creatingDepartment, setCreatingDepartment] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [seedResult, setSeedResult] = useState<{ created: number; skipped: number } | null>(null);
+
+  const [newRoleLabel, setNewRoleLabel] = useState("");
+  const [newRoleCluster, setNewRoleCluster] = useState("");
+  const [creatingRole, setCreatingRole] = useState(false);
 
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
@@ -104,27 +107,30 @@ export function DepartmentsRolesPage() {
     }
   }
 
-  async function handleSeedDepartments() {
-    if (!session || !selectedCompanyId) return;
-    setSeeding(true);
-    setSeedResult(null);
+  async function handleCreateRole(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !newRoleLabel.trim()) return;
+    setCreatingRole(true);
     setError(null);
     try {
-      const result = await apiFetch<{ created: number; skipped: number; departments: Department[] }>(
-        "/authority/departments/seed-from-catalogue",
+      const { role } = await apiFetch<{ role: RoleDefinition }>(
+        "/authority/roles",
         session.access_token,
-        { method: "POST", body: JSON.stringify({ companyId: selectedCompanyId }) },
+        {
+          method: "POST",
+          body: JSON.stringify({
+            label: newRoleLabel.trim(),
+            departmentCluster: newRoleCluster.trim() || undefined,
+          }),
+        },
       );
-      setSeedResult({ created: result.created, skipped: result.skipped });
-      const { departments: updated } = await apiFetch<{ departments: Department[] }>(
-        `/authority/departments?companyId=${selectedCompanyId}`,
-        session.access_token,
-      );
-      setDepartments(updated);
+      setRoles((prev) => [...(prev ?? []), role]);
+      setNewRoleLabel("");
+      setNewRoleCluster("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not seed departments");
+      setError(err instanceof ApiError ? err.message : "Could not create role");
     } finally {
-      setSeeding(false);
+      setCreatingRole(false);
     }
   }
 
@@ -226,23 +232,6 @@ export function DepartmentsRolesPage() {
             permission="authority.department.manage"
             fallback={<p className="text-xs text-zinc-400">You don't have permission to create departments.</p>}
           >
-            {selectedCompanyId && (
-              <div className="mb-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleSeedDepartments}
-                  disabled={seeding}
-                  className="rounded-lg border border-zinc-200 bg-stone-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50"
-                >
-                  {seeding ? "Seeding…" : "Seed standard departments from catalogue"}
-                </button>
-                {seedResult && (
-                  <span className="text-xs text-zinc-500">
-                    {seedResult.created} created, {seedResult.skipped} already existed
-                  </span>
-                )}
-              </div>
-            )}
             {companies && companies.length > 0 && (
               <form onSubmit={handleCreateDepartment} className="flex gap-2">
                 <input
@@ -260,6 +249,68 @@ export function DepartmentsRolesPage() {
                 </button>
               </form>
             )}
+          </PermissionGate>
+        </div>
+      </div>
+
+      {/* Roles */}
+      <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+        <div className="border-b border-zinc-100 px-6 py-4">
+          <h2 className="font-brand text-base font-semibold text-zinc-900">Roles</h2>
+        </div>
+        <div className="p-6">
+          {roles === null && <p className="mb-3 text-sm text-zinc-400">Loading…</p>}
+          {roles !== null && roles.length === 0 && (
+            <p className="mb-4 text-sm text-zinc-400">No roles yet.</p>
+          )}
+          {roles !== null && roles.length > 0 && (
+            <div className="mb-4 grid gap-2 sm:grid-cols-2">
+              {roles.map((role) => (
+                <div key={role.id} className="flex items-start rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-zinc-800">{role.label}</p>
+                    {role.department_cluster && (
+                      <p className="mt-0.5 text-xs text-zinc-400">{role.department_cluster}</p>
+                    )}
+                  </div>
+                  {!role.is_platform_role && (
+                    <span className="ml-2 shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-zinc-700">Custom</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <PermissionGate
+            permission="authority.role.manage"
+            fallback={<p className="text-xs text-zinc-400">You don't have permission to create roles.</p>}
+          >
+            <form onSubmit={handleCreateRole} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  value={newRoleLabel}
+                  onChange={(e) => setNewRoleLabel(e.target.value)}
+                  placeholder="Role name, e.g. Senior Site Engineer"
+                  className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+                <select
+                  value={newRoleCluster}
+                  onChange={(e) => setNewRoleCluster(e.target.value)}
+                  className="w-56 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">Department cluster (optional)</option>
+                  {[...new Set((roles ?? []).map((r) => r.department_cluster).filter(Boolean))].sort().map((cluster) => (
+                    <option key={cluster!} value={cluster!}>{cluster}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={creatingRole || !newRoleLabel.trim()}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
+              >
+                {creatingRole ? "Creating…" : "Create role"}
+              </button>
+            </form>
           </PermissionGate>
         </div>
       </div>

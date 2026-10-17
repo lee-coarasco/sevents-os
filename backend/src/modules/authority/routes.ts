@@ -44,6 +44,30 @@ export async function authorityRoutes(app: FastifyInstance, options: AuthorityRo
     },
   );
 
+  app.post<{ Body: { label: string; departmentCluster?: string } }>(
+    "/authority/roles",
+    { preHandler: requirePermission(options.getRepository, "authority.role.manage") },
+    async (request, reply) => {
+      const { label, departmentCluster } = request.body ?? ({} as never);
+      if (!label?.trim()) {
+        reply.code(400);
+        return { error: "label is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const context = await options.getRepository().resolveCallerContext(token);
+      if (!context) {
+        reply.code(401);
+        return { error: "invalid session" };
+      }
+      const role = await options.getRepository().createRoleDefinition(context.tenantId, {
+        label: label.trim(),
+        departmentCluster: departmentCluster?.trim() || null,
+      });
+      reply.code(201);
+      return { role };
+    },
+  );
+
   app.post<{ Body: { companyId: string } }>(
     "/authority/departments/seed-from-catalogue",
     { preHandler: requirePermission(options.getRepository, "authority.department.manage") },

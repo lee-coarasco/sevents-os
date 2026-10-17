@@ -93,6 +93,19 @@ export class FakeAuthorityRepository implements AuthorityRepository {
     return { created: 0, skipped: 0, departments: [] };
   }
 
+  async createRoleDefinition(tenantId: string, input: { label: string; departmentCluster?: string | null }) {
+    const id = `role.custom.${Math.random().toString(16).slice(2, 10)}`;
+    const role: RoleDefinition = {
+      id,
+      tenant_id: tenantId,
+      label: input.label,
+      department_cluster: input.departmentCluster ?? null,
+      is_platform_role: false,
+    };
+    this.roleDefinitions.set(id, role);
+    return role;
+  }
+
   async listRoleDefinitions(accessToken: string) {
     const { tenantId } = this.contextOf(accessToken);
     return [...this.roleDefinitions.values()].filter(

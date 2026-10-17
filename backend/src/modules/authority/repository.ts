@@ -79,6 +79,11 @@ export interface AuthorityRepository {
     accessToken: string,
     companyId: string,
   ): Promise<{ created: number; skipped: number; departments: DepartmentDefinition[] }>;
+  /** Create a tenant-scoped custom role definition. */
+  createRoleDefinition(
+    tenantId: string,
+    input: { label: string; departmentCluster?: string | null },
+  ): Promise<RoleDefinition>;
   /** RLS (role_definitions_select) already returns platform-wide rows plus the caller's own tenant's rows; this goes through the user-scoped client so that filter applies for free. */
   listRoleDefinitions(accessToken: string): Promise<RoleDefinition[]>;
   createRoleAssignment(accessToken: string, input: CreateRoleAssignmentInput): Promise<RoleAssignment>;
@@ -196,6 +201,30 @@ export function createSupabaseAuthorityRepository(
 
       const departments = (inserted as DepartmentDefinition[]) ?? [];
       return { created: departments.length, skipped: allClusters.size - departments.length, departments };
+    },
+
+    async createRoleDefinition(tenantId, input) {
+      const baseSlug = input.label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      const uniqueSuffix = Math.random().toString(16).slice(2, 10);
+      const id = `role.${baseSlug}.${uniqueSuffix}`;
+      const { data, error } = await serviceClient
+        .from("role_definitions")
+        .insert({
+          id,
+          tenant_id: tenantId,
+          label: input.label,
+          department_cluster: input.departmentCluster ?? null,
+          is_platform_role: false,
+        })
+        .select("*")
+        .single();
+      if (error || !data) {
+        throw new Error(`createRoleDefinition: ${error?.message ?? "no row returned"}`);
+      }
+      return data as RoleDefinition;
     },
 
     async listRoleDefinitions(accessToken) {

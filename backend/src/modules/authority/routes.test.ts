@@ -152,18 +152,21 @@ describe("GET /authority/roles", () => {
       id: "role.platform_administrator",
       tenant_id: null,
       label: "Platform Administrator",
+      department_cluster: null,
       is_platform_role: true,
     });
     authorityRepo.roleDefinitions.set("custom-a", {
       id: "custom-a",
       tenant_id: TENANT_ID,
       label: "Tenant A custom role",
+      department_cluster: null,
       is_platform_role: false,
     });
     authorityRepo.roleDefinitions.set("custom-b", {
       id: "custom-b",
       tenant_id: "tenant-b",
       label: "Tenant B custom role",
+      department_cluster: null,
       is_platform_role: false,
     });
 
