@@ -1180,3 +1180,27 @@ approved (agent-autonomous or you).
 - Approved by: agent (ticket classification/ordering and internal
   component-boundary decisions are explicitly agent-decidable per
   CLAUDE.md).
+
+## 2026-10-17 03:18 UTC - Ticket 0116 (M06 Configuration Studio frontend) split into four sub-tickets 0141-0144 by build order, same precedent as the M06 backend's own 0059→0060-0063 split
+- Decision: Surveyed the live M06 backend before writing any frontend
+  code. The real workflow-step model is a node/transition/condition
+  graph (13 node types; branching via separate condition entities linked
+  to transitions) — materially more complex than 0116's "visual step
+  list with drag reorder" description, which reads like it assumed a
+  linear list. That gap alone justified splitting rather than attempting
+  the whole ticket at once, independent of budget. Split by dependency
+  order: 0141 (shell — nav/list/create/detail/versions/rollback, no
+  graph editing) first since nothing else can be tested without it;
+  0142 (the actual steps/graph editor) and 0143 (validation + submit/
+  approve/publish) both depend on 0141 but not on each other; 0144
+  (work-items-tab linking catalogue items to a definition) is the one
+  genuinely new piece inside 0116's "Catalogue browser" ask — the rest
+  of that ask duplicates the already-built `/catalogue` page (0125) and
+  still-blocked ticket 0126, neither of which needed rebuilding.
+  0141 was picked up and built this same session.
+- Why: same oversized-ticket-split precedent used throughout this
+  backlog (0111, 0112, 0115 earlier today); the graph-vs-list mismatch
+  specifically mirrors why the backend itself needed 0059 split into
+  four tickets rather than one.
+- Approved by: agent (ticket classification/ordering and internal API/
+  component design are explicitly agent-decidable per CLAUDE.md).

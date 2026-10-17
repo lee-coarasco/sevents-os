@@ -1,12 +1,14 @@
 ---
 id: 116
 title: M06: Configuration Studio frontend (workflow definition editor)
-status: next
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
 updated: 2026-10-17
 ---
+
+**Closed with no code — split into tickets 0141-0144. See Progress.**
 
 M06 backend is fully built (definition CRUD, versioning, validation,
 simulation, runtime). Zero frontend exists. Without this screen, no one can
@@ -90,3 +92,24 @@ database. This is also the Phase 2 exit criterion that is currently unmet.
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-17 (session): Surveyed the actual M06 backend before building —
+  the real step model is a node/transition/condition graph (13 node
+  types, conditions as separate entities linked to transitions), not the
+  simple linear "step list" this ticket assumed. That's enough extra
+  surface, on its own, to split rather than build as one ticket — same
+  precedent the backend itself used (ticket 0059 → 0060-0063). Also found
+  this ticket's "Catalogue browser" section duplicates the already-built
+  `/catalogue` page (ticket 0125) and the still-blocked ticket 0126
+  (create/import/export) — not rebuilding either.
+  Split into:
+  - 0141: nav, definitions list/create, detail page, versions tab,
+    new-version, rollback. No graph editing yet.
+  - 0142: the actual steps editor (nodes/transitions/conditions CRUD) on
+    a draft version — depends on 0141.
+  - 0143: validation panel + submit/approve/publish actions — depends on
+    0141, not strictly on 0142.
+  - 0144: "work items tab" linking catalogue items to a definition
+    (reuses the existing catalogue PATCH endpoint, no new backend route)
+    — the only genuinely new piece from the "Catalogue browser" ask.
+  Closing 0116 `done` with no code; 0141 picked up and built this same
+  session (see its own Progress). Logged in DECISIONS.md.
