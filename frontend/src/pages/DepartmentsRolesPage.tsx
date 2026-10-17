@@ -44,6 +44,8 @@ export function DepartmentsRolesPage() {
 
   const [newDepartmentName, setNewDepartmentName] = useState("");
   const [creatingDepartment, setCreatingDepartment] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<{ created: number; skipped: number } | null>(null);
 
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
@@ -99,6 +101,30 @@ export function DepartmentsRolesPage() {
       setError(err instanceof ApiError ? err.message : "Could not create department");
     } finally {
       setCreatingDepartment(false);
+    }
+  }
+
+  async function handleSeedDepartments() {
+    if (!session || !selectedCompanyId) return;
+    setSeeding(true);
+    setSeedResult(null);
+    setError(null);
+    try {
+      const result = await apiFetch<{ created: number; skipped: number; departments: Department[] }>(
+        "/authority/departments/seed-from-catalogue",
+        session.access_token,
+        { method: "POST", body: JSON.stringify({ companyId: selectedCompanyId }) },
+      );
+      setSeedResult({ created: result.created, skipped: result.skipped });
+      const { departments: updated } = await apiFetch<{ departments: Department[] }>(
+        `/authority/departments?companyId=${selectedCompanyId}`,
+        session.access_token,
+      );
+      setDepartments(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not seed departments");
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -200,6 +226,23 @@ export function DepartmentsRolesPage() {
             permission="authority.department.manage"
             fallback={<p className="text-xs text-zinc-400">You don't have permission to create departments.</p>}
           >
+            {selectedCompanyId && (
+              <div className="mb-4 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSeedDepartments}
+                  disabled={seeding}
+                  className="rounded-lg border border-zinc-200 bg-stone-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50"
+                >
+                  {seeding ? "Seeding…" : "Seed standard departments from catalogue"}
+                </button>
+                {seedResult && (
+                  <span className="text-xs text-zinc-500">
+                    {seedResult.created} created, {seedResult.skipped} already existed
+                  </span>
+                )}
+              </div>
+            )}
             {companies && companies.length > 0 && (
               <form onSubmit={handleCreateDepartment} className="flex gap-2">
                 <input
@@ -241,7 +284,9 @@ export function DepartmentsRolesPage() {
                     {roleLabel(assignment.role_id)}
                   </span>
                   {assignment.department_id && (
-                    <span className="ml-2 text-xs text-zinc-400">in dept {assignment.department_id.slice(0, 8)}…</span>
+                    <span className="ml-2 text-xs text-zinc-400">
+                      in {departments?.find((d) => d.id === assignment.department_id)?.name ?? assignment.department_id.slice(0, 8) + "…"}
+                    </span>
                   )}
                 </div>
               ))}

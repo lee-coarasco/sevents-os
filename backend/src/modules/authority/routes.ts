@@ -44,6 +44,21 @@ export async function authorityRoutes(app: FastifyInstance, options: AuthorityRo
     },
   );
 
+  app.post<{ Body: { companyId: string } }>(
+    "/authority/departments/seed-from-catalogue",
+    { preHandler: requirePermission(options.getRepository, "authority.department.manage") },
+    async (request, reply) => {
+      const { companyId } = request.body ?? ({} as never);
+      if (!companyId) {
+        reply.code(400);
+        return { error: "companyId is required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const result = await options.getRepository().seedDepartmentsFromCatalogue(token, companyId);
+      return result;
+    },
+  );
+
   app.post<{
     Body: { userId: string; roleId: string; departmentId?: string; validFrom?: string; validTo?: string };
   }>(

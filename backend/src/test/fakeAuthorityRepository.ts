@@ -89,6 +89,10 @@ export class FakeAuthorityRepository implements AuthorityRepository {
     );
   }
 
+  async seedDepartmentsFromCatalogue(_accessToken: string, _companyId: string) {
+    return { created: 0, skipped: 0, departments: [] };
+  }
+
   async listRoleDefinitions(accessToken: string) {
     const { tenantId } = this.contextOf(accessToken);
     return [...this.roleDefinitions.values()].filter(

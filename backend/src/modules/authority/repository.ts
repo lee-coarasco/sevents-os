@@ -70,6 +70,15 @@ export interface AuthorityRepository {
   createDepartment(accessToken: string, input: CreateDepartmentInput): Promise<DepartmentDefinition>;
   /** Self-service read, same "visible to anyone with a session in this tenant" precedent as GET /tenancy/companies — no extra permission. */
   listDepartments(accessToken: string, companyId: string): Promise<DepartmentDefinition[]>;
+  /**
+   * Idempotent seed: extracts distinct department_cluster values from
+   * role_definitions and work_item_definitions, then inserts any that don't
+   * already exist as department_definitions for the given company.
+   */
+  seedDepartmentsFromCatalogue(
+    accessToken: string,
+    companyId: string,
+  ): Promise<{ created: number; skipped: number; departments: DepartmentDefinition[] }>;
   /** RLS (role_definitions_select) already returns platform-wide rows plus the caller's own tenant's rows; this goes through the user-scoped client so that filter applies for free. */
   listRoleDefinitions(accessToken: string): Promise<RoleDefinition[]>;
   createRoleAssignment(accessToken: string, input: CreateRoleAssignmentInput): Promise<RoleAssignment>;
@@ -144,6 +153,49 @@ export function createSupabaseAuthorityRepository(
         .eq("company_id", companyId);
       if (error) throw new Error(`listDepartments: ${error.message}`);
       return (data as DepartmentDefinition[]) ?? [];
+    },
+
+    async seedDepartmentsFromCatalogue(accessToken, companyId) {
+      // Read distinct cluster labels via service client so we get all
+      // platform-wide rows regardless of the caller's tenant context.
+      const [{ data: roleData }, { data: widdData }] = await Promise.all([
+        serviceClient.from("role_definitions").select("department_cluster").not("department_cluster", "is", null),
+        serviceClient.from("work_item_definitions").select("department_cluster").not("department_cluster", "is", null),
+      ]);
+
+      const allClusters = new Set<string>();
+      for (const row of [...(roleData ?? []), ...(widdData ?? [])]) {
+        const name = (row as { department_cluster: string }).department_cluster?.trim();
+        if (name) allClusters.add(name);
+      }
+
+      const userClient = userScopedClientFactory(accessToken);
+      const { data: existing, error: listErr } = await userClient
+        .from("department_definitions")
+        .select("name")
+        .eq("company_id", companyId);
+      if (listErr) throw new Error(`seedDepartmentsFromCatalogue list: ${listErr.message}`);
+
+      const existingNames = new Set(
+        (existing ?? []).map((d: { name: string }) => d.name.toLowerCase()),
+      );
+      const toInsert = [...allClusters]
+        .filter((name) => !existingNames.has(name.toLowerCase()))
+        .sort()
+        .map((name) => ({ company_id: companyId, name, parent_id: null }));
+
+      if (toInsert.length === 0) {
+        return { created: 0, skipped: allClusters.size, departments: [] };
+      }
+
+      const { data: inserted, error: insertErr } = await userClient
+        .from("department_definitions")
+        .insert(toInsert)
+        .select("*");
+      if (insertErr) throw new Error(`seedDepartmentsFromCatalogue insert: ${insertErr.message}`);
+
+      const departments = (inserted as DepartmentDefinition[]) ?? [];
+      return { created: departments.length, skipped: allClusters.size - departments.length, departments };
     },
 
     async listRoleDefinitions(accessToken) {
