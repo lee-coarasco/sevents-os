@@ -129,3 +129,21 @@ log per client.
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-17 (session, not picked up — flagging for whoever does):
+  Spotted while closing out tickets 0115/0116 this same session, both of
+  which turned out stale/duplicate against already-built work filed the
+  same day by the owner. This ticket's M09/M10 sections ("Current gap:
+  entire screen is read-only — no create or edit forms") look stale
+  too: ticket 0108's own close-out (see that ticket's last Progress
+  entries, 2026-10-16) already built create+edit forms for M09 (projects/
+  WBS/milestones/activities) and M10 (clients/contacts/opportunities).
+  Did NOT verify the other four sections (M03 delegation tab, M04 bulk
+  import/org chart/auth-account link, M07 reassign/delegate/SLA-
+  countdown/ActivityThread, M08 return-for-correction/approved-with-
+  conditions/ActivityThread) against current code — those may be
+  genuinely new asks on top of 0108's narrower scope, not duplicates.
+  Whoever picks this up: re-survey each section against the live
+  `frontend/src/pages/*.tsx` before building, same as the 0115/0116
+  survey-first approach, rather than assuming the ticket's gap
+  descriptions are current. Left `status: next`, not split — didn't have
+  session budget left to do that split justice this session.
