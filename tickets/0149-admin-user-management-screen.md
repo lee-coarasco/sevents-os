@@ -2,7 +2,7 @@
 id: 149
 title: Admin User Management screen (invite, role, deactivate, reset password)
 module: M01
-status: in-progress
+status: testing
 priority: 1
 created: 2026-10-17
 updated: 2026-10-17
@@ -43,3 +43,4 @@ Missing endpoints:
 
 ## Progress
 2026-10-17: In progress — being built by the session that applied the M33 migration.
+2026-10-17: Done — backend admin/users module (GET list with roles, POST invite+role, PATCH role, PATCH deactivate), identity module PATCH /admin/users/:id (display name) and POST /admin/users/:id/reset-password; AdminUsersPage.tsx frontend with invite form, inline edit, role assign, deactivate, password reset; AppLayout sidebar nav link fixed to identity.user.invite; admin_users_permission migration applied; USER-GUIDE.md M01 section updated.
