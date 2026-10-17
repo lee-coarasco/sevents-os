@@ -1204,3 +1204,37 @@ approved (agent-autonomous or you).
   four tickets rather than one.
 - Approved by: agent (ticket classification/ordering and internal API/
   component design are explicitly agent-decidable per CLAUDE.md).
+
+## 2026-10-17 (session) - Ticket 0117 (owner-filed "Complete Phase 3 module UI gaps") re-surveyed and split into four sub-tickets 0145-0148
+- Decision: A prior session had already flagged 0117's M09/M10 sections
+  as likely stale but left the ticket whole, `status: next`, for the next
+  session to re-survey before building (same caution the 0115/0116
+  survey-first sessions used). This session did that survey against the
+  live frontend/backend code for all six sections (M03, M04, M07, M08,
+  M09, M10). Findings: M09 and M10 create/edit forms are fully built
+  already (ticket 0108) — confirmed stale, no code needed. M03's raw-UUID
+  gap and M04's auth-account-link gap are also already fixed. M08's four
+  decision types (approve/reject/approved_with_conditions/returned_for_
+  correction) are already wired. The genuine remaining gaps, which do not
+  map 1:1 onto the original six sections: a shared `<ActivityThread>`
+  component (needed by both M07 and M08, currently missing entirely —
+  M08 already fetches `comments` in its detail payload but never renders
+  them), M07's SLA countdown (plain date text today, no relative-time/
+  colour), M03's Delegation tab (no GET-list or revoke endpoint, no UI),
+  M04's bulk CSV import + org chart tab (neither exists), and M10's
+  client detail slide-over (contacts/opportunities/communications linked
+  view — doesn't exist; the Kanban/forms ticket 0108 built were create/
+  edit only, not a detail view).
+  Split into 0145 (ActivityThread + SLA countdown, spans M07+M08 since
+  both touch the same shared component and M07's countdown is a small
+  addition to the same drawer file), 0146 (M03 delegation tab), 0147
+  (M04 bulk import + org chart), 0148 (M10 client detail slide-over).
+  Closed 0117 `done` with no further code, full item-by-item mapping in
+  its own Progress section — same closure pattern as 0112/0115.
+- Why: avoids rebuilding M09/M10 forms that already exist, and avoids
+  carrying four unrelated remaining gaps as one oversized ticket; same
+  survey-before-build and split-by-independent-unit precedent used
+  throughout this backlog (0111, 0112, 0115, 0116).
+- Approved by: agent (ticket classification/ordering and internal
+  component/API-boundary decisions are explicitly agent-decidable per
+  CLAUDE.md, same weight as every prior split recorded here).

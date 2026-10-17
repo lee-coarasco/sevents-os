@@ -8,16 +8,6 @@ created: 2026-10-17
 updated: 2026-10-17
 ---
 
----
-id: 108
-title: "M33: Master Data & Configuration"
-status: next
-roles: [backend-engineer, ui-designer, test-engineer]
-priority: 1
-created: 2026-10-16
-updated: 2026-10-16
----
-
 M33 was listed in Phase 2 of the PRD but was never built. Every module from
 Phase 3 onwards that references a document type, cost code, project type, or
 unit of measure is using free-text fields as a workaround. This ticket builds

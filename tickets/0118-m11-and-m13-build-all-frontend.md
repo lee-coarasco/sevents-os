@@ -111,69 +111,20 @@ events (created, submitted, approved, superseded).
 - [ ] All write buttons wrapped in PermissionGate
 - [ ] No raw UUIDs — all references use pickers
 - [ ] USER-GUIDE.md entries for M11 and M13 updated
-tickets/0113-m35-audit-ui.md
----
-id: 113
-title: "M35: Audit log, data requests, and retention management UI"
-status: next
-roles: [ui-designer, test-engineer]
-priority: 2
-created: 2026-10-16
-updated: 2026-10-16
----
-
-M35 backend is fully built across three sub-tickets (audit log, retention/legal
-hold, data export/deletion). Zero frontend exists for any of it.
-
-## Dependencies
-- Ticket 0109 (shared components) — PermissionGate, UserPicker, DatePicker,
-  StatusBadge
-
-## Scope
-
-**Route:** `/audit` — nav entry visible only to `role.platform_administrator`
-and roles with `audit.log.view`
-
-### Audit Log tab
-- Table: timestamp, user (name + email), action type, entity type, entity ID,
-  summary; newest first
-- Filters: user picker, entity type dropdown, date range (DatePicker), action
-  keyword
-- Row click → slide-over with full event payload (formatted JSON)
-- Export to CSV button (client-side: export what's currently filtered)
-
-### Retention Policies tab
-- List: entity type, retention period, created by, is_active
-- "New policy" form: entity type (free text), retention period (number + unit:
-  days/months/years), reason
-- Edit and deactivate (soft-delete)
-
-### Legal Holds tab
-- List: entity type, entity ID, placed by, placed at, released at (blank if
-  active), reason
-- "Place hold" form: entity type, entity ID, reason
-- "Release hold" button on active rows
-
-### Data Requests tab
-- List: requester (UserPicker display), request type (export/deletion), status
-  badge, requested at, completed at
-- "New request" form: requester UserPicker, type selector (export / deletion),
-  reason
-- Row click → detail: show linked workflow instance status (the approval chain
-  that gates execution), and "Download export" link once the export is ready
-
-## Acceptance
-
-- [ ] Audit log table loads real events from `GET /audit/log` with all filters
-      working
-- [ ] Retention policy create, list, deactivate all work
-- [ ] Legal hold place and release all work
-- [ ] Data request create, list, and detail (with workflow instance status) all
-      work
-- [ ] All write buttons wrapped in PermissionGate (`audit.log.view` for reads,
-      `master-data.manage` class permissions for writes)
-- [ ] USER-GUIDE.md M35 entry updated
-
-_Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+- 2026-10-17: Found this file corrupted on read — it contained a second,
+  complete ticket body (a "M35: Audit log, data requests, and retention
+  management UI" ticket, itself claiming `id: 113`) appended after this
+  ticket's own Acceptance section, inside a second `---`-delimited
+  frontmatter block. `id: 113` is already taken by
+  `tickets/0113-global-search.md`, and the M35 audit-UI work it described
+  is already fully built by tickets 0136/0137/0138 (split from 0112, see
+  DECISIONS.md 2026-10-17 02:40 UTC). This looks like an AppYard dashboard
+  write bug from when ticket 118 was filed, not anything this session
+  did. `scripts/tickets.py check` didn't catch it because the parser only
+  reads the first frontmatter block in a file; everything after is
+  treated as body text, so the embedded duplicate id was invisible to the
+  duplicate-id check. Stripped the stray embedded ticket out — no code
+  was ever built against it, and its content is redundant with 0136-0138.
+  Not yet started on 0118's own M11/M13 frontend scope.

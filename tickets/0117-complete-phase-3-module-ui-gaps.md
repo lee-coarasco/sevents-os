@@ -1,7 +1,7 @@
 ---
 id: 117
 title: Complete Phase 3 module UI gaps (M03, M04, M07, M08, M09, M10
-status: next
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
@@ -147,3 +147,21 @@ _Created by lee-coarasco in the AppYard dashboard._
   survey-first approach, rather than assuming the ticket's gap
   descriptions are current. Left `status: next`, not split — didn't have
   session budget left to do that split justice this session.
+- 2026-10-17: Re-surveyed every section against live code (see
+  DECISIONS.md for the full writeup). Confirmed: M09 and M10 create/edit
+  forms are fully built (ticket 0108) — 0117's "entire screen read-only"
+  framing was stale for both. M03's raw-UUID gap and M04's auth-account-
+  link gap are also already fixed (both already use `<UserPicker>`). The
+  genuine remaining gaps: M03 has no Delegation tab/list/revoke endpoint;
+  M04 has no bulk CSV import or org chart tab; M07 has Reassign/Delegate
+  wired but no SLA countdown or `<ActivityThread>`; M08 has all four
+  decision types wired but no `<ActivityThread>` (it already fetches
+  `comments` but never renders them); M10 has no client detail slide-over
+  with linked contacts/opportunities/communications. Split into four
+  sub-tickets by remaining-gap, not by the original six module sections,
+  since several sections had nothing left to build: 0145 (shared
+  `<ActivityThread>` wired into M07 task drawer + M08 approval drawer,
+  bundled with M07's SLA countdown since it's the same drawer file),
+  0146 (M03 delegation tab), 0147 (M04 bulk import + org chart), 0148
+  (M10 client detail slide-over). Closing this ticket `done` with no
+  further code — all real work now lives in 0145-0148.
