@@ -291,6 +291,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(cors, {
     origin: env.corsOrigins,
     credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } }); // 50 MB cap

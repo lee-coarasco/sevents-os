@@ -295,6 +295,7 @@ export function createSupabaseCatalogueRepository(
       if (filters.status) query = query.eq("status", filters.status);
       if (filters.riskTier) query = query.eq("risk_tier", filters.riskTier);
       if (filters.department) query = query.eq("department_cluster", filters.department);
+      if (filters.excludeRetired) query = query.neq("status", "retired");
       const { data, error } = await query;
       if (error) throw new Error(`listWorkItems: ${error.message}`);
       type RowWithSource = WorkItemDefinition & { source_work_items: SourceWorkItem | null };
@@ -336,9 +337,10 @@ export function createSupabaseCatalogueRepository(
       };
     },
 
-    async updateWorkItemDefinition(accessToken, id, fields, nextVersion, updatedBy) {
-      const client = userScopedClientFactory(accessToken);
-      const { data, error } = await client
+    async updateWorkItemDefinition(_accessToken, id, fields, nextVersion, updatedBy) {
+      // Service client: catalogue rows are global (tenant_id IS NULL); app-layer
+      // auth is already enforced by requirePermission("catalogue.workitem.manage").
+      const { data, error } = await serviceClient
         .from("work_item_definitions")
         .update({ ...fields, current_version: nextVersion, updated_by: updatedBy })
         .eq("id", id)
@@ -348,9 +350,9 @@ export function createSupabaseCatalogueRepository(
       return data as WorkItemDefinition;
     },
 
-    async insertDefinitionVersion(accessToken, definitionId, version, snapshot, changeNote, createdBy) {
-      const client = userScopedClientFactory(accessToken);
-      const { data, error } = await client
+    async insertDefinitionVersion(_accessToken, definitionId, version, snapshot, changeNote, createdBy) {
+      // Service client: same reasoning as updateWorkItemDefinition.
+      const { data, error } = await serviceClient
         .from("work_item_definition_versions")
         .insert({
           work_item_definition_id: definitionId,
