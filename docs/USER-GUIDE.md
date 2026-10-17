@@ -24,16 +24,24 @@ above it.
 
 ## M01 — Identity, Authentication & Sessions
 
-**Status:** testing (ticket 0053/0054)
+**Status:** testing (tickets 0053/0054/0149)
 
 **What's built:** Backend `identity` module — sign-in/sign-out, user invite
 and accept-invite, deactivation, an audit log, and MFA enrollment/verify, all
-via Supabase Auth underneath. Frontend: `LoginPage` at `/login` — the only
-screen this module needs.
+via Supabase Auth underneath. Backend `admin/users` module — full user
+management CRUD (list, invite with role, update display name, change role,
+deactivate, trigger password reset). Frontend: `LoginPage` at `/login`, and
+`AdminUsersPage` at `/admin/users`.
 
-**How to use it:** Go to `/login`, sign in with an email/password Supabase
-account. That's the full UI surface — creating other users' accounts,
-assigning them roles, etc. happens in M03/M08, not here.
+**How to use it:**
+- **Sign in:** Go to `/login`, sign in with an email/password Supabase account.
+- **User Management** (`/admin/users`, requires `identity.user.invite` permission):
+  - **List users:** See all users in the tenant with their name, email, status, current role, and invite date.
+  - **Invite a user:** Fill in the email address and optional display name in the "Invite a new user" form at the top and click "Send invite". The user receives a Supabase magic-link email.
+  - **Edit display name:** Click "Edit name" on any user row, type the new name, and click Save.
+  - **Assign role:** Click "Assign role" on any user row, pick a role from the dropdown, and click Assign.
+  - **Reset password:** Click "Reset pw" to send a password-reset email to that user.
+  - **Deactivate:** Click "Deactivate" to block a user's sign-in (the account row is preserved for audit purposes). The button is hidden for already-deactivated accounts.
 
 ## M02 — Company, Branch, Project & Tenant Setup
 
