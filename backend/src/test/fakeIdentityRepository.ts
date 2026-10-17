@@ -31,7 +31,7 @@ export class FakeIdentityRepository implements IdentityRepository {
     this.passwords.set(userId, password);
   }
 
-  async findAppUserByEmail(email: string) {
+  async findAppUserByEmail(email: string, _tenantId?: string) {
     for (const user of this.users.values()) {
       if (user.email.toLowerCase() === email.toLowerCase()) return user;
     }
@@ -47,6 +47,7 @@ export class FakeIdentityRepository implements IdentityRepository {
     email: string;
     display_name: string | null;
     invited_by: string | null;
+    tenant_id?: string;
   }) {
     const appUser: AppUser = {
       ...user,
@@ -108,7 +109,7 @@ export class FakeIdentityRepository implements IdentityRepository {
     });
   }
 
-  async inviteAuthUser(_email: string) {
+  async inviteAuthUser(_email: string, _redirectTo?: string) {
     return { id: nextId("auth-user") };
   }
 
