@@ -22,12 +22,13 @@ import { WorkflowDefinitionsPage } from "./pages/WorkflowDefinitionsPage";
 import { WorkflowDefinitionDetailPage } from "./pages/WorkflowDefinitionDetailPage";
 import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { PermissionsProvider } from "./context/PermissionsContext";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   if (loading) return null;
   if (!session) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return <PermissionsProvider>{children}</PermissionsProvider>;
 }
 
 export function App() {
