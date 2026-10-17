@@ -1,7 +1,12 @@
-# Ticket 0150 — Catalogue UX: Pagination + Slide-over Edit Panel
-
-## Status
+---
+id: 150
+title: "Catalogue UX: Pagination + Slide-over Edit Panel"
 status: done
+roles: [ui-designer, backend-engineer]
+priority: 2
+created: 2026-10-17
+updated: 2026-10-17
+---
 
 ## Problem
 1. GET /catalogue/work-items returned all 1,308 rows with no pagination — the page showed a huge table with no way to page through it.

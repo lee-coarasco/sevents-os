@@ -76,6 +76,11 @@ import {
   createSupabaseMasterDataRepository,
   type MasterDataRepository,
 } from "./modules/masterdata/repository.js";
+import { engineeringRoutes } from "./modules/engineering/routes.js";
+import {
+  createSupabaseEngineeringRepository,
+  type EngineeringRepository,
+} from "./modules/engineering/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -119,6 +124,8 @@ export interface BuildAppOptions {
   getDocumentsRepository?: () => DocumentsRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getMasterDataRepository?: () => MasterDataRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getEngineeringRepository?: () => EngineeringRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -267,6 +274,15 @@ function defaultMasterDataRepository(): MasterDataRepository {
   return cachedMasterDataRepository;
 }
 
+let cachedEngineeringRepository: EngineeringRepository | null = null;
+
+function defaultEngineeringRepository(): EngineeringRepository {
+  if (!cachedEngineeringRepository) {
+    cachedEngineeringRepository = createSupabaseEngineeringRepository(createUserScopedClient);
+  }
+  return cachedEngineeringRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -362,6 +378,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(masterDataRoutes, {
     getRepository: options.getMasterDataRepository ?? defaultMasterDataRepository,
+    requirePermission: guard,
+  });
+
+  app.register(engineeringRoutes, {
+    getRepository: options.getEngineeringRepository ?? defaultEngineeringRepository,
+    getMasterDataRepository: options.getMasterDataRepository ?? defaultMasterDataRepository,
     requirePermission: guard,
   });
 

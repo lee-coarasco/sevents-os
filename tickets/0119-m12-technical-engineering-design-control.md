@@ -1,7 +1,7 @@
 ---
 id: 119
 title: M12: Technical Engineering & Design Control
-status: next
+status: in-progress
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
@@ -65,3 +65,9 @@ as-built flows.
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+
+2026-10-17 — Architect survey complete. M13 schema reviewed (20261016000018 + 20261016000019). No duplication risk:
+- `documents` is a generic spine; design briefs reference documents but are not document revisions
+- `document_revisions.workflow_instance_id` + `submit_for_release` already handle IFC; only a register view is needed
+- Split into four sub-tickets: 0153 (M12a design briefs), 0154 (M12b RFI), 0155 (M12c IFC register), 0156 (M12d as-built closeout)
+All four sub-tickets set to `status: next`.
