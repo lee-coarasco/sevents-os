@@ -1,11 +1,12 @@
 ---
 id: 129
 title: Retrofit existing pages onto the shared <PermissionGate> component
-status: next
+status: testing
 roles: [ui-designer, test-engineer]
 priority: 2
 created: 2026-10-17
 updated: 2026-10-17
+done: 2026-10-17
 ---
 
 Split from ticket 0111 (see DECISIONS.md). Ticket 0125 built
@@ -31,3 +32,8 @@ should be identical, just the implementation).
 - [ ] Full frontend suite green after the retrofit.
 
 ## Progress
+
+2026-10-17 — Complete. All pages retrofitted:
+- DepartmentsRolesPage, EmployeesPage, OrgSetupPage, ProjectsPage: migrated in concurrent 0118/0134 commit (10dda1b)
+- ProjectDetailPage (6 gates), CrmPage (6 gates), OpportunityDetailPage (2 gates), TaskInboxPage (action panel + fallback): commit e71d474
+- All 31 frontend tests pass. ApprovalQueuePage required no changes (only uses canAct as a prop, not as a conditional render gate).
