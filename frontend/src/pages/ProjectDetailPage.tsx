@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 type ProjectStatus = "active" | "on_hold" | "closed";
 type MilestoneStatus = "pending" | "achieved" | "missed";
@@ -120,15 +120,11 @@ function WBSTree({
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
-
   const [project, setProject] = useState<Project | null>(null);
   const [wbsNodes, setWbsNodes] = useState<WBSNode[] | null>(null);
   const [milestones, setMilestones] = useState<Milestone[] | null>(null);
   const [activities, setActivities] = useState<ScheduleActivity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const canManage = has("tenancy.project.manage");
 
   // Project edit
   const [editingProject, setEditingProject] = useState(false);
@@ -404,11 +400,13 @@ export function ProjectDetailPage() {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status]}`}>
                   {statusLabels[project.status]}
                 </span>
-                {!permissionsLoading && canManage && !editingProject && (
-                  <button onClick={startEditProject} className="text-sm text-zinc-400 hover:text-brand-dim">
-                    Edit project
-                  </button>
-                )}
+                <PermissionGate permission="tenancy.project.manage">
+                  {!editingProject && (
+                    <button onClick={startEditProject} className="text-sm text-zinc-400 hover:text-brand-dim">
+                      Edit project
+                    </button>
+                  )}
+                </PermissionGate>
               </div>
             </div>
 
@@ -492,11 +490,11 @@ export function ProjectDetailPage() {
             <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
                 <h2 className="font-brand text-base font-semibold text-zinc-900">Work breakdown structure</h2>
-                {!permissionsLoading && canManage && (
+                <PermissionGate permission="tenancy.project.manage">
                   <button onClick={startWbsCreate} className="text-sm text-zinc-400 hover:text-brand-dim">
                     Add node
                   </button>
-                )}
+                </PermissionGate>
               </div>
               <div className="space-y-4 p-6">
                 {showWbsForm && (
@@ -538,11 +536,11 @@ export function ProjectDetailPage() {
             <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
                 <h2 className="font-brand text-base font-semibold text-zinc-900">Milestones</h2>
-                {!permissionsLoading && canManage && (
+                <PermissionGate permission="tenancy.project.manage">
                   <button onClick={startMilestoneCreate} className="text-sm text-zinc-400 hover:text-brand-dim">
                     Add milestone
                   </button>
-                )}
+                </PermissionGate>
               </div>
               <div className="space-y-4 p-6">
                 {showMilestoneForm && (
@@ -598,11 +596,11 @@ export function ProjectDetailPage() {
                           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${milestoneColors[milestone.status]}`}>
                             {milestoneLabels[milestone.status]}
                           </span>
-                          {!permissionsLoading && canManage && (
+                          <PermissionGate permission="tenancy.project.manage">
                             <button onClick={() => startMilestoneEdit(milestone)} className="text-xs text-zinc-400 hover:text-brand-dim">
                               Edit
                             </button>
-                          )}
+                          </PermissionGate>
                         </div>
                       </li>
                     ))}
@@ -615,11 +613,11 @@ export function ProjectDetailPage() {
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
               <h2 className="font-brand text-base font-semibold text-zinc-900">Schedule activities</h2>
-              {!permissionsLoading && canManage && (
+              <PermissionGate permission="tenancy.project.manage">
                 <button onClick={startActivityCreate} className="text-sm text-zinc-400 hover:text-brand-dim">
                   Add activity
                 </button>
-              )}
+              </PermissionGate>
             </div>
             <div className="space-y-4 p-6">
               {showActivityForm && (
@@ -676,11 +674,11 @@ export function ProjectDetailPage() {
                           </td>
                           <td className="px-4 py-2 text-zinc-600">{activity.percent_complete}%</td>
                           <td className="px-4 py-2 text-right">
-                            {!permissionsLoading && canManage && (
+                            <PermissionGate permission="tenancy.project.manage">
                               <button onClick={() => startActivityEdit(activity)} className="text-xs text-zinc-400 hover:text-brand-dim">
                                 Edit
                               </button>
-                            )}
+                            </PermissionGate>
                           </td>
                         </tr>
                       ))}

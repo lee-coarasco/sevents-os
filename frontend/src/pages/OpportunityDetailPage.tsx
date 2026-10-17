@@ -2,9 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { useUsers } from "../hooks/useUsers";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 type OpportunityStage = "lead" | "qualified" | "site_visit" | "tender" | "negotiation" | "won" | "lost";
 
@@ -57,7 +57,6 @@ const inputClass =
 export function OpportunityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const { users } = useUsers();
   const [tab, setTab] = useState<Tab>("tenders");
 
@@ -67,8 +66,6 @@ export function OpportunityDetailPage() {
   const [tenderSubmissions, setTenderSubmissions] = useState<TenderSubmission[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const canManage = has("crm.lead.manage");
 
   const [showVisitForm, setShowVisitForm] = useState(false);
   const [visitBy, setVisitBy] = useState("");
@@ -216,7 +213,7 @@ export function OpportunityDetailPage() {
 
           {tab === "tenders" && (
             <div className="space-y-4">
-              {!permissionsLoading && canManage && (
+              <PermissionGate permission="crm.lead.manage">
                 <div className="flex justify-end">
                   <button
                     onClick={() => setShowTenderForm(true)}
@@ -225,7 +222,7 @@ export function OpportunityDetailPage() {
                     New tender submission
                   </button>
                 </div>
-              )}
+              </PermissionGate>
 
               {showTenderForm && (
                 <form
@@ -305,7 +302,7 @@ export function OpportunityDetailPage() {
 
           {tab === "visits" && (
             <div className="space-y-4">
-              {!permissionsLoading && canManage && (
+              <PermissionGate permission="crm.lead.manage">
                 <div className="flex justify-end">
                   <button
                     onClick={() => setShowVisitForm(true)}
@@ -314,7 +311,7 @@ export function OpportunityDetailPage() {
                     Log site visit
                   </button>
                 </div>
-              )}
+              </PermissionGate>
 
               {showVisitForm && (
                 <form onSubmit={handleAddVisit} className="grid grid-cols-1 gap-2 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm sm:grid-cols-3">
