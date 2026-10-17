@@ -364,5 +364,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     requirePermission: guard,
   });
 
+  app.register(storageRoutes, {
+    getServiceClient: createServiceClient,
+  });
+
+  app.register(dashboardRoutes, {
+    getUserScopedClient: createUserScopedClient,
+  });
+
   return app;
 }

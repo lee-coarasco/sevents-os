@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { CatalogueRepository } from "./repository.js";
 import { InvalidDispositionError, WorkItemNotFoundError, getWorkItem, listWorkItems, updateWorkItem } from "./service.js";
 import type { UpdateWorkItemInput } from "./service.js";
-import type { Disposition, WorkItemStatus } from "./types.js";
+import type { Disposition, PaginatedWorkItems, WorkItemStatus } from "./types.js";
 
 export interface CatalogueRouteOptions {
   getRepository: () => CatalogueRepository;
@@ -36,14 +36,19 @@ export async function catalogueRoutes(app: FastifyInstance, options: CatalogueRo
       missingData?: string;
       sourceSerial?: string;
       search?: string;
+      excludeRetired?: string;
+      page?: string;
+      pageSize?: string;
     };
   }>(
     "/catalogue/work-items",
     { preHandler: options.requirePermission("catalogue.workitem.manage") },
-    async (request) => {
+    async (request): Promise<PaginatedWorkItems> => {
       const q = request.query ?? {};
       const token = bearerToken(request.headers.authorization) as string;
-      const workItems = await listWorkItems(options.getRepository(), token, {
+      const page = Math.max(1, q.page ? parseInt(q.page, 10) : 1);
+      const pageSize = Math.min(200, Math.max(10, q.pageSize ? parseInt(q.pageSize, 10) : 50));
+      const allItems = await listWorkItems(options.getRepository(), token, {
         department: q.department,
         canonicalRoleId: q.canonicalRoleId,
         disposition: q.disposition as Disposition | undefined,
@@ -52,8 +57,12 @@ export async function catalogueRoutes(app: FastifyInstance, options: CatalogueRo
         missingData: q.missingData === "true",
         sourceSerial: q.sourceSerial ? Number(q.sourceSerial) : undefined,
         search: q.search,
+        excludeRetired: q.excludeRetired === "true",
       });
-      return { workItems };
+      const total = allItems.length;
+      const start = (page - 1) * pageSize;
+      const items = allItems.slice(start, start + pageSize);
+      return { items, total, page, pageSize };
     },
   );
 
