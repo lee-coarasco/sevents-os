@@ -2,7 +2,13 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
+import { PermissionGate } from "../components/PermissionGate";
+import { StatusBadge } from "../components/StatusBadge";
+import { ActivityThread, type ActivityComment, type ActivityDecision } from "../components/ActivityThread";
+import { FileAttachment, AttachmentLink, type AttachmentResult } from "../components/FileAttachment";
+import { CurrencyInput } from "../components/CurrencyInput";
+import { CurrencyDisplay } from "../components/CurrencyDisplay";
+import { EntityPicker } from "../components/EntityPicker";
 
 interface TenderDocument {
   id: string;
@@ -80,33 +86,6 @@ interface WorkflowDefinitionOption {
   name: string;
 }
 
-const ESTIMATE_STATUS_LABELS: Record<EstimateStatus, string> = {
-  draft: "Draft",
-  pending_approval: "Pending approval",
-  approved: "Approved",
-  rejected: "Rejected",
-  returned_for_correction: "Returned for correction",
-  superseded: "Superseded",
-};
-
-const ESTIMATE_STATUS_COLORS: Record<EstimateStatus, string> = {
-  draft: "bg-zinc-100 text-zinc-500",
-  pending_approval: "bg-amber-50 text-amber-700",
-  approved: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-red-50 text-red-700",
-  returned_for_correction: "bg-amber-50 text-amber-700",
-  superseded: "bg-zinc-100 text-zinc-500",
-};
-
-const BID_STATUS_LABELS: Record<BidNoBidStatus, string> = {
-  draft: "Draft",
-  pending_approval: "Pending approval",
-  approved: "Approved",
-  approved_with_conditions: "Approved with conditions",
-  rejected: "Rejected",
-  returned_for_correction: "Returned for correction",
-};
-
 type Tab = "documents" | "estimates" | "bidding";
 
 const inputClass =
@@ -138,14 +117,12 @@ export function TenderSubmissionDetailPage() {
   const [searchParams] = useSearchParams();
   const opportunityId = searchParams.get("opportunityId");
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const [tab, setTab] = useState<Tab>("documents");
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const canManage = has("tendering.document.manage");
-
   const [definitions, setDefinitions] = useState<WorkflowDefinitionOption[] | null>(null);
+  const [baseCurrency, setBaseCurrency] = useState("AED");
 
   // Documents
   const [documents, setDocuments] = useState<TenderDocument[] | null>(null);
@@ -155,7 +132,7 @@ export function TenderSubmissionDetailPage() {
   const [docNumber, setDocNumber] = useState("");
   const [docRevision, setDocRevision] = useState("");
   const [docReceivedDate, setDocReceivedDate] = useState("");
-  const [docStorageRef, setDocStorageRef] = useState("");
+  const [docAttachment, setDocAttachment] = useState<AttachmentResult | null>(null);
 
   // Estimates
   const [estimates, setEstimates] = useState<Estimate[] | null>(null);
@@ -171,10 +148,12 @@ export function TenderSubmissionDetailPage() {
   const [lines, setLines] = useState<EstimateLine[] | null>(null);
   const [lineItem, setLineItem] = useState("");
   const [lineQty, setLineQty] = useState("");
-  const [lineUnit, setLineUnit] = useState("");
-  const [lineRate, setLineRate] = useState("");
+  const [lineUomId, setLineUomId] = useState("");
+  const [lineRate, setLineRate] = useState<number | null>(null);
   const [lineCategory, setLineCategory] = useState<CostCategory>("material");
   const [estimateDefinitionId, setEstimateDefinitionId] = useState("");
+  const [estimateComments, setEstimateComments] = useState<ActivityComment[]>([]);
+  const [estimateDecisions, setEstimateDecisions] = useState<ActivityDecision[]>([]);
 
   // Bid / no-bid
   const [bidEstimateId, setBidEstimateId] = useState("");
@@ -209,6 +188,27 @@ export function TenderSubmissionDetailPage() {
     apiFetch<{ lines: EstimateLine[] }>(`/estimates/${estimateId}/lines`, session.access_token)
       .then((data) => setLines(data.lines))
       .catch((err) => setActionError(err instanceof ApiError ? err.message : "Could not reach the API"));
+  }
+
+  function loadEstimateActivity(estimate: Estimate) {
+    if (!session || !estimate.workflow_instance_id) {
+      setEstimateComments([]);
+      setEstimateDecisions([]);
+      return;
+    }
+    apiFetch<{ approvals: { comments?: ActivityComment[]; decisions?: ActivityDecision[] }[] }>(
+      `/approvals?workflowInstanceId=${estimate.workflow_instance_id}`,
+      session.access_token,
+    )
+      .then((data) => {
+        const approval = data.approvals?.[0];
+        setEstimateComments(approval?.comments ?? []);
+        setEstimateDecisions(approval?.decisions ?? []);
+      })
+      .catch(() => {
+        setEstimateComments([]);
+        setEstimateDecisions([]);
+      });
   }
 
   function loadBidDecision(estimateId: string) {
@@ -247,6 +247,13 @@ export function TenderSubmissionDetailPage() {
     apiFetch<{ definitions: WorkflowDefinitionOption[] }>("/workflow/definitions/published", session.access_token)
       .then((data) => setDefinitions(data.definitions))
       .catch(() => setDefinitions([]));
+    // Try to find the base currency for display; fall back to AED if unavailable.
+    apiFetch<{ currencies: { code: string; is_base_currency: boolean }[] }>("/master-data/currencies", session.access_token)
+      .then((data) => {
+        const base = data.currencies.find((c) => c.is_base_currency);
+        if (base) setBaseCurrency(base.code);
+      })
+      .catch(() => undefined);
   }, [session]);
 
   useEffect(loadDocuments, [session, id]);
@@ -255,11 +262,15 @@ export function TenderSubmissionDetailPage() {
   useEffect(() => {
     if (!selectedEstimateId) {
       setLines(null);
+      setEstimateComments([]);
+      setEstimateDecisions([]);
       return;
     }
     loadLines(selectedEstimateId);
+    const est = estimates?.find((e) => e.id === selectedEstimateId);
+    if (est) loadEstimateActivity(est);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, selectedEstimateId]);
+  }, [session, selectedEstimateId, estimates]);
 
   useEffect(() => {
     if (!bidEstimateId) {
@@ -285,7 +296,7 @@ export function TenderSubmissionDetailPage() {
           documentNumber: docNumber.trim() || undefined,
           revision: docRevision.trim() || undefined,
           receivedDate: docReceivedDate || undefined,
-          storageReference: docStorageRef.trim() || undefined,
+          storageReference: docAttachment?.url ?? undefined,
         }),
       });
       setShowDocForm(false);
@@ -294,7 +305,7 @@ export function TenderSubmissionDetailPage() {
       setDocNumber("");
       setDocRevision("");
       setDocReceivedDate("");
-      setDocStorageRef("");
+      setDocAttachment(null);
       loadDocuments();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not add the document");
@@ -334,23 +345,24 @@ export function TenderSubmissionDetailPage() {
 
   async function handleAddLine(event: FormEvent) {
     event.preventDefault();
-    if (!session || !selectedEstimateId || !lineItem.trim() || !lineQty || !lineUnit.trim() || !lineRate) return;
+    if (!session || !selectedEstimateId || !lineItem.trim() || !lineQty || !lineRate) return;
     setActionError(null);
     try {
+      // unit: if a UoM was picked, look up its code from the EntityPicker label (we use the id for the API call)
       await apiFetch(`/estimates/${selectedEstimateId}/lines`, session.access_token, {
         method: "POST",
         body: JSON.stringify({
           item: lineItem.trim(),
           quantity: Number(lineQty),
-          unit: lineUnit.trim(),
-          rate: Number(lineRate),
+          unit: lineUomId || "EA",
+          rate: lineRate,
           costCategory: lineCategory,
         }),
       });
       setLineItem("");
       setLineQty("");
-      setLineUnit("");
-      setLineRate("");
+      setLineUomId("");
+      setLineRate(null);
       loadLines(selectedEstimateId);
       loadEstimates();
     } catch (err) {
@@ -515,7 +527,7 @@ export function TenderSubmissionDetailPage() {
 
       {tab === "documents" && (
         <div className="space-y-4">
-          {!permissionsLoading && canManage && (
+          <PermissionGate permission="tendering.document.manage">
             <div className="flex justify-end">
               <button
                 onClick={() => setShowDocForm(true)}
@@ -524,7 +536,7 @@ export function TenderSubmissionDetailPage() {
                 Upload document
               </button>
             </div>
-          )}
+          </PermissionGate>
 
           {showDocForm && (
             <form onSubmit={handleAddDocument} className="grid grid-cols-1 gap-2 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm sm:grid-cols-3">
@@ -536,12 +548,17 @@ export function TenderSubmissionDetailPage() {
                 Received date
                 <input type="date" value={docReceivedDate} onChange={(e) => setDocReceivedDate(e.target.value)} className={inputClass} />
               </label>
-              <input
-                value={docStorageRef}
-                onChange={(e) => setDocStorageRef(e.target.value)}
-                placeholder="Storage reference (URL/path)"
-                className={inputClass}
-              />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-zinc-400">File attachment</span>
+                {docAttachment ? (
+                  <div className="flex items-center gap-2">
+                    <AttachmentLink attachment={docAttachment} />
+                    <button type="button" onClick={() => setDocAttachment(null)} className="text-xs text-zinc-400 hover:text-red-600">Remove</button>
+                  </div>
+                ) : (
+                  <FileAttachment onUploaded={setDocAttachment} label="Attach document" />
+                )}
+              </div>
               <div className="col-span-full flex gap-2">
                 <button
                   type="submit"
@@ -565,7 +582,7 @@ export function TenderSubmissionDetailPage() {
                   <tr className="border-b border-zinc-100 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                     <th className="px-6 py-3">Title</th>
                     <th className="px-6 py-3">Type</th>
-                    <th className="px-6 py-3">Storage reference</th>
+                    <th className="px-6 py-3">Attachment</th>
                     <th className="px-6 py-3">Uploaded</th>
                   </tr>
                 </thead>
@@ -574,7 +591,13 @@ export function TenderSubmissionDetailPage() {
                     <tr key={doc.id} className="border-b border-zinc-50 last:border-0 hover:bg-stone-50">
                       <td className="px-6 py-4 font-medium text-zinc-800">{doc.title}</td>
                       <td className="px-6 py-4 text-zinc-600">{doc.document_type}</td>
-                      <td className="px-6 py-4 text-zinc-600">{doc.storage_reference ?? "—"}</td>
+                      <td className="px-6 py-4 text-zinc-600">
+                        {doc.storage_reference ? (
+                          <a href={doc.storage_reference} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                            View file
+                          </a>
+                        ) : "—"}
+                      </td>
                       <td className="px-6 py-4 text-zinc-600">{new Date(doc.created_at).toLocaleDateString()}</td>
                     </tr>
                   ))}
@@ -587,7 +610,7 @@ export function TenderSubmissionDetailPage() {
 
       {tab === "estimates" && (
         <div className="space-y-4">
-          {!permissionsLoading && canManage && (
+          <PermissionGate permission="tendering.document.manage">
             <div className="flex justify-end">
               <button
                 onClick={() => setShowEstimateForm(true)}
@@ -596,7 +619,7 @@ export function TenderSubmissionDetailPage() {
                 New estimate version
               </button>
             </div>
-          )}
+          </PermissionGate>
 
           {showEstimateForm && (
             <form onSubmit={handleAddEstimate} className="grid grid-cols-1 gap-2 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm sm:grid-cols-2">
@@ -647,11 +670,11 @@ export function TenderSubmissionDetailPage() {
                     <tr key={estimate.id} className="border-b border-zinc-50 last:border-0 hover:bg-stone-50">
                       <td className="px-6 py-4 font-medium text-zinc-800">v{estimate.version}</td>
                       <td className="px-6 py-4">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ESTIMATE_STATUS_COLORS[estimate.status]}`}>
-                          {ESTIMATE_STATUS_LABELS[estimate.status]}
-                        </span>
+                        <StatusBadge status={estimate.status} />
                       </td>
-                      <td className="px-6 py-4 text-zinc-600">{estimate.total_amount.toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <CurrencyDisplay amount={estimate.total_amount} currencyCode={baseCurrency} />
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => setSelectedEstimateId(selectedEstimateId === estimate.id ? null : estimate.id)}
@@ -660,9 +683,11 @@ export function TenderSubmissionDetailPage() {
                           {selectedEstimateId === estimate.id ? "Close" : "Manage lines"}
                         </button>
                         {estimate.status !== "draft" && (
-                          <button onClick={() => handleNewEstimateVersion(estimate.id)} className="ml-3 text-xs text-zinc-400 hover:text-brand-dim">
-                            New version
-                          </button>
+                          <PermissionGate permission="tendering.document.manage">
+                            <button onClick={() => handleNewEstimateVersion(estimate.id)} className="ml-3 text-xs text-zinc-400 hover:text-brand-dim">
+                              New version
+                            </button>
+                          </PermissionGate>
                         )}
                       </td>
                     </tr>
@@ -675,12 +700,12 @@ export function TenderSubmissionDetailPage() {
           {selectedEstimateId && (
             <div className="space-y-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
               <h2 className="font-brand text-base font-semibold text-zinc-900">Lines</h2>
-              {canManage && (
+              <PermissionGate permission="tendering.document.manage">
                 <form onSubmit={handleAddLine} className="grid grid-cols-1 gap-2 sm:grid-cols-5">
                   <input value={lineItem} onChange={(e) => setLineItem(e.target.value)} placeholder="Item description" className={inputClass} />
                   <input type="number" value={lineQty} onChange={(e) => setLineQty(e.target.value)} placeholder="Qty" className={inputClass} />
-                  <input value={lineUnit} onChange={(e) => setLineUnit(e.target.value)} placeholder="Unit" className={inputClass} />
-                  <input type="number" value={lineRate} onChange={(e) => setLineRate(e.target.value)} placeholder="Unit rate" className={inputClass} />
+                  <EntityPicker type="uom" value={lineUomId} onChange={setLineUomId} placeholder="Unit of measure…" />
+                  <CurrencyInput value={lineRate} onChange={setLineRate} currencyCode={baseCurrency} />
                   <select value={lineCategory} onChange={(e) => setLineCategory(e.target.value as CostCategory)} className={inputClass}>
                     {COST_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -692,45 +717,65 @@ export function TenderSubmissionDetailPage() {
                     Add line
                   </button>
                 </form>
-              )}
+              </PermissionGate>
 
               {lines?.length === 0 && <p className="text-sm text-zinc-400">No lines yet.</p>}
               {lines && lines.length > 0 && (
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-100 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                      <th className="px-3 py-2">Item</th>
-                      <th className="px-3 py-2">Qty</th>
-                      <th className="px-3 py-2">Unit</th>
-                      <th className="px-3 py-2">Rate</th>
-                      <th className="px-3 py-2">Category</th>
-                      <th className="px-3 py-2">Line total</th>
-                      <th className="px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line) => (
-                      <tr key={line.id} className="border-b border-zinc-50 last:border-0">
-                        <td className="px-3 py-2 text-zinc-800">{line.item}</td>
-                        <td className="px-3 py-2 text-zinc-600">{line.quantity}</td>
-                        <td className="px-3 py-2 text-zinc-600">{line.unit}</td>
-                        <td className="px-3 py-2 text-zinc-600">{line.rate.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-zinc-600">{line.cost_category}</td>
-                        <td className="px-3 py-2 text-zinc-600">{line.line_total.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right">
-                          {canManage && (
-                            <button onClick={() => handleDeleteLine(line.id)} className="text-xs text-zinc-400 hover:text-red-600">
-                              Remove
-                            </button>
-                          )}
-                        </td>
+                <>
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-100 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        <th className="px-3 py-2">Item</th>
+                        <th className="px-3 py-2">Qty</th>
+                        <th className="px-3 py-2">Unit</th>
+                        <th className="px-3 py-2">Rate</th>
+                        <th className="px-3 py-2">Category</th>
+                        <th className="px-3 py-2">Line total</th>
+                        <th className="px-3 py-2" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {lines.map((line) => (
+                        <tr key={line.id} className="border-b border-zinc-50 last:border-0">
+                          <td className="px-3 py-2 text-zinc-800">{line.item}</td>
+                          <td className="px-3 py-2 text-zinc-600">{line.quantity}</td>
+                          <td className="px-3 py-2 text-zinc-600">{line.unit}</td>
+                          <td className="px-3 py-2">
+                            <CurrencyDisplay amount={line.rate} currencyCode={baseCurrency} />
+                          </td>
+                          <td className="px-3 py-2 text-zinc-600">{line.cost_category}</td>
+                          <td className="px-3 py-2">
+                            <CurrencyDisplay amount={line.line_total} currencyCode={baseCurrency} />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <PermissionGate permission="tendering.document.manage">
+                              <button onClick={() => handleDeleteLine(line.id)} className="text-xs text-zinc-400 hover:text-red-600">
+                                Remove
+                              </button>
+                            </PermissionGate>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex items-center justify-end gap-4 border-t border-zinc-100 pt-3 text-sm">
+                    <span className="text-zinc-500">Subtotal</span>
+                    <CurrencyDisplay
+                      amount={estimates?.find((e) => e.id === selectedEstimateId)?.subtotal_amount}
+                      currencyCode={baseCurrency}
+                      className="font-medium text-zinc-800"
+                    />
+                    <span className="text-zinc-500">Total</span>
+                    <CurrencyDisplay
+                      amount={estimates?.find((e) => e.id === selectedEstimateId)?.total_amount}
+                      currencyCode={baseCurrency}
+                      className="font-semibold text-zinc-900"
+                    />
+                  </div>
+                </>
               )}
 
-              {canManage && (
+              <PermissionGate permission="tendering.document.manage">
                 <div className="flex items-center gap-2 border-t border-zinc-100 pt-4">
                   <DefinitionPicker definitions={definitions} value={estimateDefinitionId} onChange={setEstimateDefinitionId} />
                   <button
@@ -741,6 +786,14 @@ export function TenderSubmissionDetailPage() {
                     Submit for approval
                   </button>
                 </div>
+              </PermissionGate>
+
+              {(estimateComments.length > 0 || estimateDecisions.length > 0) && (
+                <ActivityThread
+                  comments={estimateComments}
+                  decisions={estimateDecisions}
+                  decisionLabels={{ approved: "Approved", rejected: "Rejected", returned_for_correction: "Returned for correction" }}
+                />
               )}
             </div>
           )}
@@ -756,26 +809,28 @@ export function TenderSubmissionDetailPage() {
                 <option value="">Select an estimate version…</option>
                 {estimates?.map((estimate) => (
                   <option key={estimate.id} value={estimate.id}>
-                    v{estimate.version} — {ESTIMATE_STATUS_LABELS[estimate.status]}
+                    v{estimate.version} — {estimate.status.replace(/_/g, " ")}
                   </option>
                 ))}
               </select>
             </label>
           </div>
 
-          {bidEstimateId && !decision && canManage && (
-            <form onSubmit={handleCreateDecision} className="flex items-end gap-2 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-              <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                Recommendation
-                <select value={decisionRecommendation} onChange={(e) => setDecisionRecommendation(e.target.value as BidRecommendation)} className={inputClass}>
-                  <option value="bid">Bid</option>
-                  <option value="no_bid">No bid</option>
-                </select>
-              </label>
-              <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim">
-                Create decision
-              </button>
-            </form>
+          {bidEstimateId && !decision && (
+            <PermissionGate permission="tendering.document.manage">
+              <form onSubmit={handleCreateDecision} className="flex items-end gap-2 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+                <label className="flex flex-col gap-1 text-xs text-zinc-400">
+                  Recommendation
+                  <select value={decisionRecommendation} onChange={(e) => setDecisionRecommendation(e.target.value as BidRecommendation)} className={inputClass}>
+                    <option value="bid">Bid</option>
+                    <option value="no_bid">No bid</option>
+                  </select>
+                </label>
+                <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim">
+                  Create decision
+                </button>
+              </form>
+            </PermissionGate>
           )}
 
           {decision && (
@@ -785,27 +840,29 @@ export function TenderSubmissionDetailPage() {
                   <p className="text-sm font-medium text-zinc-800">Recommendation: {decision.recommendation === "bid" ? "Bid" : "No bid"}</p>
                   {decision.conditions && <p className="mt-1 text-xs text-zinc-500">Conditions: {decision.conditions}</p>}
                 </div>
-                <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand-dim">{BID_STATUS_LABELS[decision.status]}</span>
+                <StatusBadge status={decision.status} />
               </div>
 
               <div>
                 <h3 className="font-brand text-sm font-semibold text-zinc-900">Criteria scores</h3>
-                {canManage && decision.status === "draft" && (
-                  <form onSubmit={handleAddScore} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4">
-                    <select value={criterion} onChange={(e) => setCriterion(e.target.value as BidCriterion)} className={inputClass}>
-                      {BID_CRITERIA.map((c) => (
-                        <option key={c} value={c}>
-                          {c.replace(/_/g, " ")}
-                        </option>
-                      ))}
-                    </select>
-                    <input type="number" value={criterionScore} onChange={(e) => setCriterionScore(e.target.value)} placeholder="Score" className={inputClass} />
-                    <input value={criterionRationale} onChange={(e) => setCriterionRationale(e.target.value)} placeholder="Rationale" className={inputClass} />
-                    <button type="submit" className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-brand-dim">
-                      Add score
-                    </button>
-                  </form>
-                )}
+                <PermissionGate permission="tendering.document.manage">
+                  {decision.status === "draft" && (
+                    <form onSubmit={handleAddScore} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                      <select value={criterion} onChange={(e) => setCriterion(e.target.value as BidCriterion)} className={inputClass}>
+                        {BID_CRITERIA.map((c) => (
+                          <option key={c} value={c}>
+                            {c.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                      </select>
+                      <input type="number" value={criterionScore} onChange={(e) => setCriterionScore(e.target.value)} placeholder="Score" className={inputClass} />
+                      <input value={criterionRationale} onChange={(e) => setCriterionRationale(e.target.value)} placeholder="Rationale" className={inputClass} />
+                      <button type="submit" className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-brand-dim">
+                        Add score
+                      </button>
+                    </form>
+                  )}
+                </PermissionGate>
                 {criteriaScores?.length === 0 && <p className="mt-2 text-sm text-zinc-400">No criteria scored yet.</p>}
                 {criteriaScores && criteriaScores.length > 0 && (
                   <ul className="mt-2 space-y-2">
@@ -814,29 +871,33 @@ export function TenderSubmissionDetailPage() {
                         <span>
                           <span className="font-medium text-zinc-800">{score.criterion.replace(/_/g, " ")}</span>: {score.score} — {score.rationale}
                         </span>
-                        {canManage && decision.status === "draft" && (
-                          <button onClick={() => handleRemoveScore(score.id)} className="text-xs text-zinc-400 hover:text-red-600">
-                            Remove
-                          </button>
-                        )}
+                        <PermissionGate permission="tendering.document.manage">
+                          {decision.status === "draft" && (
+                            <button onClick={() => handleRemoveScore(score.id)} className="text-xs text-zinc-400 hover:text-red-600">
+                              Remove
+                            </button>
+                          )}
+                        </PermissionGate>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
 
-              {canManage && decision.status === "draft" && (
-                <div className="flex items-center gap-2 border-t border-zinc-100 pt-4">
-                  <DefinitionPicker definitions={definitions} value={bidDefinitionId} onChange={setBidDefinitionId} />
-                  <button
-                    onClick={handleSubmitDecisionForApproval}
-                    disabled={!bidDefinitionId}
-                    className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
-                  >
-                    Submit for approval
-                  </button>
-                </div>
-              )}
+              <PermissionGate permission="tendering.document.manage">
+                {decision.status === "draft" && (
+                  <div className="flex items-center gap-2 border-t border-zinc-100 pt-4">
+                    <DefinitionPicker definitions={definitions} value={bidDefinitionId} onChange={setBidDefinitionId} />
+                    <button
+                      onClick={handleSubmitDecisionForApproval}
+                      disabled={!bidDefinitionId}
+                      className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                    >
+                      Submit for approval
+                    </button>
+                  </div>
+                )}
+              </PermissionGate>
 
               <div className="border-t border-zinc-100 pt-4">
                 <h3 className="font-brand text-sm font-semibold text-zinc-900">Bid submissions</h3>
@@ -844,7 +905,7 @@ export function TenderSubmissionDetailPage() {
                   <p className="mt-2 text-sm text-zinc-400">A bid submission can be recorded once this decision is approved.</p>
                 ) : (
                   <>
-                    {canManage && (
+                    <PermissionGate permission="tendering.document.manage">
                       <form onSubmit={handleAddSubmission} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <input value={submittedTo} onChange={(e) => setSubmittedTo(e.target.value)} placeholder="Submitted to" className={inputClass} />
                         <input type="datetime-local" value={submittedAt} onChange={(e) => setSubmittedAt(e.target.value)} className={inputClass} />
@@ -853,7 +914,7 @@ export function TenderSubmissionDetailPage() {
                           Record submission
                         </button>
                       </form>
-                    )}
+                    </PermissionGate>
                     {submissions?.length === 0 && <p className="mt-2 text-sm text-zinc-400">No bid submissions recorded yet.</p>}
                     {submissions && submissions.length > 0 && (
                       <ul className="mt-2 space-y-2">

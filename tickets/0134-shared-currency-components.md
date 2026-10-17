@@ -1,7 +1,7 @@
 ---
 id: 134
 title: Shared <CurrencyInput> / <CurrencyDisplay> components
-status: next
+status: testing
 roles: [ui-designer, test-engineer]
 priority: 3
 created: 2026-10-17
@@ -33,3 +33,9 @@ other code into the component.
 - [ ] Tests.
 
 ## Progress
+- 2026-10-17: Built `CurrencyInput.tsx` (focus/blur toggle, plain number
+  while editing, formatted with currency code when blurred; never hard-codes
+  currency) and `CurrencyDisplay.tsx` (read-only, renders "—" for null/
+  undefined). Both have vitest unit tests (9 passing). Wired into
+  TenderSubmissionDetailPage (estimate line rates, totals panel) and
+  DocumentDetailPage. Status → testing.

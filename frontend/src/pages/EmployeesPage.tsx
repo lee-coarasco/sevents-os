@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
 import { useUsers } from "../hooks/useUsers";
 import { UserPicker } from "../components/UserPicker";
+import { PermissionGate } from "../components/PermissionGate";
 
 interface Company {
   id: string;
@@ -44,7 +44,6 @@ const statusLabels: Record<EmploymentStatus, string> = {
 
 export function EmployeesPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
   const { users } = useUsers();
 
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -242,14 +241,18 @@ export function EmployeesPage() {
                           className="w-56"
                         />
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => has("employee.directory.manage") && setLinkingEmployeeId(employee.id)}
-                          disabled={!has("employee.directory.manage")}
-                          className="text-zinc-600 underline-offset-2 hover:text-brand-dim hover:underline disabled:cursor-default disabled:text-zinc-600 disabled:no-underline"
+                        <PermissionGate
+                          permission="employee.directory.manage"
+                          fallback={<span className="text-zinc-600">{appUserLabel(employee.app_user_id)}</span>}
                         >
-                          {appUserLabel(employee.app_user_id)}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setLinkingEmployeeId(employee.id)}
+                            className="text-zinc-600 underline-offset-2 hover:text-brand-dim hover:underline"
+                          >
+                            {appUserLabel(employee.app_user_id)}
+                          </button>
+                        </PermissionGate>
                       )}
                     </td>
                   </tr>
@@ -258,7 +261,11 @@ export function EmployeesPage() {
             </table>
           )}
 
-          {!permissionsLoading && has("employee.directory.manage") && selectedCompanyId && (
+          <PermissionGate
+            permission="employee.directory.manage"
+            fallback={<p className="text-xs text-zinc-400">You don't have permission to add employees.</p>}
+          >
+            {selectedCompanyId && (
             <form onSubmit={handleCreateEmployee} className="flex flex-wrap gap-2">
               <input
                 value={newEmployeeCode}
@@ -298,10 +305,8 @@ export function EmployeesPage() {
                 {creatingEmployee ? "Adding…" : "Add employee"}
               </button>
             </form>
-          )}
-          {!permissionsLoading && !has("employee.directory.manage") && (
-            <p className="text-xs text-zinc-400">You don't have permission to add employees.</p>
-          )}
+            )}
+          </PermissionGate>
         </div>
       </div>
     </div>

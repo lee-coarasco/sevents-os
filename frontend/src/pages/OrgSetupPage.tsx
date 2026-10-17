@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
-import { usePermissions } from "../hooks/usePermissions";
+import { PermissionGate } from "../components/PermissionGate";
 
 interface Company {
   id: string;
@@ -34,8 +34,6 @@ const statusColors: Record<string, string> = {
 
 export function OrgSetupPage() {
   const { session } = useAuth();
-  const { has, loading: permissionsLoading } = usePermissions();
-
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -184,7 +182,10 @@ export function OrgSetupPage() {
               ))}
             </div>
           )}
-          {!permissionsLoading && has("tenancy.company.manage") && (
+          <PermissionGate
+            permission="tenancy.company.manage"
+            fallback={<p className="text-xs text-zinc-400">You don't have permission to create companies.</p>}
+          >
             <form onSubmit={handleCreateCompany} className="flex gap-2">
               <input
                 value={newCompanyName}
@@ -200,10 +201,7 @@ export function OrgSetupPage() {
                 {creatingCompany ? "Adding…" : "Add company"}
               </button>
             </form>
-          )}
-          {!permissionsLoading && !has("tenancy.company.manage") && (
-            <p className="text-xs text-zinc-400">You don't have permission to create companies.</p>
-          )}
+          </PermissionGate>
         </div>
       </div>
 
@@ -234,7 +232,10 @@ export function OrgSetupPage() {
                   ))}
                 </div>
               )}
-              {!permissionsLoading && has("tenancy.branch.manage") && (
+              <PermissionGate
+                permission="tenancy.branch.manage"
+                fallback={<p className="text-xs text-zinc-400">You don't have permission to create branches.</p>}
+              >
                 <form onSubmit={handleCreateBranch} className="flex gap-2">
                   <input
                     value={newBranchName}
@@ -250,10 +251,7 @@ export function OrgSetupPage() {
                     {creatingBranch ? "Adding…" : "Add branch"}
                   </button>
                 </form>
-              )}
-              {!permissionsLoading && !has("tenancy.branch.manage") && (
-                <p className="text-xs text-zinc-400">You don't have permission to create branches.</p>
-              )}
+              </PermissionGate>
             </div>
           </div>
 
@@ -285,7 +283,10 @@ export function OrgSetupPage() {
                   ))}
                 </div>
               )}
-              {!permissionsLoading && has("tenancy.project.manage") && (
+              <PermissionGate
+                permission="tenancy.project.manage"
+                fallback={<p className="text-xs text-zinc-400">You don't have permission to create projects.</p>}
+              >
                 <form onSubmit={handleCreateProject} className="flex gap-2">
                   <input
                     value={newProjectName}
@@ -307,10 +308,7 @@ export function OrgSetupPage() {
                     {creatingProject ? "Adding…" : "Add project"}
                   </button>
                 </form>
-              )}
-              {!permissionsLoading && !has("tenancy.project.manage") && (
-                <p className="text-xs text-zinc-400">You don't have permission to create projects.</p>
-              )}
+              </PermissionGate>
             </div>
           </div>
         </>
