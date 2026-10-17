@@ -1125,3 +1125,26 @@ approved (agent-autonomous or you).
   ticket, not here, per the ground rules — this entry only records the
   decision to split and to raise it as a per-ticket block rather than a
   NEEDS_APPROVAL.md-wide stop).
+
+## 2026-10-17 02:40 UTC - Ticket 0112 (owner-filed "Audit & compliance viewer") split into three sub-tickets 0136-0138, closed with no code
+- Decision: Ticket 0112 listed three independent screens (audit log
+  browser, data request management, retention/legal hold management)
+  over M35, each already backed by a fully built, `status: testing`
+  API (tickets 0078, 0080, 0079 respectively) with no backend gap.
+  Split 1:1 into 0136 (audit log browser), 0137 (data request
+  management), 0138 (retention/legal hold management) rather than
+  building all three in one ticket — same "split by independent unit"
+  precedent as ticket 0111's eight-way split. Dropped `backend-
+  engineer`/`architect` from each sub-ticket's `roles` since the
+  survey found no backend work or further architectural seam-finding
+  needed, unlike M06/M07/M09 which needed an architect to invent
+  boundaries. Ordered 0136 first (simplest: pure read + filters, no
+  create flow) ahead of 0137/0138 (both have create/action flows), no
+  forced dependency between any of the three.
+- Why: same oversized-ticket-split precedent as every prior split
+  logged here; the backend-already-exists finding is why this split
+  needed no architect/backend-engineer re-scoping, unlike earlier
+  module splits.
+- Approved by: agent (ticket classification/ordering is explicitly
+  agent-decidable per CLAUDE.md, same weight as every prior module
+  split recorded here).
