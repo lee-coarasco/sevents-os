@@ -373,6 +373,41 @@ UI is tracked separately in ticket 0118).
 
 ---
 
+## M31 — Notifications, SLA & Escalations
+
+**Status:** backend `testing` (tickets 0081/0082/0083), frontend `testing`
+(ticket 0128 — the bell is the first UI surface this module has had).
+
+**What's built (backend):** `notifications`/`notification_templates`/
+`notification_retry_policies` (in-app + stubbed email delivery,
+deduplication by `(tenant, dedup_key, recipient)`, configurable retry
+policy — never a hard-coded attempt count), SLA timers/escalation events
+on `workflow_events`, and per-user `notification_preferences`/
+`notification_schedule_settings` (opt-out, quiet hours, digest batching —
+all off unless a user explicitly configures them). `dispatchNotification`
+is the entry point other modules call directly; no event-bus auto-wiring
+exists yet, so a module that doesn't call it produces no notifications
+(see each module's section for whether it's wired in).
+
+**Frontend (ticket 0128):** a bell icon in `AppLayout`'s header, visible
+to every signed-in user (self-service, no permission gate — matches
+`GET /notifications`' own RLS-only access rule). An unread-count badge
+(red if any of the caller's notifications have `read_at = null`) refetches
+on a 30-second poll and whenever the bell is opened. Clicking the bell
+opens a dropdown inbox (subject + body, newest first, unread ones
+visually distinct); clicking a notification marks it read via
+`POST /notifications/:id/read` with an optimistic UI update. Empty state
+reads "No notifications yet." Supabase Realtime push (instead of polling)
+is a documented follow-on, not built — ticket 0128 didn't need it to meet
+its acceptance criteria.
+
+**Out of scope for ticket 0128:** the preferences/quiet-hours/digest
+settings screen (backend exists per ticket 0083, no UI yet — a future
+ticket if the owner wants users to self-configure those rather than
+leaving everything at "immediate delivery, no quiet hours").
+
+---
+
 ## Not started yet
 
 Everything from M12 onward in CLAUDE.md's build order table except M13a
