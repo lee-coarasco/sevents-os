@@ -613,6 +613,32 @@ Frontend: `InventoryPage`, nav label "Inventory & Stores" under Projects at `/in
 
 ---
 
+## M16 — Subcontractor & Labour Operations
+
+**Status:** done (ticket 0163)
+
+**What's built:** Backend `subcontractors` module (`/projects/:projectId/subcontractors/work-orders`, `/subcontractors/work-orders/:id/milestones`, `/projects/:projectId/subcontractors/attendance`, `/subcontractors/work-orders/:id/measured-works`, `/projects/:projectId/subcontractors/payment-claims`) with multi-tenant RLS isolation and permission enforcement.
+Frontend: `SubcontractorsPage`, nav label "Subcontractors & Labour" under Projects at `/subcontractors`.
+
+**How to use it:**
+- Navigate to "Subcontractors & Labour" from the sidebar navigation (under Projects) or go to `/subcontractors`.
+- **Work Packages & Agreements**:
+  - Switch to the "Work Packages & Orders" tab to view all subcontractor packages, contract values, trade disciplines (`civil`, `mep`, `structural`, `finishes`, `facade`, `piling`, `landscape`), and retention rates (default 10%).
+  - Click "+ New Work Order" to create a subcontract package linked to an approved vendor from the AVL, specifying start/completion dates and scope.
+  - Click "View Package →" on any work order to open the contract drawer and manage milestone schedule payments.
+- **Daily Manpower & Attendance**:
+  - Switch to the "Daily Manpower & Attendance" tab to view trade labour gang records by date.
+  - Filter logs by date and click "+ Log Daily Attendance" to record skilled vs unskilled headcounts, total working hours, and site supervisor notes.
+- **Measured Work & Field Progress**:
+  - Switch to the "Measured Work & Progress" tab to track physical field measurements against BOQ line items and WBS codes.
+  - Click "+ Record Measured Work" specifying quantities and agreed unit rates (which auto-computes the certified value).
+- **Payment Claims & Retention Deductions**:
+  - Switch to the "Payment Claims & Retention" tab to view Interim Payment Certificates (IPC).
+  - Click "+ Submit Payment Claim" specifying claim period and gross claimed amount. The system **automatically calculates and deducts the agreed retention percentage** (e.g. 10%) to determine the net payable amount.
+  - Quantity Surveyors and Project Managers can click "Certify IPC →" to certify the valuation on site measurement validation.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -638,6 +664,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M16 onward in CLAUDE.md's build order table (M16 Subcontractor & Vendor Management, M17 Quality Control & Snagging, M18 Health, Safety & Environment, … through M38) has no code. Don't assume
+Everything from M19 onward in CLAUDE.md's build order table (M19 Quality, Inspection & NCR, M20 Safety, Incidents & Compliance, M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

@@ -27,6 +27,7 @@ import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { ProcurementPage } from "./pages/ProcurementPage";
 import { InventoryPage } from "./pages/InventoryPage";
+import { SubcontractorsPage } from "./pages/SubcontractorsPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -128,6 +129,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["inventory.stock.view", "inventory.store.manage", "inventory.grn.manage", "inventory.issue.manage", "inventory.gatepass.manage"]}>
                   <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="subcontractors"
+              element={
+                <ProtectedRoute anyPermission={["subcontractor.workorder.view", "subcontractor.workorder.manage", "subcontractor.attendance.manage", "subcontractor.claims.manage", "subcontractor.claims.certify"]}>
+                  <SubcontractorsPage />
                 </ProtectedRoute>
               }
             />

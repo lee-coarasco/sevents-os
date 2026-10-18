@@ -96,6 +96,11 @@ import {
   createSupabaseInventoryRepository,
   type InventoryRepository,
 } from "./modules/inventory/repository.js";
+import { registerSubcontractorRoutes } from "./modules/subcontractors/routes.js";
+import {
+  createSupabaseSubcontractorRepository,
+  type SubcontractorRepository,
+} from "./modules/subcontractors/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -147,6 +152,8 @@ export interface BuildAppOptions {
   getProcurementRepository?: () => ProcurementRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getInventoryRepository?: () => InventoryRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getSubcontractorRepository?: () => SubcontractorRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -331,6 +338,15 @@ function defaultInventoryRepository(): InventoryRepository {
   return cachedInventoryRepository;
 }
 
+let cachedSubcontractorRepository: SubcontractorRepository | null = null;
+
+function defaultSubcontractorRepository(): SubcontractorRepository {
+  if (!cachedSubcontractorRepository) {
+    cachedSubcontractorRepository = createSupabaseSubcontractorRepository(createUserScopedClient);
+  }
+  return cachedSubcontractorRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -449,6 +465,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerInventoryRoutes({
     getRepository: options.getInventoryRepository ?? defaultInventoryRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerSubcontractorRoutes({
+    getRepository: options.getSubcontractorRepository ?? defaultSubcontractorRepository,
     permissionGuard: guard,
   }));
 
