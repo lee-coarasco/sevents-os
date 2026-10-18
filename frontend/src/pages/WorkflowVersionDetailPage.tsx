@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ReactFlow, Background, Controls, MiniMap, Handle, Position, type Node, type Edge, useNodesState, useEdgesState, addEdge, type Connection, type NodeProps, BackgroundVariant } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
@@ -263,7 +265,100 @@ function NodeConfigFields({
       </div>
     );
   }
-  // JSON fallback for: collect_form_data, request_upload_evidence, call_service, create_linked_followup, evaluate_condition
+  if (nodeType === "collect_form_data") {
+    return (
+      <div className="space-y-3">
+        {field("Form template key", "formTemplateKey", "e.g. form.site_inspection")}
+        {field("Required fields (comma-separated)", "requiredFields", "e.g. location,date,findings")}
+        {field("Instructions", "instructions", "e.g. Complete all sections before submitting")}
+      </div>
+    );
+  }
+  if (nodeType === "request_upload_evidence") {
+    return (
+      <div className="space-y-3">
+        {field("Accepted file types", "acceptedFileTypes", "e.g. pdf,jpg,png")}
+        {field("Max file size (MB)", "maxFileSizeMb", "e.g. 50")}
+        {field("Evidence label", "label", "e.g. Site photo evidence")}
+        <div>
+          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={Boolean(config.required && config.required !== "false")}
+              onChange={(e) => onChange({ ...config, required: e.target.checked })}
+              className="h-4 w-4 rounded border-zinc-300 text-brand focus:ring-brand"
+            />
+            Required
+          </label>
+        </div>
+      </div>
+    );
+  }
+  if (nodeType === "call_service") {
+    return (
+      <div className="space-y-3">
+        {field("Webhook URL", "webhookUrl", "e.g. https://api.example.com/webhook")}
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">HTTP method</label>
+          <select
+            value={(config.method as string) ?? "GET"}
+            onChange={(e) => onChange({ ...config, method: e.target.value })}
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          >
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+          </select>
+        </div>
+        {field("Timeout (seconds)", "timeoutSeconds", "e.g. 30")}
+        {field("Retry count", "retryCount", "e.g. 3")}
+      </div>
+    );
+  }
+  if (nodeType === "create_linked_followup") {
+    return (
+      <div className="space-y-3">
+        {roleSelect("Assign to Role", "canonicalRoleId")}
+        {field("Follow-up workflow key", "workflowKey", "e.g. wf.defect_resolution")}
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Link type</label>
+          <select
+            value={(config.linkType as string) ?? "child"}
+            onChange={(e) => onChange({ ...config, linkType: e.target.value })}
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          >
+            <option value="child">child</option>
+            <option value="related">related</option>
+            <option value="follow_on">follow_on</option>
+          </select>
+        </div>
+        {field("Description template", "descriptionTemplate", "e.g. Follow-up for {{parentKey}}")}
+      </div>
+    );
+  }
+  if (nodeType === "evaluate_condition") {
+    return (
+      <div className="space-y-3">
+        {field("Field to evaluate", "field", "e.g. estimated_value")}
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Operator</label>
+          <select
+            value={(config.operator as string) ?? "eq"}
+            onChange={(e) => onChange({ ...config, operator: e.target.value })}
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          >
+            {Object.keys(OPERATOR_LABEL).map((op) => (
+              <option key={op} value={op}>
+                {OPERATOR_LABEL[op]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {field("Comparison value", "value", "e.g. 50000")}
+        {field("Description", "description", "e.g. Check if value exceeds threshold")}
+      </div>
+    );
+  }
   return (
     <div>
       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
@@ -301,82 +396,565 @@ const NODE_BORDER_COLOR: Record<NodeType, string> = {
   cancel: "border-red-300",
 };
 
-function FlowTab({ versionId }: { versionId: string }) {
+interface CustomWorkflowNodeData {
+  node: WorkflowNode;
+}
+
+function CustomWorkflowNode({ data, selected }: NodeProps) {
+  const node = (data as unknown as CustomWorkflowNodeData)?.node;
+  if (!node) return null;
+  const borderColor = NODE_BORDER_COLOR[node.node_type] ?? "border-zinc-300";
+  const badgeColor = NODE_COLOR[node.node_type] ?? "bg-zinc-100 text-zinc-700";
+  const label = NODE_LABEL[node.node_type] ?? node.node_type;
+
+  return (
+    <div
+      className={`relative min-w-[190px] max-w-[240px] rounded-xl border-2 bg-white px-3.5 py-2.5 shadow-sm transition-all text-center ${borderColor} ${
+        selected ? "ring-2 ring-brand ring-offset-2 shadow-md" : "hover:shadow-md"
+      }`}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!h-3 !w-3 !rounded-full !border-2 !border-white !bg-zinc-400 hover:!bg-brand"
+      />
+      <div className="flex flex-col items-center">
+        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeColor}`}>
+          {label}
+        </span>
+        <span
+          className="mt-1 font-mono text-xs font-medium text-zinc-800 truncate max-w-[170px]"
+          title={node.node_key}
+        >
+          {node.node_key}
+        </span>
+      </div>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!h-3 !w-3 !rounded-full !border-2 !border-white !bg-brand hover:!scale-110"
+      />
+    </div>
+  );
+}
+
+const nodeTypes = {
+  custom: CustomWorkflowNode,
+};
+
+function computeNodePositions(nodes: WorkflowNode[], transitions: WorkflowTransition[]): Map<string, { x: number; y: number }> {
+  const ordered = orderNodes(nodes, transitions);
+  const positions = new Map<string, { x: number; y: number }>();
+
+  // Map incoming edges to calculate BFS depth/level for layout
+  const incoming = new Map<string, string[]>();
+  for (const t of transitions) {
+    const list = incoming.get(t.to_node_id) || [];
+    list.push(t.from_node_id);
+    incoming.set(t.to_node_id, list);
+  }
+
+  const depthMap = new Map<string, number>();
+  for (const node of ordered) {
+    const parents = incoming.get(node.id) || [];
+    if (parents.length === 0) {
+      depthMap.set(node.id, 0);
+    } else {
+      let maxDepth = 0;
+      for (const p of parents) {
+        maxDepth = Math.max(maxDepth, (depthMap.get(p) ?? 0) + 1);
+      }
+      depthMap.set(node.id, maxDepth);
+    }
+  }
+
+  const levelGroups = new Map<number, string[]>();
+  for (const node of ordered) {
+    const d = depthMap.get(node.id) ?? 0;
+    const group = levelGroups.get(d) || [];
+    group.push(node.id);
+    levelGroups.set(d, group);
+  }
+
+  levelGroups.forEach((nodeIds, level) => {
+    const count = nodeIds.length;
+    const spacingX = 220;
+    const startX = 320 - ((count - 1) * spacingX) / 2;
+    nodeIds.forEach((id, idx) => {
+      positions.set(id, {
+        x: Math.round(startX + idx * spacingX),
+        y: 40 + level * 200,
+      });
+    });
+  });
+
+  return positions;
+}
+
+function buildEdges(transitions: WorkflowTransition[], conditions: WorkflowCondition[]): Edge[] {
+  const condMap = new Map(conditions.map((c) => [c.id, c]));
+  return transitions.map((t) => {
+    const cond = t.condition_id ? condMap.get(t.condition_id) : null;
+    const label = cond
+      ? (cond.description || `if ${cond.expression.field} ${OPERATOR_LABEL[cond.expression.operator] ?? cond.expression.operator} ${cond.expression.value}`)
+      : undefined;
+
+    return {
+      id: t.id,
+      source: t.from_node_id,
+      target: t.to_node_id,
+      label,
+      type: "default",
+      style: { stroke: "#71717a", strokeWidth: 2 },
+      labelStyle: { fill: "#1e40af", fontWeight: 600, fontSize: 11 },
+      labelBgStyle: { fill: "#eff6ff", fillOpacity: 0.95, rx: 6, ry: 6 },
+      labelBgPadding: [6, 4] as [number, number],
+      animated: false,
+    };
+  });
+}
+
+function FlowTab({ versionId, isDraft }: { versionId: string; isDraft: boolean }) {
   const { session } = useAuth();
   const [graph, setGraph] = useState<WorkflowGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // Roles for dropdowns in config form
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   useEffect(() => {
     if (!session) return;
+    apiFetch<{ roles: RoleOption[] }>("/authority/roles", session.access_token)
+      .then((d) => setRoles(d.roles ?? []))
+      .catch(() => {});
+  }, [session]);
+
+  // Load graph data
+  const loadGraph = useCallback(() => {
+    if (!session) return;
+    setLoading(true);
     apiFetch<{ graph: WorkflowGraph }>(`/workflow/versions/${versionId}/graph`, session.access_token)
-      .then((d) => { setGraph(d.graph); setError(null); })
+      .then((d) => {
+        setGraph(d.graph);
+        setError(null);
+        const computedPos = computeNodePositions(d.graph.nodes, d.graph.transitions);
+        setNodes((prevNodes: Node[]) => {
+          const prevPosMap = new Map(prevNodes.map((pn: Node) => [pn.id, pn.position]));
+          return d.graph.nodes.map((n, idx) => ({
+            id: n.id,
+            type: "custom",
+            position: prevPosMap.get(n.id) ?? computedPos.get(n.id) ?? { x: 320, y: 40 + idx * 200 },
+            data: { node: n },
+          }));
+        });
+        setEdges(buildEdges(d.graph.transitions, d.graph.conditions));
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load graph"))
       .finally(() => setLoading(false));
-  }, [session, versionId]);
+  }, [session, versionId, setNodes, setEdges]);
 
-  if (loading) return <p className="text-sm text-zinc-400">Loading flow…</p>;
-  if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>;
-  if (!graph) return null;
+  useEffect(() => {
+    loadGraph();
+  }, [loadGraph]);
 
-  const ordered = orderNodes(graph.nodes, graph.transitions);
-  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+  // Connect nodes
+  const onConnect = useCallback(
+    async (connection: Connection) => {
+      if (!isDraft || !session) return;
+      if (!connection.source || !connection.target) return;
+      if (connection.source === connection.target) return;
 
-  if (ordered.length === 0) {
+      setEdges((eds: Edge[]) => addEdge({ ...connection, animated: false }, eds));
+      try {
+        await apiFetch(`/workflow/versions/${versionId}/transitions`, session.access_token, {
+          method: "POST",
+          body: JSON.stringify({
+            fromNodeId: connection.source,
+            toNodeId: connection.target,
+          }),
+        });
+        loadGraph();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Could not add transition");
+        loadGraph();
+      }
+    },
+    [isDraft, session, versionId, setEdges, loadGraph]
+  );
+
+  // Delete edges
+  const onEdgesDelete = useCallback(
+    async (edgesToDelete: Edge[]) => {
+      if (!isDraft || !session) return;
+      for (const edge of edgesToDelete) {
+        try {
+          await apiFetch(`/workflow/versions/${versionId}/transitions/${edge.id}`, session.access_token, {
+            method: "DELETE",
+          });
+        } catch (err) {
+          setError(err instanceof ApiError ? err.message : "Could not delete transition");
+        }
+      }
+      loadGraph();
+    },
+    [isDraft, session, versionId, loadGraph]
+  );
+
+  // Node editing state
+  const [editingNode, setEditingNode] = useState<WorkflowNode | null>(null);
+  const [editConfig, setEditConfig] = useState<Record<string, unknown>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, rfNode: Node) => {
+      const node = graph?.nodes.find((n) => n.id === rfNode.id);
+      if (node) {
+        setEditingNode(node);
+        setEditConfig(node.config ? { ...node.config } : {});
+        setEditError(null);
+      }
+    },
+    [graph]
+  );
+
+  async function handleUpdateNodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || !editingNode || !isDraft) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      let config: Record<string, unknown>;
+      if (editConfig._raw) {
+        try {
+          config = JSON.parse(editConfig._raw as string);
+        } catch {
+          config = {};
+        }
+      } else {
+        config = Object.fromEntries(
+          Object.entries(editConfig).filter(([, v]) => v !== "" && v !== undefined)
+        );
+      }
+      await apiFetch(`/workflow/versions/${versionId}/nodes/${editingNode.id}`, session.access_token, {
+        method: "PATCH",
+        body: JSON.stringify({ config }),
+      });
+      setEditingNode(null);
+      loadGraph();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Could not update step");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteNode(nodeId: string) {
+    if (
+      !session ||
+      !isDraft ||
+      !window.confirm("Delete this step? Any transitions to/from it will also be removed.")
+    ) {
+      return;
+    }
+    try {
+      await apiFetch(`/workflow/versions/${versionId}/nodes/${nodeId}`, session.access_token, {
+        method: "DELETE",
+      });
+      setEditingNode(null);
+      loadGraph();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Could not delete step");
+    }
+  }
+
+  // Node palette / add node state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addNodeType, setAddNodeType] = useState<NodeType>("create_task");
+  const [addNodeKey, setAddNodeKey] = useState("");
+  const [addNodeConfig, setAddNodeConfig] = useState<Record<string, unknown>>({});
+  const [addingNode, setAddingNode] = useState(false);
+  const [addNodeError, setAddNodeError] = useState<string | null>(null);
+
+  function openAddNodeModal(type: NodeType) {
+    setAddNodeType(type);
+    const count = (graph?.nodes.length ?? 0) + 1;
+    setAddNodeKey(`step_${count}_${type}`);
+    setAddNodeConfig({});
+    setAddNodeError(null);
+    setShowAddModal(true);
+  }
+
+  async function handleAddNodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || !addNodeKey.trim() || !isDraft) return;
+    setAddingNode(true);
+    setAddNodeError(null);
+    try {
+      let config: Record<string, unknown> | undefined;
+      if (addNodeConfig._raw) {
+        try {
+          config = JSON.parse(addNodeConfig._raw as string);
+        } catch {
+          config = undefined;
+        }
+      } else {
+        const cleaned = Object.fromEntries(
+          Object.entries(addNodeConfig).filter(([, v]) => v !== "" && v !== undefined)
+        );
+        config = Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      }
+      await apiFetch(`/workflow/versions/${versionId}/nodes`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          nodeKey: addNodeKey.trim(),
+          nodeType: addNodeType,
+          ...(config ? { config } : {}),
+        }),
+      });
+      setAddNodeKey("");
+      setAddNodeConfig({});
+      setShowAddModal(false);
+      loadGraph();
+    } catch (err) {
+      setAddNodeError(err instanceof ApiError ? err.message : "Could not add node");
+    } finally {
+      setAddingNode(false);
+    }
+  }
+
+  if (loading && !graph) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-200 py-16 text-center text-sm text-zinc-400">
-        No steps yet. Switch to the <strong>Steps</strong> tab to add the first step.
+      <div className="flex h-[600px] items-center justify-center rounded-2xl border border-zinc-100 bg-white shadow-sm text-sm text-zinc-400">
+        Loading flow…
+      </div>
+    );
+  }
+
+  if (error && !graph) {
+    return (
+      <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-sm text-red-700">
+        {error}
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm overflow-x-auto">
-      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">Flow Diagram</p>
-      <div className="flex flex-col items-center gap-0 min-w-max">
-        {ordered.map((node, idx) => {
-          const outgoing = graph.transitions
-            .filter((t) => t.from_node_id === node.id)
-            .sort((a, b) => a.order_index - b.order_index);
-          const isLast = idx === ordered.length - 1;
-          return (
-            <div key={node.id} className="flex flex-col items-center">
-              <div className={`rounded-xl border-2 ${NODE_BORDER_COLOR[node.node_type]} ${NODE_COLOR[node.node_type]} px-4 py-2 text-xs font-semibold min-w-[180px] text-center`}>
-                <p>{NODE_LABEL[node.node_type]}</p>
-                <p className="mt-0.5 font-mono font-normal opacity-70">{node.node_key}</p>
-              </div>
-              {!isLast && (
-                <div className="flex flex-col items-center">
-                  {outgoing.map((t) => {
-                    const cond = t.condition_id ? graph.conditions.find((c) => c.id === t.condition_id) : null;
-                    const toNode = nodeById.get(t.to_node_id);
-                    return (
-                      <div key={t.id} className="flex flex-col items-center">
-                        {cond && (
-                          <span className="mt-1 rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
-                            {cond.description ?? `if ${cond.expression.field} ${OPERATOR_LABEL[cond.expression.operator] ?? cond.expression.operator} ${cond.expression.value}`}
-                          </span>
-                        )}
-                        {toNode && outgoing.length > 1 && (
-                          <span className="mt-0.5 text-xs text-zinc-400">→ {toNode.node_key}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <div className="my-1 h-6 w-px bg-zinc-300" />
-                  <div className="h-2 w-2 rounded-full bg-zinc-400" />
+    <div className="relative flex h-[600px] rounded-2xl border border-zinc-100 bg-white shadow-sm overflow-hidden">
+      {/* Node Palette (Draft mode only) */}
+      {isDraft && (
+        <div className="w-56 flex-shrink-0 border-r border-zinc-100 bg-stone-50/60 p-3 flex flex-col overflow-y-auto">
+          <div className="mb-2.5 px-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Node Palette</p>
+            <p className="text-[11px] text-zinc-400">Click to add to canvas</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {ALL_NODE_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => openAddNodeModal(type)}
+                className="flex items-center gap-2 rounded-lg border border-zinc-200/80 bg-white px-2.5 py-1.5 text-left text-xs font-medium text-zinc-700 shadow-xs hover:border-brand hover:bg-brand-soft/40 hover:text-zinc-900 transition-colors"
+              >
+                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${NODE_COLOR[type].split(" ")[0]}`} />
+                <span className="truncate">{NODE_LABEL[type]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Canvas Area */}
+      <div className="relative flex-1 h-full">
+        {error && (
+          <div className="absolute top-3 left-3 right-3 z-30 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-xs text-red-700 flex items-center justify-between shadow-sm">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} className="font-bold ml-2 text-red-500 hover:text-red-700">×</button>
+          </div>
+        )}
+
+        {nodes.length === 0 && !loading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none p-6 text-center">
+            <p className="text-sm font-medium text-zinc-400">
+              {isDraft
+                ? "No steps yet. Click a step type on the left palette to add your first step."
+                : "No steps yet in this workflow version."}
+            </p>
+          </div>
+        )}
+
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={isDraft ? onConnect : undefined}
+          onEdgesDelete={isDraft ? onEdgesDelete : undefined}
+          onNodeClick={onNodeClick}
+          onPaneClick={() => setEditingNode(null)}
+          nodeTypes={nodeTypes}
+          nodesDraggable={true}
+          nodesConnectable={isDraft}
+          elementsSelectable={true}
+          deleteKeyCode={isDraft ? ["Backspace", "Delete"] : null}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d4d4d8" />
+          <Controls position="bottom-left" />
+          <MiniMap position="bottom-right" className="!m-3 !rounded-lg !border !border-zinc-200" nodeColor="#e4e4e7" />
+        </ReactFlow>
+
+        {/* Edit Node Slide-over Panel */}
+        {editingNode && (
+          <div className="absolute right-0 top-0 bottom-0 z-30 w-80 border-l border-zinc-200 bg-white p-5 shadow-xl flex flex-col justify-between overflow-y-auto">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between pb-3 border-b border-zinc-100">
+                <div>
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${NODE_COLOR[editingNode.node_type]}`}>
+                    {NODE_LABEL[editingNode.node_type]}
+                  </span>
+                  <h3 className="font-mono text-sm font-semibold text-zinc-900 mt-1.5 truncate max-w-[210px]" title={editingNode.node_key}>
+                    {editingNode.node_key}
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Step configuration</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingNode(null)}
+                  className="text-zinc-400 hover:text-zinc-600 text-lg leading-none p-1 rounded-md hover:bg-zinc-100"
+                >
+                  ×
+                </button>
+              </div>
+
+              {editError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{editError}</div>
+              )}
+
+              <form id="edit-node-form" onSubmit={handleUpdateNodeSubmit} className="space-y-4">
+                <NodeConfigFields
+                  nodeType={editingNode.node_type}
+                  config={editConfig}
+                  onChange={setEditConfig}
+                  roles={roles}
+                />
+              </form>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-100 flex items-center justify-between mt-4">
+              {isDraft ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNode(editingNode.id)}
+                    className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline"
+                  >
+                    Delete Step
+                  </button>
+                  <button
+                    type="submit"
+                    form="edit-node-form"
+                    disabled={savingEdit}
+                    className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-zinc-900 shadow-sm hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {savingEdit ? "Saving…" : "Save Changes"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingNode(null)}
+                  className="w-full rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                >
+                  Close
+                </button>
               )}
             </div>
-          );
-        })}
-      </div>
-      <div className="mt-6 flex flex-wrap gap-2">
-        {(Object.keys(NODE_LABEL) as NodeType[]).filter((t) => graph.nodes.some((n) => n.node_type === t)).map((t) => (
-          <span key={t} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${NODE_COLOR[t]}`}>
-            {NODE_LABEL[t]}
-          </span>
-        ))}
+          </div>
+        )}
+
+        {/* Add Step Dialog */}
+        {showAddModal && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-100 bg-white p-6 shadow-2xl max-h-[90%] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-100 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${NODE_COLOR[addNodeType]}`}>
+                    {NODE_LABEL[addNodeType]}
+                  </span>
+                  <h3 className="font-brand font-semibold text-zinc-900">Add Step</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="text-zinc-400 hover:text-zinc-600 text-lg leading-none p-1"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleAddNodeSubmit} className="space-y-4">
+                {addNodeError && (
+                  <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{addNodeError}</div>
+                )}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Step Key</label>
+                  <input
+                    value={addNodeKey}
+                    onChange={(e) => setAddNodeKey(e.target.value)}
+                    placeholder="e.g. step_1_create_task"
+                    required
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Step Type</label>
+                  <select
+                    value={addNodeType}
+                    onChange={(e) => {
+                      const t = e.target.value as NodeType;
+                      setAddNodeType(t);
+                      const count = (graph?.nodes.length ?? 0) + 1;
+                      setAddNodeKey(`step_${count}_${t}`);
+                      setAddNodeConfig({});
+                    }}
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  >
+                    {ALL_NODE_TYPES.map((t) => (
+                      <option key={t} value={t}>{NODE_LABEL[t]}</option>
+                    ))}
+                  </select>
+                </div>
+                <NodeConfigFields
+                  nodeType={addNodeType}
+                  config={addNodeConfig}
+                  onChange={setAddNodeConfig}
+                  roles={roles}
+                />
+                <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingNode || !addNodeKey.trim()}
+                    className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-zinc-900 shadow-sm hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {addingNode ? "Adding…" : "Add Step"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1373,7 +1951,7 @@ export function WorkflowVersionDetailPage() {
           )}
 
           {activeTab === "flow" && versionId && (
-            <FlowTab versionId={versionId} />
+            <FlowTab versionId={versionId} isDraft={version.status === "draft"} />
           )}
 
           {activeTab === "validation" && versionId && definitionId && (
