@@ -111,6 +111,11 @@ import {
   createSupabaseSafetyRepository,
   type SafetyRepository,
 } from "./modules/safety/repository.js";
+import { registerEquipmentRoutes } from "./modules/equipment/routes.js";
+import {
+  createSupabaseEquipmentRepository,
+  type EquipmentRepository,
+} from "./modules/equipment/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -168,6 +173,16 @@ export interface BuildAppOptions {
   getQualityRepository?: () => QualityRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getSafetyRepository?: () => SafetyRepository;
+  getEquipmentRepository?: () => EquipmentRepository;
+}
+
+let cachedEquipmentRepository: EquipmentRepository | null = null;
+
+function defaultEquipmentRepository(): EquipmentRepository {
+  if (!cachedEquipmentRepository) {
+    cachedEquipmentRepository = createSupabaseEquipmentRepository(createUserScopedClient);
+  }
+  return cachedEquipmentRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -512,6 +527,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerSafetyRoutes({
     getRepository: options.getSafetyRepository ?? defaultSafetyRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerEquipmentRoutes({
+    getRepository: options.getEquipmentRepository ?? defaultEquipmentRepository,
     permissionGuard: guard,
   }));
 

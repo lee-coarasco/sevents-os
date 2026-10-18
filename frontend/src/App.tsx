@@ -30,6 +30,7 @@ import { InventoryPage } from "./pages/InventoryPage";
 import { SubcontractorsPage } from "./pages/SubcontractorsPage";
 import { QualityPage } from "./pages/QualityPage";
 import { SafetyPage } from "./pages/SafetyPage";
+import { EquipmentPage } from "./pages/EquipmentPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -155,6 +156,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["safety.ptw.manage", "safety.ptw.approve", "safety.incident.manage", "safety.incident.investigate", "safety.hazard.manage", "safety.tbt.manage"]}>
                   <SafetyPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="equipment"
+              element={
+                <ProtectedRoute anyPermission={["equipment.asset.manage", "equipment.allocation.manage", "equipment.allocation.approve", "equipment.log.manage", "equipment.maintenance.manage", "equipment.certificate.manage"]}>
+                  <EquipmentPage />
                 </ProtectedRoute>
               }
             />

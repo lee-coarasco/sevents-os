@@ -694,6 +694,37 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M25 — Equipment, Plant & Fleet Operations
+
+**Status:** done (ticket 0166); backend `equipment` module, database migrations, and frontend screen `EquipmentPage` mounted at `/equipment`. Completes Phase 5 (Procurement, Stores and Site Operations).
+
+**What's built:**
+- **Master Plant & Fleet Register**: Cataloguing across six equipment categories (`heavy_plant`, `earthmoving`, `lifting_rigging`, `power_generation`, `fleet_vehicle`, `small_tools`), ownership models (`owned`, `leased`, `hired`), hire vendor information, daily charge-out rates, registration plate/mulkiya, and running meter hours.
+- **Site Mobilizations & Allocations**: Multi-project deployment requests, on-site grid placement, deployment approvals (`requested` &rarr; `approved` &rarr; `mobilized`), and demobilization/off-hire reconciliation.
+- **Daily Shift Utilization & Fuel Logs**: Daily operational hours, idle hours, breakdown downtime tracking, start/end meter readings, fuel consumption (litres added), operator identification, and work activity summaries. Automatically updates running meter hours on the asset master record.
+- **Preventive Maintenance & Cost Tracking**: Service interval logging (`preventive_service`, `breakdown_repair`, `safety_inspection`, `statutory_certification`), service provider, actual maintenance cost, meter reading at service, and next due date / meter triggers.
+- **Statutory Third-Party Safety Certifications**: Mandatory safety calibrations (e.g. DAC/EIAC crane safe load indicator calibration, boom certification, lifting tackle inspections, roadworthiness mulkiya registrations) with validity badges (`valid`, `expired`, `pending_renewal`) and expiry alerts.
+
+**How to use it:**
+- Navigate to "Equipment & Fleet" from the sidebar navigation (under Projects) or go to `/equipment`.
+- **Plant & Fleet Master**:
+  - Filter heavy plant and fleet machinery by equipment category.
+  - Click "+ Register New Equipment" to record a machine's asset code, category, make, model, year, serial/VIN, ownership type, and daily hire rate.
+  - Click "View Details" on any machine row to open the Equipment Details drawer with technical specifications, current meter hours, and hire details.
+- **Mobilizations & Allocations**:
+  - Switch to the "Mobilizations & Allocations" tab to view plant deployed to the selected project.
+  - Click "+ Mobilize Equipment" to select an available machine from the fleet, specify destination grid location, and set expected mobilization/demobilization dates.
+  - Operations/Plant Managers click "Approve & Mobilize" to dispatch the machine, or "Demobilize / Off-hire" once site works conclude.
+- **Daily Utilization & Run Hours**:
+  - Switch to the "Daily Utilization & Run Hours" tab to review daily operating hours, idle time, and breakdown records.
+  - Click "+ Log Shift Operations" to record operating hours, idle hours, breakdown hours, start/end meter readings, fuel added, and operator details. Submitting automatically advances the machine's running meter hours.
+- **Maintenance & Statutory Certs**:
+  - Switch to the "Maintenance & Statutory Certs" tab to review recent service records and statutory compliance certificates.
+  - Click "+ Record Maintenance Event" to log routine oil/filter services or breakdown repairs with costs and next due triggers.
+  - Click "+ Add Statutory Certificate" to register third-party calibration certificates (e.g., DAC/EIAC crane SWL calibration) with issue and expiry dates.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
