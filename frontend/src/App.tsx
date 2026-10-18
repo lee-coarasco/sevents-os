@@ -15,6 +15,7 @@ import { OpportunityDetailPage } from "./pages/OpportunityDetailPage";
 import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
+import { SiteOperationsPage } from "./pages/SiteOperationsPage";
 import { CataloguePage } from "./pages/CataloguePage";
 import { CatalogueGuidePage } from "./pages/CatalogueGuidePage";
 import { MasterDataPage } from "./pages/masterdata/MasterDataPage";
@@ -85,6 +86,14 @@ export function App() {
               }
             />
             <Route path="projects/:id" element={<ProjectDetailPage />} />
+            <Route
+              path="site"
+              element={
+                <ProtectedRoute anyPermission={["site.dpr.manage", "site.dpr.approve", "site.instruction.manage"]}>
+                  <SiteOperationsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="crm"
               element={

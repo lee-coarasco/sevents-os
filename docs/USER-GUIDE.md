@@ -526,6 +526,38 @@ banner instead of silently failing.
   2. **Lookahead Plans**: Select a 2-week or 4-week lookahead plan from the sidebar (or click "+ New" to create one), then click "+ Add Lookahead Action" to plan granular operational tasks and track their status.
   3. **Delay Register & Variance**: View the contractual delay breakdown by driver (Client, Design, Weather, etc.) and click "+ Log New Delay" to record impact days, root cause, and recovery mitigation plans.
 
+## M17 — Site Operations, DPR & Field Capture
+
+**Status:** done (ticket 0160)
+
+**What's built:**
+- Backend `site` module (`backend/src/modules/site/`):
+  - Daily Progress Reports (DPR) with date, status ('draft', 'submitted', 'approved', 'rejected'), weather condition, temperature, impact, notes, and approval records.
+  - Manpower log (trade, headcount, hours worked, subcontractor name, notes).
+  - Equipment & plant log (equipment type, quantity, operating hours, idle hours, notes).
+  - Executed work progress log (activity linkage, location/grid, description, quantity executed, UOM, notes).
+  - Site blockers & delay tracker (categories, description, impact hours, resolution action, open/resolved status).
+  - Site Instructions (SI) register (number, issued by, recipient, instruction directives, priority, status).
+  - Multi-tenant RLS isolation on all tables and strict permission guards (`site.dpr.manage`, `site.dpr.approve`, `site.instruction.manage`).
+- Frontend screen `SiteOperationsPage` at `/site`:
+  - Project switcher dropdown for instant multi-project site logging.
+  - DPR list table with status filter chips, weather emojis, temperatures, and actions.
+  - "New DPR" modal wizard for logging the day's conditions.
+  - Detailed DPR Workspace with real-time metrics (total manpower, equipment operating hours, work locations, open blockers), supervisor submission/approval/return buttons, and 4 specialized logs (Manpower, Equipment, Work Progress, Blockers).
+  - Site Instructions Register tab for issuing and updating formal directives.
+
+**How to use it:**
+- Navigate to "Site Operations & DPR" from the sidebar navigation (under Projects) or go to `/site`.
+- Select your project from the top dropdown.
+- **Log Daily Progress**: Click "+ New DPR", specify the date, weather conditions (e.g. Sunny 32°C), and operational notes.
+- **Record Site Resources & Progress**: Click "Open Workspace →" on any draft DPR to log:
+  1. **Manpower**: Trade, worker headcount, hours worked, and subcontractor.
+  2. **Equipment**: Equipment type, units, operating vs idle hours.
+  3. **Work Progress**: Specific grid location, description of executed work, and quantities with UOM.
+  4. **Site Blockers**: Issues causing delay (e.g. material shortage, safety stop) with impact hours and resolution plans.
+- **Review & Sign-Off**: Click "Submit DPR for Approval". Supervisors review the comprehensive summary cards and click "Approve DPR" to lock it as immutable evidence, or "Return / Reject" with corrective feedback.
+- **Site Instructions**: Switch to the "Site Instructions Register" tab to issue formal numbered directives (e.g. SI-001) with urgent/normal priority and target completion dates.
+
 ---
 
 ## Shared frontend components (not a module — reused across all of them)

@@ -81,6 +81,11 @@ import {
   createSupabaseEngineeringRepository,
   type EngineeringRepository,
 } from "./modules/engineering/repository.js";
+import { siteRoutes } from "./modules/site/routes.js";
+import {
+  createSupabaseSiteRepository,
+  type SiteRepository,
+} from "./modules/site/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -126,6 +131,8 @@ export interface BuildAppOptions {
   getMasterDataRepository?: () => MasterDataRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getEngineeringRepository?: () => EngineeringRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getSiteRepository?: () => SiteRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -283,6 +290,15 @@ function defaultEngineeringRepository(): EngineeringRepository {
   return cachedEngineeringRepository;
 }
 
+let cachedSiteRepository: SiteRepository | null = null;
+
+function defaultSiteRepository(): SiteRepository {
+  if (!cachedSiteRepository) {
+    cachedSiteRepository = createSupabaseSiteRepository(createUserScopedClient);
+  }
+  return cachedSiteRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -386,6 +402,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(engineeringRoutes, {
     getRepository: options.getEngineeringRepository ?? defaultEngineeringRepository,
     getMasterDataRepository: options.getMasterDataRepository ?? defaultMasterDataRepository,
+    requirePermission: guard,
+  });
+
+  app.register(siteRoutes, {
+    getRepository: options.getSiteRepository ?? defaultSiteRepository,
     requirePermission: guard,
   });
 

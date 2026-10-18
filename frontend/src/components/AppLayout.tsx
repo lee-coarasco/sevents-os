@@ -133,6 +133,9 @@ export function AppLayout() {
               "project.closeout.manage",
               "crm.lead.manage",
               "documents.register.manage",
+              "site.dpr.manage",
+              "site.dpr.approve",
+              "site.instruction.manage",
             ]}
           >
             <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
@@ -144,6 +147,14 @@ export function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                 </svg>
                 Projects
+              </NavLink>
+            </PermissionGate>
+            <PermissionGate anyPermission={["site.dpr.manage", "site.dpr.approve", "site.instruction.manage"]}>
+              <NavLink to="/site" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
+                </svg>
+                Site Operations &amp; DPR
               </NavLink>
             </PermissionGate>
             <PermissionGate permission="crm.lead.manage">
