@@ -283,6 +283,105 @@ function NodeConfigFields({
   );
 }
 
+// ── Flow Diagram ───────────────────────────────────────────────────────────────
+
+const NODE_BORDER_COLOR: Record<NodeType, string> = {
+  create_task: "border-purple-300",
+  assign_role_user: "border-indigo-300",
+  collect_form_data: "border-violet-300",
+  request_upload_evidence: "border-yellow-300",
+  evaluate_condition: "border-blue-300",
+  call_service: "border-cyan-300",
+  request_approval: "border-amber-300",
+  send_notification: "border-teal-300",
+  wait_event_time: "border-orange-300",
+  create_linked_followup: "border-pink-300",
+  escalate: "border-rose-300",
+  complete: "border-green-300",
+  cancel: "border-red-300",
+};
+
+function FlowTab({ versionId }: { versionId: string }) {
+  const { session } = useAuth();
+  const [graph, setGraph] = useState<WorkflowGraph | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    apiFetch<{ graph: WorkflowGraph }>(`/workflow/versions/${versionId}/graph`, session.access_token)
+      .then((d) => { setGraph(d.graph); setError(null); })
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load graph"))
+      .finally(() => setLoading(false));
+  }, [session, versionId]);
+
+  if (loading) return <p className="text-sm text-zinc-400">Loading flow…</p>;
+  if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>;
+  if (!graph) return null;
+
+  const ordered = orderNodes(graph.nodes, graph.transitions);
+  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+
+  if (ordered.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-zinc-200 py-16 text-center text-sm text-zinc-400">
+        No steps yet. Switch to the <strong>Steps</strong> tab to add the first step.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm overflow-x-auto">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">Flow Diagram</p>
+      <div className="flex flex-col items-center gap-0 min-w-max">
+        {ordered.map((node, idx) => {
+          const outgoing = graph.transitions
+            .filter((t) => t.from_node_id === node.id)
+            .sort((a, b) => a.order_index - b.order_index);
+          const isLast = idx === ordered.length - 1;
+          return (
+            <div key={node.id} className="flex flex-col items-center">
+              <div className={`rounded-xl border-2 ${NODE_BORDER_COLOR[node.node_type]} ${NODE_COLOR[node.node_type]} px-4 py-2 text-xs font-semibold min-w-[180px] text-center`}>
+                <p>{NODE_LABEL[node.node_type]}</p>
+                <p className="mt-0.5 font-mono font-normal opacity-70">{node.node_key}</p>
+              </div>
+              {!isLast && (
+                <div className="flex flex-col items-center">
+                  {outgoing.map((t) => {
+                    const cond = t.condition_id ? graph.conditions.find((c) => c.id === t.condition_id) : null;
+                    const toNode = nodeById.get(t.to_node_id);
+                    return (
+                      <div key={t.id} className="flex flex-col items-center">
+                        {cond && (
+                          <span className="mt-1 rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+                            {cond.description ?? `if ${cond.expression.field} ${OPERATOR_LABEL[cond.expression.operator] ?? cond.expression.operator} ${cond.expression.value}`}
+                          </span>
+                        )}
+                        {toNode && outgoing.length > 1 && (
+                          <span className="mt-0.5 text-xs text-zinc-400">→ {toNode.node_key}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="my-1 h-6 w-px bg-zinc-300" />
+                  <div className="h-2 w-2 rounded-full bg-zinc-400" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-6 flex flex-wrap gap-2">
+        {(Object.keys(NODE_LABEL) as NodeType[]).filter((t) => graph.nodes.some((n) => n.node_type === t)).map((t) => (
+          <span key={t} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${NODE_COLOR[t]}`}>
+            {NODE_LABEL[t]}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Steps Editor ───────────────────────────────────────────────────────────────
 
 function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boolean }) {
@@ -869,6 +968,66 @@ const SEVERITY_CLASS: Record<"error" | "warning", string> = {
   error: "bg-red-50 text-red-700 border-red-200",
   warning: "bg-amber-50 text-amber-700 border-amber-200",
 };
+
+function FlowTab({ versionId }: { versionId: string }) {
+  const { apiFetch } = useAuth();
+  const [graph, setGraph] = useState<{ nodes: WorkflowNode[]; transitions: WorkflowTransition[]; conditions: WorkflowCondition[] } | null>(null);
+  useEffect(() => {
+    apiFetch<{ graph: typeof graph }>(`/workflow/versions/${versionId}/graph`).then((r) => setGraph(r.graph)).catch(() => {});
+  }, [versionId, apiFetch]);
+  if (!graph) return <p className="py-8 text-center text-xs text-zinc-400">Loading flow…</p>;
+  const ordered = orderNodes(graph.nodes, graph.transitions);
+  const NODE_COLORS: Record<NodeType, string> = {
+    create_task: "bg-blue-100 text-blue-800 border-blue-200",
+    assign_role_user: "bg-sky-100 text-sky-800 border-sky-200",
+    collect_form_data: "bg-violet-100 text-violet-800 border-violet-200",
+    request_upload_evidence: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    evaluate_condition: "bg-orange-100 text-orange-800 border-orange-200",
+    call_service: "bg-teal-100 text-teal-800 border-teal-200",
+    request_approval: "bg-purple-100 text-purple-800 border-purple-200",
+    send_notification: "bg-green-100 text-green-800 border-green-200",
+    wait_event_time: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    create_linked_followup: "bg-cyan-100 text-cyan-800 border-cyan-200",
+    escalate: "bg-red-100 text-red-800 border-red-200",
+    complete: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    cancel: "bg-zinc-100 text-zinc-600 border-zinc-200",
+  };
+  return (
+    <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">Flow Diagram</p>
+      {ordered.length === 0 ? (
+        <p className="text-xs text-zinc-400">No nodes yet. Add steps in the Steps tab to see the flow.</p>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          {ordered.map((node, i) => {
+            const outgoing = graph.transitions.filter((t) => t.from_node_id === node.id);
+            return (
+              <div key={node.id} className="flex flex-col items-center gap-1">
+                <div className={`rounded-xl border px-4 py-2 text-xs font-semibold ${NODE_COLORS[node.node_type] ?? "bg-zinc-100 text-zinc-700 border-zinc-200"}`}>
+                  <span className="font-mono opacity-60">{node.node_key}</span>
+                  <span className="mx-2">·</span>
+                  {node.node_type.replace(/_/g, " ")}
+                </div>
+                {i < ordered.length - 1 && outgoing.length > 0 && (
+                  <div className="flex gap-4">
+                    {outgoing.map((t) => (
+                      <div key={t.id} className="flex flex-col items-center text-zinc-400">
+                        <span className="text-xs">{t.label || "↓"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {i < ordered.length - 1 && outgoing.length === 0 && (
+                  <span className="text-zinc-300">↓</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ValidationPanel({
   definitionId,
