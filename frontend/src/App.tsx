@@ -21,6 +21,8 @@ import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { WorkflowDefinitionsPage } from "./pages/WorkflowDefinitionsPage";
 import { WorkflowDefinitionDetailPage } from "./pages/WorkflowDefinitionDetailPage";
 import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
+import { CatalogueGuidePage } from "./pages/CatalogueGuidePage";
+import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 
@@ -65,6 +67,8 @@ export function App() {
             <Route path="config-studio" element={<WorkflowDefinitionsPage />} />
             <Route path="config-studio/:definitionId" element={<WorkflowDefinitionDetailPage />} />
             <Route path="config-studio/:definitionId/versions/:versionId" element={<WorkflowVersionDetailPage />} />
+            <Route path="catalogue/guide" element={<CatalogueGuidePage />} />
+            <Route path="config-studio/guide" element={<WorkflowGuidePage />} />
           </Route>
         </Routes>
       </BrowserRouter>
