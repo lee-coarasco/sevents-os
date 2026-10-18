@@ -109,7 +109,7 @@ const NODE_DESCRIPTION: Record<NodeType, string> = {
   cancel: "Aborts this workflow instance (e.g. request withdrawn, duplicate found).",
 };
 
-const OPERATOR_LABEL: Record<string, string> = {
+export const OPERATOR_LABEL: Record<string, string> = {
   eq: "Equals",
   neq: "Not equals",
   gt: "Greater than",
@@ -472,6 +472,7 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
                   <option key={t} value={t}>{NODE_LABEL[t]}</option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-zinc-400">{NODE_DESCRIPTION[newNodeType]}</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Node Key</label>
@@ -636,7 +637,7 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Operator</label>
                 <select value={condOperator} onChange={(e) => setCondOperator(e.target.value as typeof condOperator)} className="w-full rounded-lg border border-zinc-200 px-2 py-1.5 text-xs outline-none focus:border-brand">
                   {(["eq", "neq", "gt", "gte", "lt", "lte"] as const).map((op) => (
-                    <option key={op} value={op}>{op}</option>
+                    <option key={op} value={op}>{OPERATOR_LABEL[op] ?? op}</option>
                   ))}
                 </select>
               </div>
