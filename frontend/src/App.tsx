@@ -25,6 +25,7 @@ import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
 import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { PermissionsProvider } from "./context/PermissionsContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -49,24 +50,108 @@ export function App() {
             }
           >
             <Route index element={<DashboardPage />} />
-            <Route path="org-setup" element={<OrgSetupPage />} />
-            <Route path="departments-roles" element={<DepartmentsRolesPage />} />
-            <Route path="employees" element={<EmployeesPage />} />
+            <Route
+              path="org-setup"
+              element={
+                <ProtectedRoute anyPermission={["tenancy.company.manage", "tenancy.branch.manage", "tenancy.project.manage"]}>
+                  <OrgSetupPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="departments-roles"
+              element={
+                <ProtectedRoute anyPermission={["authority.role.manage", "authority.department.manage"]}>
+                  <DepartmentsRolesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="employees"
+              element={
+                <ProtectedRoute permission="employee.directory.manage">
+                  <EmployeesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="my-work" element={<TaskInboxPage />} />
             <Route path="approvals" element={<ApprovalQueuePage />} />
-            <Route path="projects" element={<ProjectsPage />} />
+            <Route
+              path="projects"
+              element={
+                <ProtectedRoute anyPermission={["tenancy.project.manage", "project.progress.record", "project.baseline.manage", "project.closeout.manage"]}>
+                  <ProjectsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="projects/:id" element={<ProjectDetailPage />} />
-            <Route path="crm" element={<CrmPage />} />
+            <Route
+              path="crm"
+              element={
+                <ProtectedRoute permission="crm.lead.manage">
+                  <CrmPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="crm/opportunities/:id" element={<OpportunityDetailPage />} />
             <Route path="tendering/tender-submissions/:id" element={<TenderSubmissionDetailPage />} />
-            <Route path="documents" element={<DocumentsPage />} />
+            <Route
+              path="documents"
+              element={
+                <ProtectedRoute permission="documents.register.manage">
+                  <DocumentsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="documents/:id" element={<DocumentDetailPage />} />
-            <Route path="catalogue" element={<CataloguePage />} />
-            <Route path="master-data" element={<MasterDataPage />} />
-            <Route path="admin/users" element={<AdminUsersPage />} />
-            <Route path="config-studio" element={<WorkflowDefinitionsPage />} />
-            <Route path="config-studio/:definitionId" element={<WorkflowDefinitionDetailPage />} />
-            <Route path="config-studio/:definitionId/versions/:versionId" element={<WorkflowVersionDetailPage />} />
+            <Route
+              path="catalogue"
+              element={
+                <ProtectedRoute permission="catalogue.workitem.manage">
+                  <CataloguePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="master-data"
+              element={
+                <ProtectedRoute permission="master-data.manage">
+                  <MasterDataPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/users"
+              element={
+                <ProtectedRoute anyPermission={["identity.user.invite", "admin.users.manage"]}>
+                  <AdminUsersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="config-studio"
+              element={
+                <ProtectedRoute permission="workflow.definition.manage">
+                  <WorkflowDefinitionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="config-studio/:definitionId"
+              element={
+                <ProtectedRoute permission="workflow.definition.manage">
+                  <WorkflowDefinitionDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="config-studio/:definitionId/versions/:versionId"
+              element={
+                <ProtectedRoute permission="workflow.definition.manage">
+                  <WorkflowVersionDetailPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="catalogue/guide" element={<CatalogueGuidePage />} />
             <Route path="config-studio/guide" element={<WorkflowGuidePage />} />
           </Route>

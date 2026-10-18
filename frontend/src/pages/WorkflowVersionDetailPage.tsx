@@ -158,7 +158,13 @@ function NodeTypeBadge({ type }: { type: NodeType }) {
   );
 }
 
-type RoleOption = { id: string; role_name: string; canonical_role_id?: string };
+type RoleOption = {
+  id: string;
+  label?: string;
+  role_name?: string;
+  name?: string;
+  canonical_role_id?: string;
+};
 
 /** Per-type bespoke config form fields (JSON fallback for rare types). */
 function NodeConfigFields({
@@ -180,7 +186,7 @@ function NodeConfigFields({
           value={(config[key] as string) ?? ""}
           onChange={(e) => onChange({ ...config, [key]: e.target.value })}
           placeholder={placeholder}
-          className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
       </div>
     );
@@ -194,21 +200,24 @@ function NodeConfigFields({
           <select
             value={(config[key] as string) ?? ""}
             onChange={(e) => onChange({ ...config, [key]: e.target.value })}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
-            <option value="">— select role —</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.canonical_role_id ?? r.id}>
-                {r.role_name}
-              </option>
-            ))}
+            <option value="" className="text-zinc-500 bg-white">— select role —</option>
+            {roles.map((r) => {
+              const displayLabel = r.label || r.role_name || r.name || r.id;
+              return (
+                <option key={r.id} value={r.canonical_role_id ?? r.id} className="text-zinc-900 bg-white">
+                  {displayLabel}
+                </option>
+              );
+            })}
           </select>
         ) : (
           <input
             value={(config[key] as string) ?? ""}
             onChange={(e) => onChange({ ...config, [key]: e.target.value })}
             placeholder="e.g. role.project_manager"
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
         )}
       </div>
@@ -232,10 +241,10 @@ function NodeConfigFields({
           <select
             value={(config.mode as string) ?? "sequential"}
             onChange={(e) => onChange({ ...config, mode: e.target.value })}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
-            <option value="sequential">Sequential</option>
-            <option value="parallel">Parallel</option>
+            <option value="sequential" className="text-zinc-900 bg-white">Sequential</option>
+            <option value="parallel" className="text-zinc-900 bg-white">Parallel</option>
           </select>
         </div>
         {field("Required approvals count", "requiredApprovals", "e.g. 1")}
@@ -303,11 +312,11 @@ function NodeConfigFields({
           <select
             value={(config.method as string) ?? "GET"}
             onChange={(e) => onChange({ ...config, method: e.target.value })}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
+            <option value="GET" className="text-zinc-900 bg-white">GET</option>
+            <option value="POST" className="text-zinc-900 bg-white">POST</option>
+            <option value="PUT" className="text-zinc-900 bg-white">PUT</option>
           </select>
         </div>
         {field("Timeout (seconds)", "timeoutSeconds", "e.g. 30")}
@@ -325,11 +334,11 @@ function NodeConfigFields({
           <select
             value={(config.linkType as string) ?? "child"}
             onChange={(e) => onChange({ ...config, linkType: e.target.value })}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
-            <option value="child">child</option>
-            <option value="related">related</option>
-            <option value="follow_on">follow_on</option>
+            <option value="child" className="text-zinc-900 bg-white">child</option>
+            <option value="related" className="text-zinc-900 bg-white">related</option>
+            <option value="follow_on" className="text-zinc-900 bg-white">follow_on</option>
           </select>
         </div>
         {field("Description template", "descriptionTemplate", "e.g. Follow-up for {{parentKey}}")}
@@ -345,10 +354,10 @@ function NodeConfigFields({
           <select
             value={(config.operator as string) ?? "eq"}
             onChange={(e) => onChange({ ...config, operator: e.target.value })}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
             {Object.keys(OPERATOR_LABEL).map((op) => (
-              <option key={op} value={op}>
+              <option key={op} value={op} className="text-zinc-900 bg-white">
                 {OPERATOR_LABEL[op]}
               </option>
             ))}
