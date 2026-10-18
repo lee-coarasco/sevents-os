@@ -33,6 +33,7 @@ import { SafetyPage } from "./pages/SafetyPage";
 import { EquipmentPage } from "./pages/EquipmentPage";
 import { FinancePage } from "./pages/FinancePage";
 import { BillingPage } from "./pages/BillingPage";
+import { ContractsPage } from "./pages/ContractsPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -182,6 +183,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["billing.application.manage", "billing.application.certify", "billing.invoice.manage", "billing.receipt.record", "billing.vendor_bill.manage", "billing.vendor_bill.approve", "billing.retention.manage"]}>
                   <BillingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="contracts"
+              element={
+                <ProtectedRoute anyPermission={["contracts.contract.manage", "contracts.variation.manage", "contracts.variation.approve", "contracts.claim.manage", "contracts.claim.assess", "contracts.security.manage"]}>
+                  <ContractsPage />
                 </ProtectedRoute>
               }
             />

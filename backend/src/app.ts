@@ -126,6 +126,11 @@ import {
   createSupabaseBillingRepository,
   type BillingRepository,
 } from "./modules/billing/repository.js";
+import { registerContractsRoutes } from "./modules/contracts/routes.js";
+import {
+  createSupabaseContractsRepository,
+  type ContractsRepository,
+} from "./modules/contracts/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -186,6 +191,7 @@ export interface BuildAppOptions {
   getEquipmentRepository?: () => EquipmentRepository;
   getFinanceRepository?: () => FinanceRepository;
   getBillingRepository?: () => BillingRepository;
+  getContractsRepository?: () => ContractsRepository;
 }
 
 let cachedBillingRepository: BillingRepository | null = null;
@@ -195,6 +201,15 @@ function defaultBillingRepository(): BillingRepository {
     cachedBillingRepository = createSupabaseBillingRepository(createUserScopedClient);
   }
   return cachedBillingRepository;
+}
+
+let cachedContractsRepository: ContractsRepository | null = null;
+
+function defaultContractsRepository(): ContractsRepository {
+  if (!cachedContractsRepository) {
+    cachedContractsRepository = createSupabaseContractsRepository(createUserScopedClient);
+  }
+  return cachedContractsRepository;
 }
 
 let cachedFinanceRepository: FinanceRepository | null = null;
@@ -572,6 +587,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerBillingRoutes({
     getRepository: options.getBillingRepository ?? defaultBillingRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerContractsRoutes({
+    getRepository: options.getContractsRepository ?? defaultContractsRepository,
     permissionGuard: guard,
   }));
 

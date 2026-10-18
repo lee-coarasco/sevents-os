@@ -786,6 +786,32 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M23 — Contracts, Claims, Variations & EOT
+
+**Status:** done (ticket 0169)
+
+**What's built:**
+- **Database Schema**: `contracts`, `variation_orders`, `contract_claims`, and `contract_securities` tables with multi-tenant RLS isolation (`public.current_tenant_id()`).
+- **Permissions**: `contracts.contract.manage`, `contracts.variation.manage`, `contracts.variation.approve`, `contracts.claim.manage`, `contracts.claim.assess`, `contracts.security.manage`. Seeded to Platform Admin, CLO, Legal Counsel Lead, Contracts & Legal Assistant, CFO, Quantity Surveyor, and Project Engineer Lead.
+- **Backend Service**:
+  - Full CRUD for Prime Contracts and Subcontracts with FIDIC governing law provisions.
+  - Variation Orders (VO) change management workflow (`identified` -> `pricing` -> `submitted` -> `approved` -> `rejected`) with automated recalculation of parent contract revised value ($) and completion date.
+  - Claims & Extension of Time (EOT) management with automated FIDIC Clause 20.1 28-day notice window deadline calculation and time-bar breach warning flags.
+  - Securities, Bonds & Insurance register (Performance Bonds, Advance Payment Guarantees, Retention Bonds, CAR Insurance) with active/released status transitions.
+- **Frontend Screen**: `ContractsPage` at `/contracts`, nav link "Contracts & Claims" in `AppLayout.tsx`.
+  - 4 tabs: Contract Repository, Variation Orders, Claims & EOT, and Bonds & Insurance.
+  - Summary KPI cards: Total Committed Value, Approved Variations, Active Claims & EOT count, and Securities & Guarantees amount.
+  - Modals: "+ Register Contract", "+ Request Variation", "Approve / Certify Variation", "+ Submit Claim / EOT", "Assess / Certify Claim", and "+ Register Bond / Insurance".
+
+**How to use it:**
+1. Navigate to `/contracts` via the sidebar under "Projects".
+2. **Contract Repository Tab**: View master contracts, original vs revised values, and contractual vs revised completion dates. Click "+ Register Contract" to log new EPC contracts or subcontracts.
+3. **Variation Orders Tab**: View pending and approved variations. Authorized users click "Approve / Certify" to record agreed cost and schedule impacts, which immediately roll up to the parent contract's revised value and target completion date.
+4. **Claims & EOT Tab**: Log FIDIC delay notices and claim particulars. If a claim notice date exceeds the 28-day deadline from event date, an amber/red "FIDIC 28-day Time Bar Warning" badge automatically appears. Authorized QS/Legal personnel can assess claims and certify EOT days.
+5. **Bonds & Insurance Tab**: Track all performance bonds, APGs, and contractor all-risk policies with issuing institutions, effective/expiry dates, and status dropdowns.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -811,6 +837,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M23 onward in CLAUDE.md's build order table (M23 Contracts, Claims, Variations & EOT, … through M38) has no code. Don't assume
+Everything from M24 onward in CLAUDE.md's build order table (M24 Insurance, M26 Logistics & Customs, M27 Real Estate, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.
