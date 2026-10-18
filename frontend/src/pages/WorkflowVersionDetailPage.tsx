@@ -1193,7 +1193,7 @@ export function WorkflowVersionDetailPage() {
   const [versions, setVersions] = useState<WorkflowVersion[] | null>(null);
   const [definition, setDefinition] = useState<WorkflowDefinition | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"steps" | "validation" | "overview">("steps");
+  const [activeTab, setActiveTab] = useState<"steps" | "flow" | "validation" | "overview">("steps");
 
   function loadDefinition() {
     if (!session || !definitionId) return;
@@ -1253,7 +1253,7 @@ export function WorkflowVersionDetailPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-zinc-100">
-            {(["steps", "validation", "overview"] as const).map((tab) => (
+            {(["steps", "flow", "validation", "overview"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1271,6 +1271,10 @@ export function WorkflowVersionDetailPage() {
           {/* Tab panels */}
           {activeTab === "steps" && versionId && (
             <StepsEditor versionId={versionId} isDraft={version.status === "draft"} />
+          )}
+
+          {activeTab === "flow" && versionId && (
+            <FlowTab versionId={versionId} />
           )}
 
           {activeTab === "validation" && versionId && definitionId && (
