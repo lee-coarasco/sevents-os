@@ -39,6 +39,11 @@ import {
   addConditionToVersion,
   addNodeToVersion,
   addTransitionToVersion,
+  deleteConditionFromVersion,
+  deleteNodeFromVersion,
+  deleteTransitionFromVersion,
+  updateNodeConfig,
+  updateWorkflowDefinitionMeta,
   addTaskComment,
   approveMigration,
   attachTaskEvidence,
@@ -88,7 +93,7 @@ import {
   validateVersion,
   waitingApprovalQueue,
 } from "./service.js";
-import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions } from "./service.js";
+import type { AddConditionToVersionInput, AddNodeToVersionInput, AddTransitionToVersionInput, CompleteStepInstanceOptions, UpdateWorkflowDefinitionMetaInput } from "./service.js";
 import { normalizeApprovalChainConfig } from "./approvals.js";
 import type { ApprovalChainDecision, ApprovalDecision, DefinitionStatus, EscalationActionType, SimulationTestCase } from "./types.js";
 
@@ -405,6 +410,80 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
       try {
         const condition = await addConditionToVersion(options.getRepository(), token, request.params.versionId, request.body);
         return { condition };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.patch<{ Params: { versionId: string; nodeId: string }; Body: { config: Record<string, unknown> } }>(
+    "/workflow/versions/:versionId/nodes/:nodeId",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const node = await updateNodeConfig(options.getRepository(), token, request.params.versionId, request.params.nodeId, request.body.config ?? {});
+        return { node };
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.delete<{ Params: { versionId: string; nodeId: string } }>(
+    "/workflow/versions/:versionId/nodes/:nodeId",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        await deleteNodeFromVersion(options.getRepository(), token, request.params.versionId, request.params.nodeId);
+        reply.code(204);
+        return reply.send();
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.delete<{ Params: { versionId: string; transitionId: string } }>(
+    "/workflow/versions/:versionId/transitions/:transitionId",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        await deleteTransitionFromVersion(options.getRepository(), token, request.params.versionId, request.params.transitionId);
+        reply.code(204);
+        return reply.send();
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.delete<{ Params: { versionId: string; conditionId: string } }>(
+    "/workflow/versions/:versionId/conditions/:conditionId",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        await deleteConditionFromVersion(options.getRepository(), token, request.params.versionId, request.params.conditionId);
+        reply.code(204);
+        return reply.send();
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: UpdateWorkflowDefinitionMetaInput }>(
+    "/workflow/definitions/:id",
+    { preHandler: options.requirePermission("workflow.definition.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const definition = await updateWorkflowDefinitionMeta(options.getRepository(), token, request.params.id, request.body ?? {}, callerUserId);
+        return { definition };
       } catch (error) {
         return handleServiceError(error, reply);
       }

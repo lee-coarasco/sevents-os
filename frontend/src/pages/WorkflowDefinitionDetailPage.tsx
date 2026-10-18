@@ -21,6 +21,12 @@ export interface WorkflowVersion {
   created_at: string;
 }
 
+interface EditMetaForm {
+  name: string;
+  description: string;
+  capability_key: string;
+}
+
 export function WorkflowDefinitionDetailPage() {
   const { definitionId } = useParams<{ definitionId: string }>();
   const { session } = useAuth();
@@ -32,6 +38,10 @@ export function WorkflowDefinitionDetailPage() {
   const [busy, setBusy] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
   const [rollbackReason, setRollbackReason] = useState("");
+  const [editingMeta, setEditingMeta] = useState(false);
+  const [metaForm, setMetaForm] = useState<EditMetaForm>({ name: "", description: "", capability_key: "" });
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [metaBusy, setMetaBusy] = useState(false);
 
   function load() {
     if (!session || !definitionId) return;
@@ -50,6 +60,43 @@ export function WorkflowDefinitionDetailPage() {
 
   const publishedVersion = (versions ?? []).find((v) => v.version === definition?.current_version) ?? null;
   const sortedVersions = (versions ?? []).slice().sort((a, b) => b.version - a.version);
+
+  function startEditMeta() {
+    if (!definition) return;
+    setMetaForm({
+      name: definition.name,
+      description: definition.description ?? "",
+      capability_key: definition.capability_key ?? "",
+    });
+    setMetaError(null);
+    setEditingMeta(true);
+  }
+
+  async function saveMetaEdit() {
+    if (!session || !definitionId) return;
+    setMetaBusy(true);
+    setMetaError(null);
+    try {
+      const updated = await apiFetch<{ definition: WorkflowDefinition }>(
+        `/workflow/definitions/${definitionId}`,
+        session.access_token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: metaForm.name.trim(),
+            description: metaForm.description.trim() || null,
+            capability_key: metaForm.capability_key.trim() || null,
+          }),
+        },
+      );
+      setDefinition(updated.definition);
+      setEditingMeta(false);
+    } catch (err) {
+      setMetaError(err instanceof ApiError ? err.message : "Could not save changes");
+    } finally {
+      setMetaBusy(false);
+    }
+  }
 
   async function handleNewVersion() {
     if (!session || !definitionId) return;
@@ -101,14 +148,78 @@ export function WorkflowDefinitionDetailPage() {
       {definition && (
         <>
           <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="font-brand text-2xl font-bold text-zinc-900">{definition.name}</h1>
-                <p className="mt-1 font-mono text-xs text-zinc-400">{definition.key}</p>
-                {definition.description && <p className="mt-2 text-sm text-zinc-600">{definition.description}</p>}
+            {editingMeta ? (
+              <div className="space-y-4">
+                <h2 className="font-brand text-base font-semibold text-zinc-900">Edit Workflow Details</h2>
+                {metaError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{metaError}</div>}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Name</label>
+                  <input
+                    value={metaForm.name}
+                    onChange={(e) => setMetaForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Description</label>
+                  <textarea
+                    value={metaForm.description}
+                    onChange={(e) => setMetaForm((f) => ({ ...f, description: e.target.value }))}
+                    rows={3}
+                    className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                    Capability Key <span className="font-normal normal-case text-zinc-400">(optional — links to catalogue item)</span>
+                  </label>
+                  <input
+                    value={metaForm.capability_key}
+                    onChange={(e) => setMetaForm((f) => ({ ...f, capability_key: e.target.value }))}
+                    placeholder="e.g. material_request"
+                    className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveMetaEdit}
+                    disabled={metaBusy || !metaForm.name.trim()}
+                    className="rounded-lg bg-brand px-3.5 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                  >
+                    {metaBusy ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingMeta(false)}
+                    className="rounded-lg border border-zinc-200 px-3.5 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <StatusBadge status={definition.status as DefinitionStatus} />
-            </div>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="font-brand text-2xl font-bold text-zinc-900">{definition.name}</h1>
+                  <p className="mt-1 font-mono text-xs text-zinc-400">{definition.key}</p>
+                  {definition.description && <p className="mt-2 text-sm text-zinc-600">{definition.description}</p>}
+                  {definition.capability_key && (
+                    <p className="mt-1 text-xs text-zinc-400">Capability: <span className="font-mono">{definition.capability_key}</span></p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={definition.status as DefinitionStatus} />
+                  <PermissionGate permission="workflow.definition.manage">
+                    <button
+                      onClick={startEditMeta}
+                      title="Edit workflow details"
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                    >
+                      ✏️ Edit
+                    </button>
+                  </PermissionGate>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">

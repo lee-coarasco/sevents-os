@@ -266,9 +266,19 @@ export interface WorkflowRepository {
   ): Promise<WorkflowVersion>;
 
   addNode(accessToken: string, input: AddNodeInput): Promise<WorkflowNode>;
+  updateNode(accessToken: string, nodeId: string, config: Record<string, unknown>): Promise<WorkflowNode>;
+  deleteNode(accessToken: string, nodeId: string): Promise<void>;
   addTransition(accessToken: string, input: AddTransitionInput): Promise<WorkflowTransition>;
+  deleteTransition(accessToken: string, transitionId: string): Promise<void>;
   addCondition(accessToken: string, input: AddConditionInput): Promise<WorkflowCondition>;
+  deleteCondition(accessToken: string, conditionId: string): Promise<void>;
   getVersionGraph(accessToken: string, versionId: string): Promise<WorkflowVersionGraph>;
+  updateWorkflowDefinitionMeta(
+    accessToken: string,
+    id: string,
+    fields: { name?: string; description?: string | null },
+    updatedBy: string | null,
+  ): Promise<WorkflowDefinition>;
 
   recordApproval(accessToken: string, input: RecordApprovalInput): Promise<ConfigurationApproval>;
   insertPublishedConfiguration(
@@ -560,6 +570,24 @@ export function createSupabaseWorkflowRepository(
       return data as WorkflowNode;
     },
 
+    async updateNode(accessToken, nodeId, config) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_nodes")
+        .update({ config })
+        .eq("id", nodeId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`updateNode: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowNode;
+    },
+
+    async deleteNode(accessToken, nodeId) {
+      const client = userScopedClientFactory(accessToken);
+      const { error } = await client.from("workflow_nodes").delete().eq("id", nodeId);
+      if (error) throw new Error(`deleteNode: ${error.message}`);
+    },
+
     async addTransition(accessToken, input) {
       const client = userScopedClientFactory(accessToken);
       const { data, error } = await client
@@ -577,6 +605,12 @@ export function createSupabaseWorkflowRepository(
       return data as WorkflowTransition;
     },
 
+    async deleteTransition(accessToken, transitionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { error } = await client.from("workflow_transitions").delete().eq("id", transitionId);
+      if (error) throw new Error(`deleteTransition: ${error.message}`);
+    },
+
     async addCondition(accessToken, input) {
       const client = userScopedClientFactory(accessToken);
       const { data, error } = await client
@@ -586,6 +620,24 @@ export function createSupabaseWorkflowRepository(
         .single();
       if (error || !data) throw new Error(`addCondition: ${error?.message ?? "no row returned"}`);
       return data as WorkflowCondition;
+    },
+
+    async deleteCondition(accessToken, conditionId) {
+      const client = userScopedClientFactory(accessToken);
+      const { error } = await client.from("workflow_conditions").delete().eq("id", conditionId);
+      if (error) throw new Error(`deleteCondition: ${error.message}`);
+    },
+
+    async updateWorkflowDefinitionMeta(accessToken, id, fields, updatedBy) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("workflow_definitions")
+        .update({ ...fields, updated_by: updatedBy })
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`updateWorkflowDefinitionMeta: ${error?.message ?? "no row returned"}`);
+      return data as WorkflowDefinition;
     },
 
     async getVersionGraph(accessToken, versionId) {
