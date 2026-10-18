@@ -92,6 +92,32 @@ const ALL_NODE_TYPES: NodeType[] = [
   "wait_event_time", "create_linked_followup", "escalate", "complete", "cancel",
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const NODE_DESCRIPTION: Record<NodeType, string> = {
+  create_task: "Creates a new to-do item and assigns it to a role or person — the most common step type.",
+  assign_role_user: "Re-routes the active task to a different role or specific user.",
+  collect_form_data: "Pauses the workflow until a user fills in a structured form.",
+  request_upload_evidence: "Pauses the workflow until a file (photo, PDF, certificate) is uploaded.",
+  evaluate_condition: "Checks a field value (e.g. amount > 50,000) and branches the workflow accordingly.",
+  call_service: "Calls an external API or internal service (webhook / integration).",
+  request_approval: "Sends an approval request; continues only when the required approvers respond.",
+  send_notification: "Sends an in-app or email notification to one or more roles.",
+  wait_event_time: "Pauses the workflow for a set duration or until an external event arrives.",
+  create_linked_followup: "Spawns a separate linked workflow instance (e.g. a sub-task or follow-on project).",
+  escalate: "Escalates the task to a higher authority when SLA is breached or conditions are met.",
+  complete: "Marks this workflow instance as successfully finished.",
+  cancel: "Aborts this workflow instance (e.g. request withdrawn, duplicate found).",
+};
+
+const OPERATOR_LABEL: Record<string, string> = {
+  eq: "Equals",
+  neq: "Not equals",
+  gt: "Greater than",
+  gte: "Greater than or equal",
+  lt: "Less than",
+  lte: "Less than or equal",
+};
+
 /** Returns nodes ordered by the transition chain (BFS from start node). Unlinked nodes appended at the end. */
 function orderNodes(nodes: WorkflowNode[], transitions: WorkflowTransition[]): WorkflowNode[] {
   if (nodes.length === 0) return [];

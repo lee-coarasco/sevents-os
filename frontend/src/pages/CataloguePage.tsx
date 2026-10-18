@@ -26,7 +26,7 @@ const PHASE_TARGETS = [
   "Phase 4 – Q3",
   "Defer",
 ] as const;
-const CONFIG_STATUSES = ["not_started", "in_progress", "complete", "blocked"] as const;
+const CONFIG_STATUSES = ["unconfigured", "in_progress", "configured"] as const;
 
 interface WorkItemSummary {
   id: string;
@@ -105,7 +105,7 @@ function toEditForm(item: WorkItemSummary): EditFormState {
     risk_tier: item.risk_tier ?? "",
     phase_target: item.phase_target ?? "",
     capability_key: item.capability_key ?? "",
-    configuration_status: item.configuration_status ?? "not_started",
+    configuration_status: item.configuration_status ?? "unconfigured",
     workflow_template_id: item.workflow_template_id ?? "",
     changeNote: "",
   };
@@ -404,6 +404,7 @@ export function CataloguePage() {
                   <th className="py-2">Department</th>
                   <th className="py-2">Disposition</th>
                   <th className="py-2">Status</th>
+                  <th className="py-2">Config</th>
                   <th className="py-2">Risk</th>
                   <th className="py-2" />
                 </tr>
@@ -441,6 +442,15 @@ export function CataloguePage() {
                         : "bg-brand-soft text-amber-700"
                       }`}>
                         {item.status}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        item.configuration_status === "configured" ? "bg-emerald-50 text-emerald-700"
+                        : item.configuration_status === "in_progress" ? "bg-amber-50 text-amber-700"
+                        : "bg-zinc-100 text-zinc-500"
+                      }`}>
+                        {item.configuration_status ?? "unconfigured"}
                       </span>
                     </td>
                     <td className="py-3 text-zinc-600">{item.risk_tier ?? "—"}</td>

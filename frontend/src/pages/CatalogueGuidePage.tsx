@@ -1,401 +1,211 @@
 import { Link } from "react-router-dom";
 
-const DISPOSITIONS = [
-  {
-    name: "Configure workflow",
-    color: "bg-blue-50 border-blue-200 text-blue-800",
-    dot: "bg-blue-500",
-    desc: "Automate with a multi-step workflow. Multiple people, multiple steps, approvals in sequence.",
-    example: "Material Request → Store Keeper checks stock → PM approves → Procurement issues PO",
-    when: "When more than one person is involved and the steps must happen in order.",
-  },
-  {
-    name: "Configure approval/decision",
-    color: "bg-purple-50 border-purple-200 text-purple-800",
-    dot: "bg-purple-500",
-    desc: "A single sign-off or yes/no decision. No multi-step flow needed.",
-    example: "Approve subcontractor quote, Sign off on a daily report",
-    when: "When only one person needs to say yes/no and there is no handoff chain.",
-  },
-  {
-    name: "Track obligation/document",
-    color: "bg-amber-50 border-amber-200 text-amber-800",
-    dot: "bg-amber-500",
-    desc: "Record that something exists or is in place. No workflow, just a register entry.",
-    example: "Insurance certificate on file, Trade licence renewal date",
-    when: "When you need to know a document exists or a deadline is approaching.",
-  },
-  {
-    name: "Periodic review/monitor",
-    color: "bg-green-50 border-green-200 text-green-800",
-    dot: "bg-green-500",
-    desc: "A recurring review task — monthly, quarterly, or annually.",
-    example: "Monthly safety walkthrough, Quarterly cost-to-complete review",
-    when: "When the same check repeats on a schedule.",
-  },
-  {
-    name: "Reference/policy only",
-    color: "bg-zinc-50 border-zinc-200 text-zinc-700",
-    dot: "bg-zinc-400",
-    desc: "No action required. This is documentation or a policy reference.",
-    example: "Company HSE Policy, Site access rules",
-    when: "When the item is purely informational — no task, no approval, no workflow.",
-  },
-  {
-    name: "Clarify/de-duplicate",
-    color: "bg-orange-50 border-orange-200 text-orange-800",
-    dot: "bg-orange-500",
-    desc: "This item needs more discussion before it can be classified.",
-    example: "Overlapping responsibilities between Site Engineer and QC Engineer",
-    when: "When you are unsure of the scope or it overlaps with another item.",
-  },
-  {
-    name: "Defer",
-    color: "bg-slate-50 border-slate-200 text-slate-600",
-    dot: "bg-slate-400",
-    desc: "Not in scope for the current phase. Come back later.",
-    example: "Complex insurance claims process — defer until Phase 4",
-    when: "When it is real work but not a priority for the current rollout phase.",
-  },
-];
-
-const FIELDS = [
-  {
-    field: "Work Item Name",
-    meaning: "Short, action-oriented name for the work procedure",
-    example: "Issue Material Request",
-  },
-  {
-    field: "Department",
-    meaning: "The department that owns or initiates this work",
-    example: "Site Operations",
-  },
-  {
-    field: "Who is Responsible",
-    meaning: "The role (not person) primarily responsible",
-    example: "Site Engineer",
-  },
-  {
-    field: "Description",
-    meaning: "Plain-language summary of what this work involves",
-    example: "Raise a material request form when stock falls below minimum levels on site",
-  },
-  {
-    field: "Trigger",
-    meaning: "What event or condition starts this work?",
-    example: "Stock level drops below 20% of minimum requirement",
-  },
-  {
-    field: "Action",
-    meaning: "What must be done? The core activity.",
-    example: "Fill in MRF with item code, quantity, required date, and cost code; submit for approval",
-  },
-  {
-    field: "Output / Evidence",
-    meaning: "What is produced? The deliverable or proof of completion.",
-    example: "Signed MRF with PM approval, attached to the procurement record",
-  },
-  {
-    field: "Timing",
-    meaning: "When does this happen or how long should it take?",
-    example: "Within 24 hours of identifying the shortage",
-  },
-  {
-    field: "Disposition",
-    meaning: "How should this work item be configured in the system? (See section below)",
-    example: "Configure workflow",
-  },
-  {
-    field: "Priority",
-    meaning: "Relative importance for the configuration team to set up first",
-    example: "High",
-  },
-  {
-    field: "Risk Tier",
-    meaning: "Business risk if this process is missed or done incorrectly",
-    example: "Critical — site stoppage if materials run out",
-  },
-  {
-    field: "Phase Target",
-    meaning: "Which rollout phase should this be live in?",
-    example: "Phase 1 – Day 1",
-  },
-  {
-    field: "Configuration Status",
-    meaning: "Has this work item been set up in the system? (Unconfigured / In Progress / Configured)",
-    example: "In Progress",
-  },
-];
-
-const PHASES = [
-  {
-    phase: "Phase 1 – Day 1",
-    color: "bg-red-50 border-red-200 text-red-800",
-    desc: "Must be live before go-live. Core operations cannot run without these.",
-    example: "Material requests, daily site report, subcontractor attendance",
-  },
-  {
-    phase: "Phase 2 – Q1",
-    color: "bg-amber-50 border-amber-200 text-amber-800",
-    desc: "Target the first quarter after go-live.",
-    example: "Variation orders, client billing, site inspection checklists",
-  },
-  {
-    phase: "Phase 3 – Q2",
-    color: "bg-blue-50 border-blue-200 text-blue-800",
-    desc: "Second quarter. Important but not blocking.",
-    example: "HR performance reviews, quarterly forecasts, trade licence renewals",
-  },
-  {
-    phase: "Phase 4 – Q3",
-    color: "bg-green-50 border-green-200 text-green-800",
-    desc: "Third quarter or later in the year.",
-    example: "Complex insurance claims, advanced analytics dashboards",
-  },
-  {
-    phase: "Defer",
-    color: "bg-zinc-50 border-zinc-200 text-zinc-600",
-    desc: "No target date yet. Park it for later.",
-    example: "Processes still being defined by management",
-  },
-];
-
 export function CatalogueGuidePage() {
   return (
-    <div className="min-h-screen bg-stone-50 font-body">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            to="/catalogue"
-            className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 mb-4"
-          >
-            ← Back to Catalogue
-          </Link>
-          <h1 className="font-brand text-3xl font-bold text-zinc-900">Work Item Catalogue Guide</h1>
-          <p className="mt-2 text-zinc-500 text-base max-w-2xl">
-            Everything you need to know to classify and configure the 1,308 work procedures in your construction
-            company.
-          </p>
-        </div>
+    <div className="space-y-8 pb-16">
+      <div className="flex items-center gap-4">
+        <Link to="/catalogue" className="text-sm text-zinc-400 hover:text-zinc-600">← Back to Catalogue</Link>
+      </div>
 
-        {/* Section 1: What is the catalogue */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-3">What is the Work Item Catalogue?</h2>
-          <p className="text-zinc-700 mb-3">
-            The catalogue is the <strong>master list of every work procedure</strong> your company must perform —
-            1,308 items covering all departments. Each item is one piece of work, from "Issue Material Request" to
-            "Approve Subcontractor Invoice" to "Conduct Monthly Safety Audit".
-          </p>
-          <p className="text-zinc-700 mb-3">
-            Before you can automate anything in SEVENTS, you first <strong>classify</strong> each item: decide what
-            type of work it is (the <em>Disposition</em>), how urgent it is to configure (<em>Priority</em> and{" "}
-            <em>Phase Target</em>), and how risky it is if it goes wrong (<em>Risk Tier</em>).
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
-            <p className="text-amber-900 text-sm font-medium">
-              💡 Think of the catalogue as a blueprint. You read through it, mark up each item, and then the
-              configuration work begins — building workflows, approvals, and trackers for each classified item.
-            </p>
-          </div>
-        </div>
+      <div>
+        <h1 className="font-brand text-2xl font-bold text-zinc-900">Work-Item Catalogue Guide</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          How to use the catalogue to classify, configure and connect your organisation's work items to workflows.
+        </p>
+      </div>
 
-        {/* Section 2: Field reference */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-4">Understanding Each Field</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100">
-                  <th className="text-left py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400 w-36">
-                    Field
-                  </th>
-                  <th className="text-left py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    What it means
-                  </th>
-                  <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    Construction example
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50">
-                {FIELDS.map((f) => (
-                  <tr key={f.field}>
-                    <td className="py-3 pr-4 font-medium text-zinc-800 align-top">{f.field}</td>
-                    <td className="py-3 pr-4 text-zinc-600 align-top">{f.meaning}</td>
-                    <td className="py-3 text-zinc-500 italic align-top">{f.example}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {/* What is the catalogue */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="font-brand text-lg font-semibold text-zinc-900">What is the Work-Item Catalogue?</h2>
+        <p className="text-sm text-zinc-600 leading-relaxed">
+          The catalogue is a master list of every activity, obligation, review and process that your organisation needs
+          to manage. It was pre-populated from a 1,308-row Excel workbook covering all departments in a UAE construction
+          company. Each row is called a <strong>work item</strong>.
+        </p>
+        <p className="text-sm text-zinc-600 leading-relaxed">
+          A work item on its own is just a description. Your job here is to:
+        </p>
+        <ol className="list-decimal list-inside space-y-1 text-sm text-zinc-600">
+          <li>Assign a <strong>disposition</strong> — what kind of system feature should handle this?</li>
+          <li>Set a <strong>priority</strong> and <strong>phase target</strong> so you know what to build first.</li>
+          <li>Link a <strong>workflow template</strong> once you've built one in Config Studio.</li>
+          <li>Publish it when it's ready to go live.</li>
+        </ol>
+      </div>
 
-        {/* Section 3: Dispositions */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-2">The 7 Dispositions</h2>
-          <p className="text-zinc-500 text-sm mb-5">
-            The disposition tells the system <em>how</em> to handle this work item. Choose the one that best matches
-            the nature of the work.
-          </p>
-          <div className="space-y-4">
-            {DISPOSITIONS.map((d) => (
-              <div key={d.name} className={`rounded-xl border p-4 ${d.color}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${d.dot}`} />
-                  <span className="font-semibold text-sm">{d.name}</span>
-                </div>
-                <p className="text-sm mb-1.5">{d.desc}</p>
-                <p className="text-xs opacity-80">
-                  <strong>Example:</strong> {d.example}
-                </p>
-                <p className="text-xs opacity-70 mt-1">
-                  <strong>Use when:</strong> {d.when}
-                </p>
+      {/* The 7 dispositions */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="font-brand text-lg font-semibold text-zinc-900">The 7 Dispositions (What Will Handle This?)</h2>
+        <p className="text-sm text-zinc-600">
+          A disposition tells the system <em>how</em> to handle a work item. Choose the one that best describes what the
+          item actually requires.
+        </p>
+        <div className="space-y-3 mt-2">
+          {[
+            {
+              name: "Configure workflow",
+              count: "~995 items",
+              desc: "A step-by-step process that needs to be designed in Config Studio.",
+              example: "Review and approve a purchase order → build a workflow with a review step, an approval step and a notification.",
+            },
+            {
+              name: "Configure approval/decision",
+              count: "~215 items",
+              desc: "A single decision gate (approve/reject) without a full multi-step flow.",
+              example: "Site manager approves daily progress report.",
+            },
+            {
+              name: "Track obligation/document",
+              count: "~21 items",
+              desc: "A regulatory or contractual deadline that must be recorded and monitored.",
+              example: "Submit VAT return by 28th of each month.",
+            },
+            {
+              name: "Periodic review/monitor",
+              count: "~60 items",
+              desc: "A recurring check that does not produce a document or approval decision.",
+              example: "Monthly site safety walk-through by the HSE officer.",
+            },
+            {
+              name: "Reference/policy only",
+              count: "occasional",
+              desc: "The item is a policy reference, not an actionable task. No system feature needed.",
+              example: "Employees must not share project drawings externally.",
+            },
+            {
+              name: "Clarify/de-duplicate",
+              count: "occasional",
+              desc: "The item overlaps with another or needs more information before it can be classified.",
+              example: "Two rows that both say 'review drawings' — merge before classifying.",
+            },
+            {
+              name: "Defer",
+              count: "~17 items",
+              desc: "The item is out of scope for now. It will be revisited in a later phase.",
+              example: "Advanced financial reconciliation — defer until Phase 4.",
+            },
+          ].map((d) => (
+            <div key={d.name} className="rounded-xl bg-stone-50 p-4">
+              <div className="flex items-baseline gap-3">
+                <span className="font-semibold text-zinc-800 text-sm">{d.name}</span>
+                <span className="text-xs text-zinc-400">{d.count}</span>
               </div>
-            ))}
-          </div>
+              <p className="mt-1 text-sm text-zinc-600">{d.desc}</p>
+              <p className="mt-1 text-xs text-zinc-400 italic">Example: {d.example}</p>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Section 4: Phase Target */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-2">Phase Target Explained</h2>
-          <p className="text-zinc-500 text-sm mb-5">
-            The Phase Target tells the configuration team <em>when</em> this item must be ready. Not everything needs
-            to go live on Day 1.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {PHASES.map((p) => (
-              <div key={p.phase} className={`rounded-xl border p-4 ${p.color}`}>
-                <p className="font-semibold text-sm mb-1">{p.phase}</p>
-                <p className="text-xs mb-1.5">{p.desc}</p>
-                <p className="text-xs opacity-75 italic">{p.example}</p>
+      {/* Field meanings */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="font-brand text-lg font-semibold text-zinc-900">What Each Field Means</h2>
+        <div className="space-y-3">
+          {[
+            { field: "Work Item Name", desc: "The short name from the source catalogue. Edit it if needed." },
+            { field: "Who is Responsible", desc: "The role or person accountable for this activity." },
+            { field: "Description", desc: "A plain-English explanation of what the work item is." },
+            { field: "Trigger", desc: "What event causes this activity to start? (e.g. 'On receipt of invoice')" },
+            { field: "Action", desc: "The specific step that must be taken." },
+            { field: "Output / Evidence", desc: "What document or record proves it was done?" },
+            { field: "Timing", desc: "How long should this take, or when must it happen? (e.g. 'Within 2 business days')" },
+            { field: "Disposition", desc: "How this item will be handled in the system (see above)." },
+            { field: "Status", desc: "draft → under review → approved → published → retired." },
+            { field: "Priority", desc: "High / Medium / Low — which items to configure first." },
+            { field: "Risk Tier", desc: "Critical / High / Medium / Low — how serious if this step is missed?" },
+            { field: "Phase Target", desc: "Which release phase will deliver this item's configuration?" },
+            { field: "Configuration Status", desc: "Whether the workflow/approval for this item has been set up yet." },
+            { field: "Capability Key", desc: "A dot-separated code that links this item to a system capability (optional)." },
+            { field: "Workflow Template", desc: "The workflow you built in Config Studio that implements this item." },
+          ].map((f) => (
+            <div key={f.field} className="grid grid-cols-[160px,1fr] gap-4 py-2 border-t border-zinc-50 first:border-0">
+              <span className="text-xs font-semibold text-zinc-500 pt-0.5">{f.field}</span>
+              <span className="text-sm text-zinc-600">{f.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Phase target explained */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm space-y-3">
+        <h2 className="font-brand text-lg font-semibold text-zinc-900">Why Phase Target?</h2>
+        <p className="text-sm text-zinc-600 leading-relaxed">
+          You have 1,308 work items and you cannot configure all of them on day one. Phase Target lets you group items
+          into delivery milestones so you can see what to build in each quarter:
+        </p>
+        <ul className="space-y-1 text-sm text-zinc-600">
+          <li><strong>Phase 1 – Day 1:</strong> Must-have for go-live (critical compliance, key approvals).</li>
+          <li><strong>Phase 2 – Q1:</strong> Important but not blocking (most procurement, HR approvals).</li>
+          <li><strong>Phase 3 – Q2:</strong> Secondary operations (site monitoring, reporting).</li>
+          <li><strong>Phase 4 – Q3:</strong> Advanced features (AI-assisted reviews, analytics).</li>
+          <li><strong>Defer:</strong> Out of scope entirely for this implementation.</li>
+        </ul>
+        <div className="mt-2 rounded-xl bg-brand-soft p-4 text-sm text-zinc-700">
+          <strong>Tip:</strong> Start by setting Phase Target for all "Configure workflow" and "Configure approval/decision"
+          items. Filter by disposition → set phase target in bulk by editing items one by one, using the highest-priority
+          ones first.
+        </div>
+      </div>
+
+      {/* How to set up */}
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="font-brand text-lg font-semibold text-zinc-900">Step-by-Step: Setting Up a Work Item</h2>
+        <ol className="space-y-4">
+          {[
+            {
+              step: "1. Find the item",
+              desc: "Use the search box or filter by department/disposition. Click Edit on the row you want to configure.",
+            },
+            {
+              step: "2. Check the source information",
+              desc: "Review the Work Item Name, Description, Trigger, Action and Output/Evidence fields. Correct anything that is wrong or missing — these fields feed into your workflow documentation.",
+            },
+            {
+              step: "3. Set the disposition",
+              desc: "If it needs a step-by-step process, choose 'Configure workflow'. If it's just an approve/reject, choose 'Configure approval/decision'.",
+            },
+            {
+              step: "4. Set Priority, Risk Tier and Phase Target",
+              desc: "These three fields drive your implementation roadmap. High Priority + Critical Risk + Phase 1 means build it first.",
+            },
+            {
+              step: "5. Build the workflow",
+              desc: "Go to Config Studio (sidebar → Config Studio) and create a Workflow Definition. Design the steps, add nodes and publish a version.",
+            },
+            {
+              step: "6. Link the workflow",
+              desc: "Come back here, click Edit on the work item, and select the workflow you just built from the Workflow Template dropdown.",
+            },
+            {
+              step: "7. Publish",
+              desc: "Change the Status to 'published'. This signals that the configuration is complete and the item is live in the system.",
+            },
+          ].map((s) => (
+            <div key={s.step} className="flex gap-4">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-zinc-900">
+                {s.step[0]}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Section 5: How to classify */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-4">
-            Step-by-Step: How to Classify a Work Item
-          </h2>
-          <ol className="space-y-4">
-            {[
-              {
-                step: "Open the Catalogue page",
-                detail:
-                  "Go to Catalogue in the sidebar. You will see the full list of work items. Use the filters to narrow by department or disposition.",
-              },
-              {
-                step: 'Click a row to open the edit panel',
-                detail:
-                  "Click anywhere on a row to open the detail panel on the right. All fields are editable.",
-              },
-              {
-                step: "Read the description, trigger, and action",
-                detail:
-                  "Understand what the work item involves before classifying it. If the description is vague, update it.",
-              },
-              {
-                step: "Set the Disposition",
-                detail:
-                  "Choose from the 7 dispositions. Most items (about 995) will be 'Configure workflow' or 'Configure approval/decision'.",
-              },
-              {
-                step: "Set Priority, Risk Tier, and Phase Target",
-                detail:
-                  "Use High/Medium/Low for priority. Risk Tier reflects business impact. Phase Target controls when it goes live.",
-              },
-              {
-                step: "Save and move to the next item",
-                detail:
-                  "The panel saves when you click Save. Work through department by department.",
-              },
-              {
-                step: "Build the workflow (for 'Configure workflow' items)",
-                detail:
-                  "Once classified, go to Config Studio to build the actual workflow. Then come back and set the Workflow Template ID on the work item.",
-              },
-            ].map((s, i) => (
-              <li key={i} className="flex gap-4">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-brand text-zinc-900 text-sm font-bold flex items-center justify-center">
-                  {i + 1}
-                </span>
-                <div>
-                  <p className="font-medium text-zinc-800">{s.step}</p>
-                  <p className="text-zinc-500 text-sm mt-0.5">{s.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        {/* Section 6: Link to workflows */}
-        <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm p-6 mb-6">
-          <h2 className="font-brand text-xl font-semibold text-zinc-900 mb-3">
-            How the Catalogue Links to Workflows
-          </h2>
-          <p className="text-zinc-700 mb-4">
-            A work item with <strong>Disposition = "Configure workflow"</strong> needs a real workflow built for it.
-            Here is how the two connect:
-          </p>
-          <div className="flex flex-col sm:flex-row items-stretch gap-3">
-            {[
-              {
-                label: "1. Classify",
-                sub: "Set Disposition = Configure workflow on the work item",
-                icon: "📋",
-              },
-              {
-                label: "2. Build",
-                sub: "Go to Config Studio → New Workflow Definition → design the steps",
-                icon: "⚙️",
-              },
-              {
-                label: "3. Link",
-                sub: "Come back to the catalogue, open the work item, set Workflow Template ID",
-                icon: "🔗",
-              },
-              {
-                label: "4. Publish",
-                sub: "Publish the workflow version. The work item is now fully configured.",
-                icon: "✅",
-              },
-            ].map((step) => (
-              <div
-                key={step.label}
-                className="flex-1 rounded-xl border border-zinc-100 bg-stone-50 p-4 text-center"
-              >
-                <div className="text-2xl mb-2">{step.icon}</div>
-                <p className="font-semibold text-zinc-800 text-sm">{step.label}</p>
-                <p className="text-zinc-500 text-xs mt-1">{step.sub}</p>
+              <div>
+                <p className="text-sm font-semibold text-zinc-800">{s.step}</p>
+                <p className="mt-0.5 text-sm text-zinc-600">{s.desc}</p>
               </div>
-            ))}
-          </div>
-          <p className="text-zinc-500 text-sm mt-4">
-            Once linked, the system knows which workflow template to launch when that work item is triggered. You can
-            see the link in the Catalogue under the "Workflow" column.
-          </p>
-          <div className="mt-4">
-            <Link
-              to="/config-studio/guide"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-700 hover:text-zinc-900 underline"
-            >
-              Read the Config Studio Guide →
-            </Link>
-          </div>
-        </div>
+            </div>
+          ))}
+        </ol>
+      </div>
 
-        {/* Footer */}
-        <div className="text-center py-4">
-          <Link
-            to="/catalogue"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand text-zinc-900 font-semibold text-sm hover:bg-brand-dim transition-colors"
-          >
-            ← Back to Catalogue
-          </Link>
-        </div>
+      {/* Link to Config Studio Guide */}
+      <div className="rounded-2xl border border-brand/30 bg-brand-soft p-6">
+        <h3 className="font-brand text-base font-semibold text-zinc-900">Ready to build a workflow?</h3>
+        <p className="mt-1 text-sm text-zinc-600">
+          The Config Studio Guide explains nodes, conditions, transitions and how to design a complete approval flow.
+        </p>
+        <Link
+          to="/config-studio/guide"
+          className="mt-3 inline-block rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim"
+        >
+          Open Config Studio Guide →
+        </Link>
       </div>
     </div>
   );
