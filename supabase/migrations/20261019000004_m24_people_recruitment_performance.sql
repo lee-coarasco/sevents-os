@@ -111,13 +111,13 @@ create policy "performance_appraisals_tenant_isolation"
   with check (tenant_id = public.current_tenant_id());
 
 -- 5. PERMISSIONS & ROLE ASSIGNMENTS
-insert into public.permissions (key, description) values
+insert into public.permissions (id, description) values
   ('people.manpower.manage', 'Create, update and track site manpower requisitions'),
   ('people.manpower.approve', 'Approve project manpower mobilization requisitions'),
   ('people.recruitment.manage', 'Manage candidate recruitment pipeline and hiring stages'),
   ('people.competency.manage', 'Register and audit site worker competencies and training certifications'),
   ('people.appraisal.manage', 'Conduct and submit employee performance reviews and appraisals')
-on conflict (key) do nothing;
+on conflict (id) do nothing;
 
 -- Seed role permissions using public.role_definitions
 insert into public.role_permissions (role_id, permission_id)
@@ -125,7 +125,7 @@ select r.id, p.id
 from public.role_definitions r
 cross join public.permissions p
 where r.id in ('role.platform_administrator', 'role.hr_admin_lead', 'role.hr_admin_assistant')
-  and p.key in (
+  and p.id in (
     'people.manpower.manage',
     'people.manpower.approve',
     'people.recruitment.manage',
@@ -140,7 +140,7 @@ select r.id, p.id
 from public.role_definitions r
 cross join public.permissions p
 where r.id in ('role.project_engineer_lead', 'role.site_civil_engineer')
-  and p.key in (
+  and p.id in (
     'people.manpower.manage',
     'people.competency.manage'
   )
