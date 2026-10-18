@@ -4,6 +4,7 @@ import type {
   AuthorityAuditEventType,
   Delegation,
   DepartmentDefinition,
+  PermissionDefinition,
   RoleAssignment,
   RoleDefinition,
 } from "./types.js";
@@ -95,6 +96,9 @@ export interface AuthorityRepository {
   /** Role ids held directly or via an active delegation, at time `atIso`. */
   listActiveRoleIds(tenantId: string, userId: string, atIso: string): Promise<string[]>;
   listPermissionsForRoles(roleIds: string[]): Promise<string[]>;
+  listAllPermissions(): Promise<PermissionDefinition[]>;
+  listPermissionsForRole(roleId: string): Promise<string[]>;
+  setRolePermissions(roleId: string, permissionIds: string[]): Promise<void>;
   insertAuditEvent(
     actorUserId: string | null,
     eventType: AuthorityAuditEventType,
@@ -367,6 +371,39 @@ export function createSupabaseAuthorityRepository(
         .in("role_id", roleIds);
       if (error) throw new Error(`listPermissionsForRoles: ${error.message}`);
       return [...new Set((data ?? []).map((row) => row.permission_id as string))];
+    },
+
+    async listAllPermissions() {
+      const { data, error } = await serviceClient
+        .from("permissions")
+        .select("id, description")
+        .order("id");
+      if (error) throw new Error(`listAllPermissions: ${error.message}`);
+      return (data ?? []).map((r) => ({ id: r.id as string, description: (r.description as string) ?? "" }));
+    },
+
+    async listPermissionsForRole(roleId) {
+      const { data, error } = await serviceClient
+        .from("role_permissions")
+        .select("permission_id")
+        .eq("role_id", roleId);
+      if (error) throw new Error(`listPermissionsForRole: ${error.message}`);
+      return (data ?? []).map((r) => r.permission_id as string);
+    },
+
+    async setRolePermissions(roleId, permissionIds) {
+      const { error: delError } = await serviceClient
+        .from("role_permissions")
+        .delete()
+        .eq("role_id", roleId);
+      if (delError) throw new Error(`setRolePermissions delete: ${delError.message}`);
+      if (permissionIds.length > 0) {
+        const rows = permissionIds.map((p) => ({ role_id: roleId, permission_id: p }));
+        const { error: insError } = await serviceClient
+          .from("role_permissions")
+          .insert(rows);
+        if (insError) throw new Error(`setRolePermissions insert: ${insError.message}`);
+      }
     },
 
     async insertAuditEvent(actorUserId, eventType, metadata) {

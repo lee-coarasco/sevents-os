@@ -12,6 +12,7 @@ import type {
   AuthorityAuditEventType,
   Delegation,
   DepartmentDefinition,
+  PermissionDefinition,
   RoleAssignment,
   RoleDefinition,
 } from "../modules/authority/types.js";
@@ -38,7 +39,12 @@ export class FakeAuthorityRepository implements AuthorityRepository {
   delegations = new Map<string, Delegation>();
   approvalLimits = new Map<string, ApprovalLimit>();
   rolePermissions = new Map<string, Set<string>>();
+  allPermissions = new Map<string, PermissionDefinition>();
   auditLog: Array<{ userId: string | null; eventType: AuthorityAuditEventType; metadata: Record<string, unknown> }> = [];
+
+  addPermission(id: string, description: string) {
+    this.allPermissions.set(id, { id, description });
+  }
 
   addSession(accessToken: string, userId: string, tenantId: string) {
     this.sessions.set(accessToken, { userId, tenantId });
@@ -245,6 +251,18 @@ export class FakeAuthorityRepository implements AuthorityRepository {
       }
     }
     return [...permissions];
+  }
+
+  async listAllPermissions(): Promise<PermissionDefinition[]> {
+    return [...this.allPermissions.values()];
+  }
+
+  async listPermissionsForRole(roleId: string): Promise<string[]> {
+    return [...(this.rolePermissions.get(roleId) ?? [])];
+  }
+
+  async setRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+    this.rolePermissions.set(roleId, new Set(permissionIds));
   }
 
   async insertAuditEvent(

@@ -23,6 +23,7 @@ function appWithFakeRepo() {
     "authority.role_assignment.manage",
     "authority.delegation.manage",
     "authority.approval_limit.manage",
+    "authority.role.manage",
   ]) {
     authorityRepo.grantPermission("role.platform_administrator", permission);
   }
@@ -251,5 +252,124 @@ describe("GET /authority/effective-permissions", () => {
     const response = await app.inject({ method: "GET", url: "/authority/effective-permissions" });
 
     expect(response.statusCode).toBe(401);
+  });
+});
+
+describe("GET /authority/permissions", () => {
+  it("lists all system permissions for an authenticated caller", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+    authorityRepo.addPermission("authority.role.manage", "Create and manage roles and permissions");
+    authorityRepo.addPermission("workflow.manage", "Author and manage workflows");
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/authority/permissions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.permissions).toEqual(
+      expect.arrayContaining([
+        { id: "authority.role.manage", description: "Create and manage roles and permissions" },
+        { id: "workflow.manage", description: "Author and manage workflows" },
+      ]),
+    );
+  });
+
+  it("401s without bearer token", async () => {
+    const { app } = appWithFakeRepo();
+    const response = await app.inject({
+      method: "GET",
+      url: "/authority/permissions",
+    });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
+describe("GET /authority/roles/:roleId/permissions", () => {
+  it("returns permissions assigned to a role", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+    authorityRepo.grantPermission("role.site_supervisor", "task.create");
+    authorityRepo.grantPermission("role.site_supervisor", "task.view");
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/authority/roles/role.site_supervisor/permissions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().permissions).toEqual(
+      expect.arrayContaining(["task.create", "task.view"]),
+    );
+  });
+
+  it("returns empty array when role has no permissions", async () => {
+    const { app } = appWithFakeRepo();
+    const response = await app.inject({
+      method: "GET",
+      url: "/authority/roles/role.nonexistent/permissions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().permissions).toEqual([]);
+  });
+});
+
+describe("PUT /authority/roles/:roleId/permissions", () => {
+  it("updates role permissions when caller has authority.role.manage", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/authority/roles/role.site_supervisor/permissions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: {
+        permissionIds: ["task.create", "task.view", "workflow.view"],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      success: true,
+      permissions: ["task.create", "task.view", "workflow.view"],
+    });
+
+    const assigned = await authorityRepo.listPermissionsForRole("role.site_supervisor");
+    expect(assigned).toEqual(expect.arrayContaining(["task.create", "task.view", "workflow.view"]));
+    expect(assigned).toHaveLength(3);
+  });
+
+  it("403s without authority.role.manage permission", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+    authorityRepo.addSession("worker-token", "worker-user", TENANT_ID);
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/authority/roles/role.site_supervisor/permissions",
+      headers: { authorization: "Bearer worker-token" },
+      payload: {
+        permissionIds: ["task.create"],
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("400s if permissionIds is not an array", async () => {
+    const { app } = appWithFakeRepo();
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/authority/roles/role.site_supervisor/permissions",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: {
+        permissionIds: "not-an-array",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 });

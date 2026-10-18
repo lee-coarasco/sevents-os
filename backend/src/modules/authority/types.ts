@@ -14,6 +14,11 @@ export interface RoleDefinition {
   is_platform_role: boolean;
 }
 
+export interface PermissionDefinition {
+  id: string;
+  description: string;
+}
+
 export interface RoleAssignment {
   id: string;
   tenant_id: string;

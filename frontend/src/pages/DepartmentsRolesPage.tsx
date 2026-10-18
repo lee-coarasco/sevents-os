@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from "../lib/api";
 import { useUsers } from "../hooks/useUsers";
 import { UserPicker } from "../components/UserPicker";
 import { PermissionGate } from "../components/PermissionGate";
+import { RolePermissionsMatrix } from "../components/RolePermissionsMatrix";
 
 interface Company {
   id: string;
@@ -54,6 +55,8 @@ export function DepartmentsRolesPage() {
   const [assignRoleId, setAssignRoleId] = useState("");
   const [assignDepartmentId, setAssignDepartmentId] = useState("");
   const [creatingAssignment, setCreatingAssignment] = useState(false);
+
+  const [selectedRoleIdForPerms, setSelectedRoleIdForPerms] = useState<string>("");
 
   useEffect(() => {
     if (!session) return;
@@ -266,16 +269,36 @@ export function DepartmentsRolesPage() {
           {roles !== null && roles.length > 0 && (
             <div className="mb-4 grid gap-2 sm:grid-cols-2">
               {roles.map((role) => (
-                <div key={role.id} className="flex items-start rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                <div
+                  key={role.id}
+                  onClick={() => setSelectedRoleIdForPerms(role.id)}
+                  className={`flex cursor-pointer items-start rounded-xl border p-3 text-sm transition ${
+                    selectedRoleIdForPerms === role.id
+                      ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
+                      : "border-zinc-100 bg-stone-50 hover:border-zinc-200 hover:bg-stone-100/50"
+                  }`}
+                >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-zinc-800">{role.label}</p>
                     {role.department_cluster && (
                       <p className="mt-0.5 text-xs text-zinc-400">{role.department_cluster}</p>
                     )}
                   </div>
-                  {!role.is_platform_role && (
-                    <span className="ml-2 shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-zinc-700">Custom</span>
-                  )}
+                  <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRoleIdForPerms(role.id);
+                      }}
+                      className="text-xs font-semibold text-brand-dim hover:underline"
+                    >
+                      Permissions →
+                    </button>
+                    {!role.is_platform_role && (
+                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-zinc-700">Custom</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -314,6 +337,15 @@ export function DepartmentsRolesPage() {
           </PermissionGate>
         </div>
       </div>
+
+      {/* Dynamic Role Permissions Matrix */}
+      {roles && roles.length > 0 && (
+        <RolePermissionsMatrix
+          roles={roles}
+          selectedRoleId={selectedRoleIdForPerms}
+          onSelectRoleId={setSelectedRoleIdForPerms}
+        />
+      )}
 
       {/* Role assignments */}
       <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">

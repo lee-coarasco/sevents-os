@@ -246,4 +246,59 @@ export async function authorityRoutes(app: FastifyInstance, options: AuthorityRo
     const permissions = await getEffectivePermissions(repo, context.userId, context.tenantId);
     return { permissions: [...permissions] };
   });
+
+  // Dynamic role permissions: list all available permissions in the system.
+  // Self-service read, visible to any valid session.
+  app.get("/authority/permissions", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    const repo = options.getRepository();
+    const context = await repo.resolveCallerContext(token);
+    if (!context) {
+      reply.code(401);
+      return { error: "invalid session" };
+    }
+    const permissions = await repo.listAllPermissions();
+    return { permissions };
+  });
+
+  // Dynamic role permissions: list assigned permissions for a given role.
+  // Self-service read, visible to any valid session.
+  app.get<{ Params: { roleId: string } }>("/authority/roles/:roleId/permissions", async (request, reply) => {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) {
+      reply.code(401);
+      return { error: "missing bearer token" };
+    }
+    const repo = options.getRepository();
+    const context = await repo.resolveCallerContext(token);
+    if (!context) {
+      reply.code(401);
+      return { error: "invalid session" };
+    }
+    const { roleId } = request.params;
+    const permissions = await repo.listPermissionsForRole(roleId);
+    return { permissions };
+  });
+
+  // Dynamic role permissions: update assigned permissions for a given role.
+  // Guarded by authority.role.manage permission.
+  app.put<{ Params: { roleId: string }; Body: { permissionIds: string[] } }>(
+    "/authority/roles/:roleId/permissions",
+    { preHandler: requirePermission(options.getRepository, "authority.role.manage") },
+    async (request, reply) => {
+      const { roleId } = request.params;
+      const { permissionIds } = request.body ?? ({} as never);
+      if (!Array.isArray(permissionIds)) {
+        reply.code(400);
+        return { error: "permissionIds array is required" };
+      }
+      const repo = options.getRepository();
+      await repo.setRolePermissions(roleId, permissionIds);
+      return { success: true, permissions: permissionIds };
+    },
+  );
 }

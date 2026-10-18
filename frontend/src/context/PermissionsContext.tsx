@@ -8,11 +8,7 @@ interface PermissionsContextValue {
   has: (permissionKey: string) => boolean;
 }
 
-const PermissionsContext = createContext<PermissionsContextValue>({
-  permissions: null,
-  loading: true,
-  has: () => false,
-});
+const PermissionsContext = createContext<PermissionsContextValue | null>(null);
 
 /** Fetches effective permissions once per session and shares them with every PermissionGate in the subtree. */
 export function PermissionsProvider({ children }: { children: ReactNode }) {
@@ -42,6 +38,6 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function usePermissionsContext(): PermissionsContextValue {
+export function usePermissionsContext(): PermissionsContextValue | null {
   return useContext(PermissionsContext);
 }
