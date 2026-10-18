@@ -639,6 +639,31 @@ Frontend: `SubcontractorsPage`, nav label "Subcontractors & Labour" under Projec
 
 ---
 
+## M19 — Quality, Inspection & NCR
+
+**Status:** done (ticket 0164)
+
+**What's built:** Backend `quality` module (`/projects/:projectId/quality/plans`, `/quality/plans/:id`, `/projects/:projectId/quality/wirs`, `/quality/wirs/:id/sign-off`, `/projects/:projectId/quality/ncrs`, `/quality/ncrs/:id/capa`, `/quality/ncrs/:id/close`) with multi-tenant RLS isolation and permission enforcement.
+Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/quality`.
+
+**How to use it:**
+- Navigate to "Quality & Inspection" from the sidebar navigation (under Projects) or go to `/quality`.
+- **Work Inspection Requests (WIR / RFI)**:
+  - View all formal site inspection requests submitted by subcontractors or site engineers.
+  - Click "+ New Inspection Request" to request an inspection specifying grid location, trade discipline (`civil`, `mep`, `structural`, `finishes`, `piling`, `facade`), contractor representative, and inspection checkpoints. You can optionally link to an approved ITP to auto-populate inspection criteria.
+  - Click "Review & Sign-off →" to open the inspection drawer: evaluate checklist items (Pass/Fail/NA), select verdict (Pass / Approved, Conditionally Approved, or Reject / Fail), and enter inspector remarks.
+  - If a rejection occurs, checking "Automatically issue Non-Conformance Report (NCR)" automatically creates a linked NCR with root cause tracking.
+- **Non-Conformance Reports (NCR) & CAPA**:
+  - Filter and review defect records categorized by severity badges (`critical`, `major`, `minor`), root cause (`workmanship`, `material_defect`, `design_clash`, `method_deviation`, `environmental`), and target closure dates.
+  - Click "+ Issue NCR" for standalone quality defects observed on site with immediate containment action.
+  - Click "Manage CAPA →" to open the resolution drawer: contractors log the Corrective Action Plan and Preventive Action Plan.
+  - Once CAPA is submitted, QA/QC inspectors can conduct re-inspection and click "✓ Verify & Formally Close NCR".
+- **Inspection & Test Plans (ITP)**:
+  - View project quality assurance standards and specifications.
+  - Click "+ New Quality Plan" to define inspection hold points, witness points, surveillance, and review checkpoints with standard tolerances.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -664,6 +689,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M19 onward in CLAUDE.md's build order table (M19 Quality, Inspection & NCR, M20 Safety, Incidents & Compliance, M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
+Everything from M20 onward in CLAUDE.md's build order table (M20 Safety, Incidents & Compliance, M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.
