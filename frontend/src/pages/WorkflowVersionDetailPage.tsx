@@ -116,6 +116,10 @@ export const OPERATOR_LABEL: Record<string, string> = {
   gte: "Greater than or equal",
   lt: "Less than",
   lte: "Less than or equal",
+  contains: "Contains",
+  not_contains: "Does not contain",
+  is_empty: "Is empty",
+  is_not_empty: "Is not empty",
 };
 
 /** Returns nodes ordered by the transition chain (BFS from start node). Unlinked nodes appended at the end. */
@@ -152,15 +156,19 @@ function NodeTypeBadge({ type }: { type: NodeType }) {
   );
 }
 
+type RoleOption = { id: string; role_name: string; canonical_role_id?: string };
+
 /** Per-type bespoke config form fields (JSON fallback for rare types). */
 function NodeConfigFields({
   nodeType,
   config,
   onChange,
+  roles = [],
 }: {
   nodeType: NodeType;
   config: Record<string, unknown>;
   onChange: (c: Record<string, unknown>) => void;
+  roles?: RoleOption[];
 }) {
   function field(label: string, key: string, placeholder?: string) {
     return (
@@ -176,10 +184,39 @@ function NodeConfigFields({
     );
   }
 
+  function roleSelect(label: string, key: string) {
+    return (
+      <div key={key}>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">{label}</label>
+        {roles.length > 0 ? (
+          <select
+            value={(config[key] as string) ?? ""}
+            onChange={(e) => onChange({ ...config, [key]: e.target.value })}
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          >
+            <option value="">— select role —</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.canonical_role_id ?? r.id}>
+                {r.role_name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={(config[key] as string) ?? ""}
+            onChange={(e) => onChange({ ...config, [key]: e.target.value })}
+            placeholder="e.g. role.project_manager"
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+        )}
+      </div>
+    );
+  }
+
   if (nodeType === "create_task" || nodeType === "assign_role_user") {
     return (
       <div className="space-y-3">
-        {field("Canonical Role ID", "canonicalRoleId", "e.g. role.project_manager")}
+        {roleSelect("Assign to Role", "canonicalRoleId")}
         {field("SLA Definition Key (optional)", "slaDefinitionKey", "e.g. sla.approval_24h")}
       </div>
     );
@@ -187,7 +224,7 @@ function NodeConfigFields({
   if (nodeType === "request_approval") {
     return (
       <div className="space-y-3">
-        {field("Approver Role IDs (comma-separated)", "approverRoles", "e.g. role.cfo, role.coo")}
+        {roleSelect("Approver Role", "approverRoles")}
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Mode</label>
           <select
@@ -207,7 +244,7 @@ function NodeConfigFields({
     return (
       <div className="space-y-3">
         {field("Template key", "templateKey", "e.g. notify.po_approved")}
-        {field("Recipient role IDs (comma-separated)", "recipientRoles", "e.g. role.store_keeper")}
+        {roleSelect("Recipient Role", "recipientRoles")}
       </div>
     );
   }
@@ -278,6 +315,22 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
   const [condDescription, setCondDescription] = useState("");
   const [addingCondition, setAddingCondition] = useState(false);
   const [addConditionError, setAddConditionError] = useState<string | null>(null);
+
+  // Edit-node state
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editNodeType, setEditNodeType] = useState<NodeType>("create_task");
+  const [editNodeConfig, setEditNodeConfig] = useState<Record<string, unknown>>({});
+  const [editNodeBusy, setEditNodeBusy] = useState(false);
+  const [editNodeError, setEditNodeError] = useState<string | null>(null);
+
+  // Roles for dropdowns
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  useEffect(() => {
+    if (!session) return;
+    apiFetch<{ roles: RoleOption[] }>("/authority/roles", session.access_token)
+      .then((d) => setRoles(d.roles ?? []))
+      .catch(() => {});
+  }, [session]);
 
   const loadGraph = useCallback(() => {
     if (!session) return;
@@ -383,6 +436,62 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
     }
   }
 
+  async function handleDeleteNode(nodeId: string) {
+    if (!session || !window.confirm("Delete this step? Any transitions to/from it will also be removed.")) return;
+    try {
+      await apiFetch(`/workflow/versions/${versionId}/nodes/${nodeId}`, session.access_token, { method: "DELETE" });
+      if (editingNodeId === nodeId) setEditingNodeId(null);
+      loadGraph();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not delete step");
+    }
+  }
+
+  async function handleUpdateNode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session || !editingNodeId) return;
+    setEditNodeBusy(true);
+    setEditNodeError(null);
+    try {
+      let config: Record<string, unknown>;
+      if (editNodeConfig._raw) {
+        try { config = JSON.parse(editNodeConfig._raw as string); } catch { config = {}; }
+      } else {
+        config = Object.fromEntries(Object.entries(editNodeConfig).filter(([, v]) => v !== "" && v !== undefined));
+      }
+      await apiFetch(`/workflow/versions/${versionId}/nodes/${editingNodeId}`, session.access_token, {
+        method: "PATCH",
+        body: JSON.stringify({ config }),
+      });
+      setEditingNodeId(null);
+      loadGraph();
+    } catch (err) {
+      setEditNodeError(err instanceof ApiError ? err.message : "Could not update step");
+    } finally {
+      setEditNodeBusy(false);
+    }
+  }
+
+  async function handleDeleteTransition(transitionId: string) {
+    if (!session || !window.confirm("Remove this transition?")) return;
+    try {
+      await apiFetch(`/workflow/versions/${versionId}/transitions/${transitionId}`, session.access_token, { method: "DELETE" });
+      loadGraph();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not remove transition");
+    }
+  }
+
+  async function handleDeleteCondition(conditionId: string) {
+    if (!session || !window.confirm("Delete this condition? Any transition referencing it will become unconditional.")) return;
+    try {
+      await apiFetch(`/workflow/versions/${versionId}/conditions/${conditionId}`, session.access_token, { method: "DELETE" });
+      loadGraph();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not delete condition");
+    }
+  }
+
   if (loading) return <p className="text-sm text-zinc-400">Loading graph…</p>;
   if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>;
   if (!graph) return null;
@@ -411,30 +520,64 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
         </div>
 
         {orderedNodes.length === 0 && (
-          <div className="rounded-xl border border-dashed border-zinc-200 py-10 text-center text-sm text-zinc-400">
-            No steps yet. Add the first step to define this workflow.
+          <div className="rounded-xl border border-dashed border-zinc-200 px-6 py-8 text-center text-sm text-zinc-400">
+            <p className="font-semibold text-zinc-600">No steps yet</p>
+            <p className="mt-1">Every workflow needs at least one step. Here's how to get started:</p>
+            <ol className="mt-3 space-y-1 text-left text-xs">
+              <li>1. Click <strong>+ Add Step</strong> → choose <em>Create Task</em> as your first step.</li>
+              <li>2. Add a second step (e.g. <em>Request Approval</em>).</li>
+              <li>3. In the Transitions panel, click <strong>+ Link</strong> to connect them.</li>
+              <li>4. Optionally add a Condition for branching (e.g. amount &gt; 50,000).</li>
+              <li>5. End with a <em>Complete</em> or <em>Cancel</em> step.</li>
+            </ol>
           </div>
         )}
 
         {orderedNodes.map((node, idx) => {
           const outgoing = graph.transitions.filter((t) => t.from_node_id === node.id);
+          const isEditing = editingNodeId === node.id;
           return (
-            <div key={node.id} className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+            <div key={node.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${isEditing ? "border-brand/40" : "border-zinc-100"}`}>
               <div className="flex items-start gap-3">
                 <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-stone-100 text-xs font-bold text-zinc-600">
                   {idx + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <NodeTypeBadge type={node.node_type} />
-                    <code className="font-mono text-xs text-zinc-500">{node.node_key}</code>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <NodeTypeBadge type={node.node_type} />
+                      <code className="font-mono text-xs text-zinc-500">{node.node_key}</code>
+                    </div>
+                    {isDraft && !isEditing && (
+                      <PermissionGate permission="workflow.definition.manage">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingNodeId(node.id);
+                              setEditNodeType(node.node_type);
+                              setEditNodeConfig(node.config ?? {});
+                              setEditNodeError(null);
+                            }}
+                            className="rounded px-2 py-0.5 text-xs font-medium text-zinc-500 hover:bg-stone-100 hover:text-zinc-700"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNode(node.id)}
+                            className="rounded px-2 py-0.5 text-xs font-medium text-red-400 hover:bg-red-50 hover:text-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </PermissionGate>
+                    )}
                   </div>
-                  {node.config && Object.keys(node.config).length > 0 && (
+                  {!isEditing && node.config && Object.keys(node.config).length > 0 && (
                     <pre className="mt-2 overflow-x-auto rounded bg-stone-50 p-2 font-mono text-xs text-zinc-600">
                       {JSON.stringify(node.config, null, 2)}
                     </pre>
                   )}
-                  {outgoing.length > 0 && (
+                  {!isEditing && outgoing.length > 0 && (
                     <p className="mt-2 text-xs text-zinc-400">
                       → {outgoing.map((t) => {
                         const toNode = nodeById.get(t.to_node_id);
@@ -450,6 +593,19 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
                         );
                       })}
                     </p>
+                  )}
+                  {isEditing && (
+                    <form onSubmit={handleUpdateNode} className="mt-3 space-y-3">
+                      <p className="text-xs text-zinc-400">Editing config for <strong>{node.node_key}</strong> ({NODE_LABEL[node.node_type]})</p>
+                      <NodeConfigFields nodeType={editNodeType} config={editNodeConfig} onChange={setEditNodeConfig} roles={roles} />
+                      {editNodeError && <p className="text-xs text-red-600">{editNodeError}</p>}
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={editNodeBusy} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50">
+                          {editNodeBusy ? "Saving…" : "Save"}
+                        </button>
+                        <button type="button" onClick={() => setEditingNodeId(null)} className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50">Cancel</button>
+                      </div>
+                    </form>
                   )}
                 </div>
               </div>
@@ -484,7 +640,7 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
             </div>
-            <NodeConfigFields nodeType={newNodeType} config={newNodeConfig} onChange={setNewNodeConfig} />
+            <NodeConfigFields nodeType={newNodeType} config={newNodeConfig} onChange={setNewNodeConfig} roles={roles} />
             {addNodeError && <p className="text-xs text-red-600">{addNodeError}</p>}
             <div className="flex gap-2">
               <button
@@ -537,6 +693,15 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
                   <span className="ml-1 rounded bg-blue-50 px-1.5 py-0.5 text-blue-600">
                     if: {cond.description ?? `${cond.expression.field} ${cond.expression.operator} ${cond.expression.value}`}
                   </span>
+                )}
+                {isDraft && (
+                  <button
+                    onClick={() => handleDeleteTransition(t.id)}
+                    className="ml-auto rounded px-1.5 py-0.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                    title="Remove transition"
+                  >
+                    ×
+                  </button>
                 )}
               </div>
             );
@@ -620,10 +785,23 @@ function StepsEditor({ versionId, isDraft }: { versionId: string; isDraft: boole
           )}
           {graph.conditions.map((c) => (
             <div key={c.id} className="mb-2 rounded-lg bg-blue-50 p-2 text-xs text-blue-700">
-              <p className="font-medium">{c.description ?? `${c.expression.field} ${c.expression.operator} ${c.expression.value}`}</p>
-              <p className="mt-0.5 font-mono text-blue-500">
-                {c.expression.field} {c.expression.operator} &quot;{c.expression.value}&quot;
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium">{c.description ?? `${c.expression.field} ${OPERATOR_LABEL[c.expression.operator] ?? c.expression.operator} ${c.expression.value}`}</p>
+                  <p className="mt-0.5 font-mono text-blue-500">
+                    {c.expression.field} {OPERATOR_LABEL[c.expression.operator] ?? c.expression.operator} &quot;{c.expression.value}&quot;
+                  </p>
+                </div>
+                {isDraft && (
+                  <button
+                    onClick={() => handleDeleteCondition(c.id)}
+                    className="flex-shrink-0 rounded px-1.5 py-0.5 text-blue-400 hover:bg-blue-100 hover:text-red-600"
+                    title="Delete condition"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </div>
           ))}
 
