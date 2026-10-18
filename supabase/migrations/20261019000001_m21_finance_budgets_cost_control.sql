@@ -168,9 +168,9 @@ on conflict (id) do update set description = excluded.description;
 -- Grant permissions to standard administrative and finance roles
 insert into public.role_permissions (role_id, permission_id)
 select r.id, p.id
-from public.roles r
+from public.role_definitions r
 cross join public.permissions p
-where r.id in ('role.platform_administrator', 'role.chief_financial_officer_cfo', 'role.finance_manager')
+where r.id in ('role.platform_administrator', 'role.cfo', 'role.senior_accountant_lead', 'role.accountant')
   and p.id in (
     'finance.budget.manage',
     'finance.budget.approve',
@@ -183,9 +183,9 @@ on conflict do nothing;
 
 insert into public.role_permissions (role_id, permission_id)
 select r.id, p.id
-from public.roles r
+from public.role_definitions r
 cross join public.permissions p
-where r.id in ('role.project_manager', 'role.project_engineer_lead')
+where r.id in ('role.project_engineer_lead', 'role.quantity_surveyor')
   and p.id in (
     'finance.budget.manage',
     'finance.forecast.manage',
