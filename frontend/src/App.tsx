@@ -29,6 +29,7 @@ import { ProcurementPage } from "./pages/ProcurementPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SubcontractorsPage } from "./pages/SubcontractorsPage";
 import { QualityPage } from "./pages/QualityPage";
+import { SafetyPage } from "./pages/SafetyPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -146,6 +147,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["quality.inspection.manage", "quality.inspection.signoff", "quality.ncr.manage", "quality.itp.manage", "quality.ncr.close"]}>
                   <QualityPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="safety"
+              element={
+                <ProtectedRoute anyPermission={["safety.ptw.manage", "safety.ptw.approve", "safety.incident.manage", "safety.incident.investigate", "safety.hazard.manage", "safety.tbt.manage"]}>
+                  <SafetyPage />
                 </ProtectedRoute>
               }
             />

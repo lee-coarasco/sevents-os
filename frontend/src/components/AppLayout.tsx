@@ -154,6 +154,12 @@ export function AppLayout() {
               "quality.ncr.manage",
               "quality.itp.manage",
               "quality.ncr.close",
+              "safety.ptw.manage",
+              "safety.ptw.approve",
+              "safety.incident.manage",
+              "safety.incident.investigate",
+              "safety.hazard.manage",
+              "safety.tbt.manage",
             ]}
           >
             <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
@@ -205,6 +211,14 @@ export function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
                 Quality &amp; Inspection
+              </NavLink>
+            </PermissionGate>
+            <PermissionGate anyPermission={["safety.ptw.manage", "safety.ptw.approve", "safety.incident.manage", "safety.incident.investigate", "safety.hazard.manage", "safety.tbt.manage"]}>
+              <NavLink to="/safety" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Safety &amp; HSE
               </NavLink>
             </PermissionGate>
             <PermissionGate permission="crm.lead.manage">

@@ -662,6 +662,36 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
   - View project quality assurance standards and specifications.
   - Click "+ New Quality Plan" to define inspection hold points, witness points, surveillance, and review checkpoints with standard tolerances.
 
+## M20 — Safety, Incidents & Compliance
+
+**Status:** done (ticket 0165); backend `safety` module, database migrations, and frontend screen `SafetyPage` mounted at `/safety`.
+
+**What's built:**
+- **Strict Human-in-the-Loop Safety Governance**: In compliance with PRD safety standards, critical safety gates and stop-work orders remain strictly human-controlled.
+- **Permits to Work (PTW)**: High-risk gating across six permit types (`hot_work`, `working_at_height`, `confined_space`, `lifting_operations`, `deep_excavation`, `electrical_isolation`). Confined space and deep excavation mandate multi-gas testing validation prior to authorization. Safety Officers digitally sign off, suspend, or formally close permits.
+- **Incident Logging & Investigation**: Near-miss, first aid, medical treatment, lost time injury (LTI), dangerous occurrences, and environmental spills. Comprehensive tracking of lost workdays, 5-Whys Root Cause Analysis (RCA), CAPA assignment, and formal closure by Safety Officers.
+- **Hazard Observations & Immediate Stop-Work**: Unsafe condition/act logging with risk matrix (`imminent_danger`, `high`, `medium`, `low`). `imminent_danger` hazards automatically trigger site-wide Stop-Work warning directives. Rectification evidence and clearance verification required to lift gating.
+- **Toolbox Talks (TBT)**: Daily safety briefings log with trade gang attendee counts, topics, and safety points discussed.
+
+**How to use it:**
+- Navigate to "Safety & HSE" from the sidebar navigation (under Projects) or go to `/safety`.
+- **Permits to Work (PTW)**:
+  - View all high-risk permits filtered by active project.
+  - Click "+ Issue Permit to Work" to specify permit type, contractor, supervisor, start/expiry validity, mandatory precautions/PPE, and gas testing requirements.
+  - Click "Review / Sign-off" to open the drawer: Safety Officers review atmospheric gas test results, record endorsements, and authorize or suspend the permit.
+- **Incidents & Lost Workdays**:
+  - View safety records, severity badges, and lost workday counters.
+  - Click "+ Report Safety Incident" to log new incidents with injured person details, initial actions taken, and lost workdays.
+  - Click "Investigate / Close" to document Root Cause Analysis (RCA), assign Corrective & Preventive Actions (CAPA), and formally close verified records.
+- **Hazard Observations & Stop-Work**:
+  - Cards show observation severity, risk levels, and immediate Stop-Work indicators.
+  - If any active Stop-Work order is in effect, an alerting warning banner is displayed across the safety portal.
+  - Click "+ Log Hazard Observation" to record unsafe acts/conditions.
+  - Click "Rectification & Clearance" to record evidence, verify resolution, and lift stop-work directives.
+- **Toolbox Talks (TBT)**:
+  - Track daily site safety briefings, trade discipline, and worker attendance counts.
+  - Click "+ Record Toolbox Talk" to log daily topics and key hazards discussed.
+
 ---
 
 ## Shared frontend components (not a module — reused across all of them)
@@ -689,6 +719,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M20 onward in CLAUDE.md's build order table (M20 Safety, Incidents & Compliance, M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
+Everything from M21 onward in CLAUDE.md's build order table (M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

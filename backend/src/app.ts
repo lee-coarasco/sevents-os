@@ -106,6 +106,11 @@ import {
   createSupabaseQualityRepository,
   type QualityRepository,
 } from "./modules/quality/repository.js";
+import { registerSafetyRoutes } from "./modules/safety/routes.js";
+import {
+  createSupabaseSafetyRepository,
+  type SafetyRepository,
+} from "./modules/safety/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -161,6 +166,8 @@ export interface BuildAppOptions {
   getSubcontractorRepository?: () => SubcontractorRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getQualityRepository?: () => QualityRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getSafetyRepository?: () => SafetyRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -363,6 +370,15 @@ function defaultQualityRepository(): QualityRepository {
   return cachedQualityRepository;
 }
 
+let cachedSafetyRepository: SafetyRepository | null = null;
+
+function defaultSafetyRepository(): SafetyRepository {
+  if (!cachedSafetyRepository) {
+    cachedSafetyRepository = createSupabaseSafetyRepository(createUserScopedClient);
+  }
+  return cachedSafetyRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -491,6 +507,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerQualityRoutes({
     getRepository: options.getQualityRepository ?? defaultQualityRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerSafetyRoutes({
+    getRepository: options.getSafetyRepository ?? defaultSafetyRepository,
     permissionGuard: guard,
   }));
 
