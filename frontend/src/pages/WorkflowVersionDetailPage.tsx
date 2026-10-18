@@ -969,66 +969,6 @@ const SEVERITY_CLASS: Record<"error" | "warning", string> = {
   warning: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
-function FlowTab({ versionId }: { versionId: string }) {
-  const { apiFetch } = useAuth();
-  const [graph, setGraph] = useState<{ nodes: WorkflowNode[]; transitions: WorkflowTransition[]; conditions: WorkflowCondition[] } | null>(null);
-  useEffect(() => {
-    apiFetch<{ graph: typeof graph }>(`/workflow/versions/${versionId}/graph`).then((r) => setGraph(r.graph)).catch(() => {});
-  }, [versionId, apiFetch]);
-  if (!graph) return <p className="py-8 text-center text-xs text-zinc-400">Loading flow…</p>;
-  const ordered = orderNodes(graph.nodes, graph.transitions);
-  const NODE_COLORS: Record<NodeType, string> = {
-    create_task: "bg-blue-100 text-blue-800 border-blue-200",
-    assign_role_user: "bg-sky-100 text-sky-800 border-sky-200",
-    collect_form_data: "bg-violet-100 text-violet-800 border-violet-200",
-    request_upload_evidence: "bg-indigo-100 text-indigo-800 border-indigo-200",
-    evaluate_condition: "bg-orange-100 text-orange-800 border-orange-200",
-    call_service: "bg-teal-100 text-teal-800 border-teal-200",
-    request_approval: "bg-purple-100 text-purple-800 border-purple-200",
-    send_notification: "bg-green-100 text-green-800 border-green-200",
-    wait_event_time: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    create_linked_followup: "bg-cyan-100 text-cyan-800 border-cyan-200",
-    escalate: "bg-red-100 text-red-800 border-red-200",
-    complete: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    cancel: "bg-zinc-100 text-zinc-600 border-zinc-200",
-  };
-  return (
-    <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-zinc-400">Flow Diagram</p>
-      {ordered.length === 0 ? (
-        <p className="text-xs text-zinc-400">No nodes yet. Add steps in the Steps tab to see the flow.</p>
-      ) : (
-        <div className="flex flex-col items-center gap-2">
-          {ordered.map((node, i) => {
-            const outgoing = graph.transitions.filter((t) => t.from_node_id === node.id);
-            return (
-              <div key={node.id} className="flex flex-col items-center gap-1">
-                <div className={`rounded-xl border px-4 py-2 text-xs font-semibold ${NODE_COLORS[node.node_type] ?? "bg-zinc-100 text-zinc-700 border-zinc-200"}`}>
-                  <span className="font-mono opacity-60">{node.node_key}</span>
-                  <span className="mx-2">·</span>
-                  {node.node_type.replace(/_/g, " ")}
-                </div>
-                {i < ordered.length - 1 && outgoing.length > 0 && (
-                  <div className="flex gap-4">
-                    {outgoing.map((t) => (
-                      <div key={t.id} className="flex flex-col items-center text-zinc-400">
-                        <span className="text-xs">{t.label || "↓"}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {i < ordered.length - 1 && outgoing.length === 0 && (
-                  <span className="text-zinc-300">↓</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ValidationPanel({
   definitionId,
   versionId,
