@@ -812,6 +812,32 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M24 — People, Recruitment & Performance
+
+**Status:** done (ticket 0170)
+
+**What's built:**
+- **Database Schema**: `manpower_requests`, `recruitment_candidates`, `site_competencies`, and `performance_appraisals` tables with multi-tenant RLS isolation (`public.current_tenant_id()`).
+- **Permissions**: `people.manpower.manage`, `people.manpower.approve`, `people.recruitment.manage`, `people.competency.manage`, `people.appraisal.manage`. Seeded to Platform Admin, HR & Admin Lead, HR & Admin Assistant, and Project Engineer Lead.
+- **Backend Service**:
+  - Manpower mobilization requisitions with headcount approval workflow and automated status fulfillment tracking.
+  - Candidate talent pipeline with stage progression (`applied` -> `screening` -> `interview` -> `offered` -> `hired` / `rejected`), star ratings, and interview notes.
+  - Site competency and trade certifications register with automatic validity checking (checks if certification has expired, or is expiring within 30 days).
+  - Employee performance appraisals and review cycles with quantitative scores, key strengths, growth areas, and career goals.
+- **Frontend Screen**: `PeoplePage` at `/people`, nav link "People & Recruitment" in `AppLayout.tsx` under the "Workforce" section.
+  - 4 tabs: Manpower Requisitions, Recruitment Pipeline, Site Competency Matrix, and Performance Appraisals.
+  - KPI metric cards: Total Manpower Demanded, Active Talent Pipeline, Certified Site Workers, and Expiring / Expired Certifications count.
+  - Modals: "+ Request Manpower", "+ Add Candidate", "+ Record Certification", and "+ New Appraisal".
+
+**How to use it:**
+1. Navigate to `/people` via the sidebar under "Workforce &rarr; People & Recruitment".
+2. **Manpower Requisitions Tab**: View site mobilization demands and required dates. Click "+ Request Manpower" to request specialized trades. Authorized managers click "Approve Request".
+3. **Recruitment Pipeline Tab**: Track candidate applications across all stages. Update candidate status dropdowns from `applied` through `interview` to `hired`.
+4. **Site Competency Matrix Tab**: Audit certified workers across trades (crane operators, scaffolders, electricians, etc.). Expired or near-expiry certifications are immediately highlighted. Click "+ Record Certification" to log new credentials.
+5. **Performance Appraisals Tab**: Manage review periods, record appraisal scores, review accomplishments and goals, and mark reviews as completed.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -837,6 +863,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M24 onward in CLAUDE.md's build order table (M24 People, Recruitment & Performance, M26 Customer/Stakeholder Communications, M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
+Everything from M26 onward in CLAUDE.md's build order table (M26 Customer/Stakeholder Communications, M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

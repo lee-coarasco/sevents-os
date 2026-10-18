@@ -34,6 +34,7 @@ import { EquipmentPage } from "./pages/EquipmentPage";
 import { FinancePage } from "./pages/FinancePage";
 import { BillingPage } from "./pages/BillingPage";
 import { ContractsPage } from "./pages/ContractsPage";
+import { PeoplePage } from "./pages/PeoplePage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -191,6 +192,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["contracts.contract.manage", "contracts.variation.manage", "contracts.variation.approve", "contracts.claim.manage", "contracts.claim.assess", "contracts.security.manage"]}>
                   <ContractsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="people"
+              element={
+                <ProtectedRoute anyPermission={["people.manpower.manage", "people.manpower.approve", "people.recruitment.manage", "people.competency.manage", "people.appraisal.manage"]}>
+                  <PeoplePage />
                 </ProtectedRoute>
               }
             />

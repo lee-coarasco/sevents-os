@@ -131,6 +131,11 @@ import {
   createSupabaseContractsRepository,
   type ContractsRepository,
 } from "./modules/contracts/repository.js";
+import { registerPeopleRoutes } from "./modules/people/routes.js";
+import {
+  createSupabasePeopleRepository,
+  type PeopleRepository,
+} from "./modules/people/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -192,6 +197,7 @@ export interface BuildAppOptions {
   getFinanceRepository?: () => FinanceRepository;
   getBillingRepository?: () => BillingRepository;
   getContractsRepository?: () => ContractsRepository;
+  getPeopleRepository?: () => PeopleRepository;
 }
 
 let cachedBillingRepository: BillingRepository | null = null;
@@ -210,6 +216,15 @@ function defaultContractsRepository(): ContractsRepository {
     cachedContractsRepository = createSupabaseContractsRepository(createUserScopedClient);
   }
   return cachedContractsRepository;
+}
+
+let cachedPeopleRepository: PeopleRepository | null = null;
+
+function defaultPeopleRepository(): PeopleRepository {
+  if (!cachedPeopleRepository) {
+    cachedPeopleRepository = createSupabasePeopleRepository(createUserScopedClient);
+  }
+  return cachedPeopleRepository;
 }
 
 let cachedFinanceRepository: FinanceRepository | null = null;
@@ -592,6 +607,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerContractsRoutes({
     getRepository: options.getContractsRepository ?? defaultContractsRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerPeopleRoutes({
+    getRepository: options.getPeopleRepository ?? defaultPeopleRepository,
     permissionGuard: guard,
   }));
 
