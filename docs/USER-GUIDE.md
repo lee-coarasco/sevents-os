@@ -583,6 +583,36 @@ Frontend: `ProcurementPage`, nav label "Procurement & Orders" under Projects at 
 
 ---
 
+## M15 — Inventory, Stores & Material Movement
+
+**Status:** done (ticket 0162)
+
+**What's built:** Backend `inventory` module (`/inventory/locations`, `/inventory/items`, `/inventory/stock-balances`, `/projects/:projectId/inventory/grns`, `/projects/:projectId/inventory/issues`, `/projects/:projectId/inventory/gate-passes`) with multi-tenant RLS isolation and permission enforcement.
+Frontend: `InventoryPage`, nav label "Inventory & Stores" under Projects at `/inventory`.
+
+**How to use it:**
+- Navigate to "Inventory & Stores" from the sidebar navigation (under Projects) or go to `/inventory`.
+- **Store Locations & Catalog**:
+  - Switch to the "Stock Balances & Stores" tab to view established warehouses, site laydown yards, and current stock ledger.
+  - Click "+ New Store Location" to set up a central warehouse, site store, laydown yard, or scrap yard with designated code and physical address.
+  - Click "+ Add Catalog Item" to register stock master records with item code, item description, category (`materials`, `plant_spares`, `consumables`, `tools_ppe`, `safety_equipment`), default unit of measure (UOM), unit cost, and minimum reorder threshold.
+- **Goods Received Notes (GRN)**:
+  - Switch to the "Goods Received Notes (GRN)" tab to record inbound shipments from suppliers or central warehouses.
+  - Click "+ New GRN", link the receipt to a store location, supplier delivery note number, carrier, and vehicle number.
+  - Click "View Items" on any draft GRN to open the inspection drawer. Add delivered line items specifying delivered, accepted, and rejected quantities, rack/bin placement, and rejection rationale if damaged.
+  - Click "Accept & Update Stock" — this marks the GRN as accepted and **automatically increments the on-hand stock balance** in the store ledger for all accepted line items.
+- **Material Issue Notes (MIN)**:
+  - Switch to the "Material Issues (MIN)" tab to record outbound dispatches to site gangs, work crews, or subcontractors.
+  - Click "+ New Issue Note", selecting the issuing store location, recipient crew name, and WBS/cost code (e.g. `04-ELEC`).
+  - Click "Manage Issue" to open the issue drawer, select catalog items, and specify issued quantities.
+  - Click "Dispatch & Deduct Stock" — this verifies sufficient on-hand quantity and **automatically decrements the stock ledger**, transitioning the issue note status to `issued`.
+- **Material Gate Passes**:
+  - Switch to the "Material Gate Passes" tab to issue security gate passes (`inbound`, `outbound`, `transfer`, `returnable`, `disposal`).
+  - Click "+ New Gate Pass" with transporter vehicle number, driver name, contact number, and destination.
+  - Click "Approve" to authorize gate security exit, and click "Dispatch Exit" when the vehicle passes the security gate to record the official gate exit timestamp.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -608,8 +638,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M12 onward in CLAUDE.md's build order table except M13a
-above (M12 Technical Engineering, M13b/M13c Documents/Drawings remainder,
-M14 Procurement, M15 Inventory, … through M38) has no code. Don't assume
+Everything from M16 onward in CLAUDE.md's build order table (M16 Subcontractor & Vendor Management, M17 Quality Control & Snagging, M18 Health, Safety & Environment, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

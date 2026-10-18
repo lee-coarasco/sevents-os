@@ -91,6 +91,11 @@ import {
   createSupabaseProcurementRepository,
   type ProcurementRepository,
 } from "./modules/procurement/repository.js";
+import { registerInventoryRoutes } from "./modules/inventory/routes.js";
+import {
+  createSupabaseInventoryRepository,
+  type InventoryRepository,
+} from "./modules/inventory/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -140,6 +145,8 @@ export interface BuildAppOptions {
   getSiteRepository?: () => SiteRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getProcurementRepository?: () => ProcurementRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getInventoryRepository?: () => InventoryRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -315,6 +322,15 @@ function defaultProcurementRepository(): ProcurementRepository {
   return cachedProcurementRepository;
 }
 
+let cachedInventoryRepository: InventoryRepository | null = null;
+
+function defaultInventoryRepository(): InventoryRepository {
+  if (!cachedInventoryRepository) {
+    cachedInventoryRepository = createSupabaseInventoryRepository(createUserScopedClient);
+  }
+  return cachedInventoryRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -430,6 +446,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     getRepository: options.getProcurementRepository ?? defaultProcurementRepository,
     requirePermission: guard,
   });
+
+  app.register(registerInventoryRoutes({
+    getRepository: options.getInventoryRepository ?? defaultInventoryRepository,
+    permissionGuard: guard,
+  }));
 
   app.register(storageRoutes, {
     getServiceClient: createServiceClient,
