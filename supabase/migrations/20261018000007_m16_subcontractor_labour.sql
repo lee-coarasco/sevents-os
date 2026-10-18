@@ -136,25 +136,22 @@ create policy subcontractor_claims_tenant_isolation on public.subcontractor_paym
   for all using (tenant_id = public.current_tenant_id());
 
 -- 8. Seed Permissions
-insert into public.permissions (key, description) values
+insert into public.permissions (id, description) values
   ('subcontractor.workorder.manage', 'Create, update, and approve subcontractor work packages and orders'),
   ('subcontractor.workorder.view', 'View subcontractor work orders, agreements, and milestones'),
   ('subcontractor.attendance.manage', 'Record and verify daily subcontractor manpower and attendance'),
   ('subcontractor.claims.manage', 'Submit and review subcontractor measured work and payment claims'),
   ('subcontractor.claims.certify', 'Certify subcontractor progress claims, retention, and payment certificates')
-on conflict (key) do nothing;
+on conflict (id) do nothing;
 
 -- 9. Assign Permissions to Platform Administrator
 insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.key = 'role.platform_administrator'
-  and p.key in (
-    'subcontractor.workorder.manage',
-    'subcontractor.workorder.view',
-    'subcontractor.attendance.manage',
-    'subcontractor.claims.manage',
-    'subcontractor.claims.certify'
-  )
+select 'role.platform_administrator', id from public.permissions
+where id in (
+  'subcontractor.workorder.manage',
+  'subcontractor.workorder.view',
+  'subcontractor.attendance.manage',
+  'subcontractor.claims.manage',
+  'subcontractor.claims.certify'
+)
 on conflict do nothing;

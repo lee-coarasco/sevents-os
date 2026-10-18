@@ -194,27 +194,24 @@ create policy gate_pass_tenant_isolation on public.material_gate_passes
   for all using (tenant_id = public.current_tenant_id());
 
 -- 10. Seed Permissions
-insert into public.permissions (key, description) values
+insert into public.permissions (id, description) values
   ('inventory.store.manage', 'Create and update warehouse and site store locations'),
   ('inventory.item.manage', 'Create and manage inventory items catalog'),
   ('inventory.stock.view', 'View stock balances and warehouse inventory'),
   ('inventory.grn.manage', 'Create, inspect, and accept Goods Received Notes'),
   ('inventory.issue.manage', 'Create and issue material to site crews and work fronts'),
   ('inventory.gatepass.manage', 'Create, approve, and dispatch material gate passes')
-on conflict (key) do nothing;
+on conflict (id) do nothing;
 
 -- Assign to platform administrator role
 insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.key = 'role.platform_administrator'
-  and p.key in (
-    'inventory.store.manage',
-    'inventory.item.manage',
-    'inventory.stock.view',
-    'inventory.grn.manage',
-    'inventory.issue.manage',
-    'inventory.gatepass.manage'
-  )
+select 'role.platform_administrator', id from public.permissions
+where id in (
+  'inventory.store.manage',
+  'inventory.item.manage',
+  'inventory.stock.view',
+  'inventory.grn.manage',
+  'inventory.issue.manage',
+  'inventory.gatepass.manage'
+)
 on conflict do nothing;
