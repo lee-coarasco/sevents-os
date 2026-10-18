@@ -500,6 +500,34 @@ banner instead of silently failing.
 
 ---
 
+## M18 — Schedule, Progress & Resource Planning
+
+**Status:** done (ticket 0120)
+
+**What's built:**
+- Backend:
+  - `GET /projects/:projectId/schedule/gantt` — full CPM (Critical Path Method) schedule calculation with Early Start, Early Finish, Late Start, Late Finish, Total Float days, Critical Path identification, and baseline comparison.
+  - `POST /projects/:projectId/lookahead-plans` and `GET /projects/:projectId/lookahead-plans` — 2-week and 4-week lookahead plan creation and listing.
+  - `GET /lookahead-plans/:planId` — detailed view of lookahead plan and its granular activity items.
+  - `POST /lookahead-plans/:planId/activities` — add planned action items to a lookahead window, optionally linking to schedule activities.
+  - `PATCH /lookahead-activities/:activityId` — update action status (`planned`, `in_progress`, `completed`, `delayed`) and site notes.
+  - `POST /projects/:projectId/delays` and `GET /projects/:projectId/delays` — delay logging with duration, reason category (`client`, `design`, `procurement`, `subcontractor`, `weather`, `permits`, `other`), description, and mitigation plan.
+  - `GET /projects/:projectId/schedule/variance` — schedule variance summary aggregating total delay days, critical path delays, and delay breakdown by category.
+- Frontend: `ScheduleGanttSection` component in `ProjectDetailPage` (`/projects/:id`) with:
+  - Schedule KPI header: Overall progress bar, critical path items count, approved baseline version, total delay days, and critical path delays.
+  - Interactive Gantt chart with baseline overlay toggle and critical path filter.
+  - Quick progress update drawer (reports percent complete and site observation note).
+  - Lookahead Plans workspace with 2-week/4-week plan creation and action status workflows.
+  - Delay Register & Variance breakdown cards and "Log Delay" modal with mitigation plans.
+
+**How to use it:**
+- Open any project at `/projects/:id`. The "Schedule, Progress & Resource Planning" section is displayed with three interactive tabs:
+  1. **Interactive Gantt Schedule**: View planned vs frozen baseline bars. Toggle "Critical Path Only" to highlight zero-float critical activities, or click "% complete" on any activity row to quickly log a progress entry.
+  2. **Lookahead Plans**: Select a 2-week or 4-week lookahead plan from the sidebar (or click "+ New" to create one), then click "+ Add Lookahead Action" to plan granular operational tasks and track their status.
+  3. **Delay Register & Variance**: View the contractual delay breakdown by driver (Client, Design, Weather, etc.) and click "+ Log New Delay" to record impact days, root cause, and recovery mitigation plans.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,

@@ -219,3 +219,102 @@ export interface ProjectCloseoutChecklistItem {
   completed_by: string | null;
   completed_at: string | null;
 }
+
+// -------------------------------------------------------------------
+// M18: Schedule, Progress & Resource Planning (ticket 0120)
+// -------------------------------------------------------------------
+
+export type LookaheadActivityStatus = "planned" | "in_progress" | "completed" | "delayed";
+
+export interface LookaheadPlan {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  title: string;
+  period_start: string;
+  period_end: string;
+  timeframe_weeks: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LookaheadActivity {
+  id: string;
+  tenant_id: string;
+  lookahead_plan_id: string;
+  schedule_activity_id: string | null;
+  custom_activity_name: string | null;
+  planned_action: string;
+  target_date: string;
+  status: LookaheadActivityStatus;
+  assigned_to: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const DELAY_REASON_CATEGORIES = [
+  "client",
+  "design",
+  "procurement",
+  "subcontractor",
+  "weather",
+  "permits",
+  "other",
+] as const;
+
+export type DelayReasonCategory = (typeof DELAY_REASON_CATEGORIES)[number];
+
+export interface ScheduleDelayRecord {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  schedule_activity_id: string;
+  delay_days: number;
+  reason_category: DelayReasonCategory;
+  description: string;
+  mitigation_plan: string | null;
+  recorded_by: string | null;
+  recorded_at: string;
+}
+
+export interface GanttActivity {
+  id: string;
+  wbs_node_id: string | null;
+  wbs_code: string | null;
+  wbs_name: string | null;
+  name: string;
+  planned_start: string | null;
+  planned_end: string | null;
+  actual_start: string | null;
+  actual_end: string | null;
+  baseline_start: string | null;
+  baseline_end: string | null;
+  percent_complete: number;
+  dependencies: string[];
+  is_critical: boolean;
+  total_float_days: number;
+  duration_days: number;
+  status: "not_started" | "in_progress" | "completed" | "delayed";
+}
+
+export interface GanttScheduleResponse {
+  project_id: string;
+  baseline_version: number | null;
+  activities: GanttActivity[];
+  critical_path: string[];
+  total_activities: number;
+  completed_activities: number;
+  overall_progress: number;
+}
+
+export interface ScheduleVarianceSummary {
+  project_id: string;
+  total_activities: number;
+  delayed_activities_count: number;
+  total_delay_days: number;
+  critical_delayed_count: number;
+  delays_by_category: Record<DelayReasonCategory, number>;
+  total_float_consumed_days: number;
+}

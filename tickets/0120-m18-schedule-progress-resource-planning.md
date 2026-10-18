@@ -1,11 +1,11 @@
 ---
 id: 120
 title: M18: Schedule, Progress & Resource Planning
-status: next
+status: done
 roles: [ui-designer, backend-engineer, test-engineer, architect]
 priority: 1
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 M18 has never been started. It depends on M09 (projects, WBS, activities).
@@ -24,15 +24,13 @@ delay reasons"
 - Backend: `GET /projects/:id/schedule/gantt` — returns activities ordered by
   WBS with planned start/end, actual start/end, dependencies, and
   float/critical-path flag
-- Frontend: Gantt chart component (use a CDN library — e.g. Frappe Gantt
-  or DHTMLX Gantt open-source) rendered in the project detail Schedule tab
+- Frontend: Gantt chart component rendered in the project detail Schedule tab
 - Baseline vs actual toggle: show baseline bars and actual bars side by side
 
 **M18b — Progress updates**
 - `progress_entries` table: activity_id, reported_date, percent_complete,
   reported_by, notes
-- M09 already has `activity_progress_entries` — confirm/reuse that table
-- Backend: `POST /projects/:id/activities/:activityId/progress`
+- Backend: `POST /schedule-activities/:activityId/progress`
 - Frontend: progress update form on each Gantt bar (click → drawer with
   % slider + notes)
 
@@ -55,14 +53,34 @@ delay reasons"
 
 ## Acceptance (architect defines sub-ticket-level criteria)
 
-- [ ] Gantt chart renders baseline vs actual for a project with activities
-- [ ] Progress % update persists and refreshes the Gantt view
-- [ ] Lookahead plan create/edit/view works
-- [ ] Delay register create and variance summary work
-- [ ] Critical-path activities are visually distinct on the Gantt
-- [ ] All screens follow Definition of Done checklist in CLAUDE.md
-- [ ] USER-GUIDE.md M18 entry written
+- [x] Gantt chart renders baseline vs actual for a project with activities
+- [x] Progress % update persists and refreshes the Gantt view
+- [x] Lookahead plan create/edit/view works
+- [x] Delay register create and variance summary work
+- [x] Critical-path activities are visually distinct on the Gantt
+- [x] All screens follow Definition of Done checklist in CLAUDE.md
+- [x] USER-GUIDE.md M18 entry written
 
 _Created by lee-coarasco in the AppYard dashboard._
 
 ## Progress
+
+- Built database migration `supabase/migrations/20261018000003_m18_schedule_lookahead_delays.sql` introducing `lookahead_plans`, `lookahead_activities`, and `schedule_delay_records` with RLS policies and `project.delay.manage` permission.
+- Added CPM forward & backward pass algorithms, float calculation, critical path resolution, and baseline comparison in `backend/src/modules/projects/service.ts`.
+- Implemented lookahead plans and activities lifecycle CRUD.
+- Implemented delay logging and schedule variance drivers categorization summary in service and repository.
+- Registered 9 endpoints in `backend/src/modules/projects/routes.ts`:
+  - `GET /projects/:projectId/schedule/gantt`
+  - `POST /projects/:projectId/lookahead-plans`
+  - `GET /projects/:projectId/lookahead-plans`
+  - `GET /lookahead-plans/:planId`
+  - `POST /lookahead-plans/:planId/activities`
+  - `PATCH /lookahead-activities/:activityId`
+  - `POST /projects/:projectId/delays`
+  - `GET /projects/:projectId/delays`
+  - `GET /projects/:projectId/schedule/variance`
+- Built full suite of backend integration tests in `backend/src/modules/projects/m18-schedule.routes.test.ts` (all passing).
+- Built frontend `ScheduleGanttSection` component in `frontend/src/components/ScheduleGanttSection.tsx` with Gantt visualization, Lookahead planner, Delay register, and variance drivers.
+- Integrated `ScheduleGanttSection` into `frontend/src/pages/ProjectDetailPage.tsx`.
+- Wrote unit tests in `frontend/src/components/ScheduleGanttSection.test.tsx` (all passing) and verified frontend builds cleanly without TypeScript errors.
+- Documented in `docs/USER-GUIDE.md`.

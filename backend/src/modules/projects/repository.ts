@@ -21,6 +21,11 @@ import type {
   ScheduleActivity,
   ScheduleActivityDependency,
   WBSNode,
+  DelayReasonCategory,
+  LookaheadActivity,
+  LookaheadActivityStatus,
+  LookaheadPlan,
+  ScheduleDelayRecord,
 } from "./types.js";
 
 export interface CreateProjectInput {
@@ -205,6 +210,44 @@ export interface UpdateCloseoutItemInput {
   completed_at?: string | null;
 }
 
+export interface CreateLookaheadPlanInput {
+  project_id: string;
+  title: string;
+  period_start: string;
+  period_end: string;
+  timeframe_weeks?: number;
+  created_by?: string | null;
+}
+
+export interface CreateLookaheadActivityInput {
+  lookahead_plan_id: string;
+  schedule_activity_id?: string | null;
+  custom_activity_name?: string | null;
+  planned_action: string;
+  target_date: string;
+  status?: LookaheadActivityStatus;
+  assigned_to?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdateLookaheadActivityInput {
+  planned_action?: string;
+  target_date?: string;
+  status?: LookaheadActivityStatus;
+  assigned_to?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateScheduleDelayRecordInput {
+  project_id: string;
+  schedule_activity_id: string;
+  delay_days: number;
+  reason_category: DelayReasonCategory;
+  description: string;
+  mitigation_plan?: string | null;
+  recorded_by?: string | null;
+}
+
 /**
  * Every method is keyed off the caller's own access token, not an
  * explicit tenant id — same convention as `TenancyRepository`
@@ -295,6 +338,23 @@ export interface ProjectsRepository {
     itemId: string,
     input: UpdateCloseoutItemInput,
   ): Promise<ProjectCloseoutChecklistItem | null>;
+
+  createLookaheadPlan(accessToken: string, input: CreateLookaheadPlanInput): Promise<LookaheadPlan>;
+  listLookaheadPlans(accessToken: string, projectId: string): Promise<LookaheadPlan[]>;
+  getLookaheadPlan(accessToken: string, planId: string): Promise<LookaheadPlan | null>;
+  createLookaheadActivity(accessToken: string, input: CreateLookaheadActivityInput): Promise<LookaheadActivity>;
+  listLookaheadActivities(accessToken: string, planId: string): Promise<LookaheadActivity[]>;
+  updateLookaheadActivity(
+    accessToken: string,
+    activityId: string,
+    input: UpdateLookaheadActivityInput,
+  ): Promise<LookaheadActivity | null>;
+
+  createScheduleDelayRecord(
+    accessToken: string,
+    input: CreateScheduleDelayRecordInput,
+  ): Promise<ScheduleDelayRecord>;
+  listScheduleDelayRecords(accessToken: string, projectId: string): Promise<ScheduleDelayRecord[]>;
 }
 
 /**
@@ -715,6 +775,95 @@ export function createSupabaseProjectsRepository(
         .maybeSingle();
       if (error) throw new Error(`updateCloseoutItem: ${error.message}`);
       return (data as ProjectCloseoutChecklistItem | null) ?? null;
+    },
+
+    async createLookaheadPlan(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_plans")
+        .insert({ timeframe_weeks: 2, ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createLookaheadPlan: ${error?.message ?? "no row returned"}`);
+      return data as LookaheadPlan;
+    },
+
+    async listLookaheadPlans(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_plans")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("period_start", { ascending: false });
+      if (error) throw new Error(`listLookaheadPlans: ${error.message}`);
+      return (data as LookaheadPlan[]) ?? [];
+    },
+
+    async getLookaheadPlan(accessToken, planId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_plans")
+        .select("*")
+        .eq("id", planId)
+        .maybeSingle();
+      if (error) throw new Error(`getLookaheadPlan: ${error.message}`);
+      return (data as LookaheadPlan | null) ?? null;
+    },
+
+    async createLookaheadActivity(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_activities")
+        .insert({ status: "planned", ...input })
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createLookaheadActivity: ${error?.message ?? "no row returned"}`);
+      return data as LookaheadActivity;
+    },
+
+    async listLookaheadActivities(accessToken, planId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_activities")
+        .select("*")
+        .eq("lookahead_plan_id", planId)
+        .order("target_date", { ascending: true });
+      if (error) throw new Error(`listLookaheadActivities: ${error.message}`);
+      return (data as LookaheadActivity[]) ?? [];
+    },
+
+    async updateLookaheadActivity(accessToken, activityId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("lookahead_activities")
+        .update({ ...input, updated_at: new Date().toISOString() })
+        .eq("id", activityId)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`updateLookaheadActivity: ${error.message}`);
+      return (data as LookaheadActivity | null) ?? null;
+    },
+
+    async createScheduleDelayRecord(accessToken, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("schedule_delay_records")
+        .insert(input)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`createScheduleDelayRecord: ${error?.message ?? "no row returned"}`);
+      return data as ScheduleDelayRecord;
+    },
+
+    async listScheduleDelayRecords(accessToken, projectId) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("schedule_delay_records")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("recorded_at", { ascending: false });
+      if (error) throw new Error(`listScheduleDelayRecords: ${error.message}`);
+      return (data as ScheduleDelayRecord[]) ?? [];
     },
   };
 }

@@ -4,11 +4,14 @@ import type {
   CreateBaselineInput,
   CreateCloseoutItemInput,
   CreateHealthSnapshotInput,
+  CreateLookaheadActivityInput,
+  CreateLookaheadPlanInput,
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
   CreateRegisterEntryInput,
   CreateScheduleActivityInput,
+  CreateScheduleDelayRecordInput,
   CreateWBSNodeInput,
   ListRegisterEntriesFilters,
   ProjectsRepository,
@@ -16,6 +19,7 @@ import type {
   UpdateBaselineChangeRequestInput,
   UpdateBaselineInput,
   UpdateCloseoutItemInput,
+  UpdateLookaheadActivityInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
   UpdateProjectTypeInput,
@@ -24,6 +28,8 @@ import type {
   UpdateWBSNodeInput,
 } from "../modules/projects/repository.js";
 import type {
+  LookaheadActivity,
+  LookaheadPlan,
   Milestone,
   ProgressEntry,
   Project,
@@ -35,6 +41,7 @@ import type {
   ProjectType,
   ScheduleActivity,
   ScheduleActivityDependency,
+  ScheduleDelayRecord,
   WBSNode,
 } from "../modules/projects/types.js";
 
@@ -63,6 +70,9 @@ export class FakeProjectsRepository implements ProjectsRepository {
   registerEntries = new Map<string, ProjectRegisterEntry>();
   healthSnapshots = new Map<string, ProjectHealthSnapshot>();
   closeoutItems = new Map<string, ProjectCloseoutChecklistItem>();
+  lookaheadPlans = new Map<string, LookaheadPlan>();
+  lookaheadActivities = new Map<string, LookaheadActivity>();
+  delayRecords = new Map<string, ScheduleDelayRecord>();
 
   addSession(accessToken: string, tenantId: string) {
     this.sessions.set(accessToken, tenantId);
@@ -484,5 +494,108 @@ export class FakeProjectsRepository implements ProjectsRepository {
     const updated: ProjectCloseoutChecklistItem = { ...item, ...input };
     this.closeoutItems.set(itemId, updated);
     return updated;
+  }
+
+  async createLookaheadPlan(accessToken: string, input: CreateLookaheadPlanInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const now = new Date().toISOString();
+    const plan: LookaheadPlan = {
+      id: nextId("lookahead-plan"),
+      tenant_id,
+      project_id: input.project_id,
+      title: input.title,
+      period_start: input.period_start,
+      period_end: input.period_end,
+      timeframe_weeks: input.timeframe_weeks ?? 2,
+      created_by: input.created_by ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.lookaheadPlans.set(plan.id, plan);
+    return plan;
+  }
+
+  async listLookaheadPlans(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.lookaheadPlans.values()]
+      .filter((p) => p.tenant_id === tenant_id && p.project_id === projectId)
+      .sort((a, b) => b.period_start.localeCompare(a.period_start));
+  }
+
+  async getLookaheadPlan(accessToken: string, planId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    const plan = this.lookaheadPlans.get(planId);
+    if (!plan || plan.tenant_id !== tenant_id) return null;
+    return plan;
+  }
+
+  async createLookaheadActivity(accessToken: string, input: CreateLookaheadActivityInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const now = new Date().toISOString();
+    const act: LookaheadActivity = {
+      id: nextId("lookahead-act"),
+      tenant_id,
+      lookahead_plan_id: input.lookahead_plan_id,
+      schedule_activity_id: input.schedule_activity_id ?? null,
+      custom_activity_name: input.custom_activity_name ?? null,
+      planned_action: input.planned_action,
+      target_date: input.target_date,
+      status: input.status ?? "planned",
+      assigned_to: input.assigned_to ?? null,
+      notes: input.notes ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.lookaheadActivities.set(act.id, act);
+    return act;
+  }
+
+  async listLookaheadActivities(accessToken: string, planId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.lookaheadActivities.values()]
+      .filter((a) => a.tenant_id === tenant_id && a.lookahead_plan_id === planId)
+      .sort((a, b) => a.target_date.localeCompare(b.target_date));
+  }
+
+  async updateLookaheadActivity(
+    accessToken: string,
+    activityId: string,
+    input: UpdateLookaheadActivityInput,
+  ) {
+    const tenant_id = this.tenantOf(accessToken);
+    const act = this.lookaheadActivities.get(activityId);
+    if (!act || act.tenant_id !== tenant_id) return null;
+    const updated: LookaheadActivity = {
+      ...act,
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    this.lookaheadActivities.set(activityId, updated);
+    return updated;
+  }
+
+  async createScheduleDelayRecord(accessToken: string, input: CreateScheduleDelayRecordInput) {
+    const tenant_id = this.tenantOf(accessToken);
+    const record: ScheduleDelayRecord = {
+      id: nextId("delay-rec"),
+      tenant_id,
+      project_id: input.project_id,
+      schedule_activity_id: input.schedule_activity_id,
+      delay_days: input.delay_days,
+      reason_category: input.reason_category,
+      description: input.description,
+      mitigation_plan: input.mitigation_plan ?? null,
+      recorded_by: input.recorded_by ?? null,
+      recorded_at: new Date().toISOString(),
+    };
+    this.delayRecords.set(record.id, record);
+    return record;
+  }
+
+  async listScheduleDelayRecords(accessToken: string, projectId: string) {
+    const tenant_id = this.tenantOf(accessToken);
+    return [...this.delayRecords.values()]
+      .filter((r) => r.tenant_id === tenant_id && r.project_id === projectId)
+      .sort((a, b) => b.recorded_at.localeCompare(a.recorded_at));
   }
 }

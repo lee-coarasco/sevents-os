@@ -10,19 +10,26 @@ import {
   addScheduleActivityDependency,
   archiveProjectType,
   completeCloseoutItem,
+  computeGanttSchedule,
   computeProjectHealth,
+  createLookaheadActivity,
+  createLookaheadPlan,
   createMilestone,
   createProject,
   createProjectType,
-  createScheduleActivity,
-  createWBSNode,
   createRegisterEntry,
+  createScheduleActivity,
+  createScheduleDelayRecord,
+  createWBSNode,
   getBaseline,
+  getLookaheadPlanDetail,
   getProject,
   getProjectForecast,
+  getScheduleVariance,
   listBaselineChangeRequests,
   listBaselines,
   listCloseoutChecklist,
+  listLookaheadPlans,
   listMilestones,
   listProgressEntries,
   listProjectTypes,
@@ -30,12 +37,14 @@ import {
   listRegisterEntries,
   listScheduleActivities,
   listScheduleActivityDependencies,
+  listScheduleDelayRecords,
   listWBSNodes,
   proposeBaselineChange,
   recordProgressEntry,
   removeScheduleActivityDependency,
   resolveBaselineChangeRequest,
   setInitialBaseline,
+  updateLookaheadActivity,
   updateMilestone,
   updateProject,
   updateProjectType,
@@ -43,7 +52,15 @@ import {
   updateScheduleActivity,
   updateWBSNode,
 } from "./service.js";
-import { CLOSEOUT_ITEM_KEYS, type CloseoutItemKey, type RegisterEntryKind, type RegisterEntryStatus } from "./types.js";
+import {
+  CLOSEOUT_ITEM_KEYS,
+  DELAY_REASON_CATEGORIES,
+  type CloseoutItemKey,
+  type DelayReasonCategory,
+  type LookaheadActivityStatus,
+  type RegisterEntryKind,
+  type RegisterEntryStatus,
+} from "./types.js";
 
 export interface ProjectsRouteOptions {
   getRepository: () => ProjectsRepository;
@@ -827,6 +844,288 @@ export async function projectsRoutes(app: FastifyInstance, options: ProjectsRout
           callerUserId,
         );
         return { item };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // M18: Schedule, Gantt, Lookahead & Delays (ticket 0120)
+  // -------------------------------------------------------------------------
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/schedule/gantt",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const schedule = await computeGanttSchedule(
+          options.getRepository(),
+          token,
+          request.params.projectId,
+        );
+        return { schedule };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { projectId: string };
+    Body: {
+      title: string;
+      periodStart: string;
+      periodEnd: string;
+      timeframeWeeks?: number;
+    };
+  }>(
+    "/projects/:projectId/lookahead-plans",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.title?.trim() || !body.periodStart || !body.periodEnd) {
+        reply.code(400);
+        return { error: "title, periodStart, and periodEnd are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const lookaheadPlan = await createLookaheadPlan(options.getRepository(), token, {
+          project_id: request.params.projectId,
+          title: body.title,
+          period_start: body.periodStart,
+          period_end: body.periodEnd,
+          timeframe_weeks: body.timeframeWeeks,
+          created_by: callerUserId,
+        });
+        reply.code(201);
+        return { lookaheadPlan };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        reply.code(400);
+        return { error: (error as Error).message };
+      }
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/lookahead-plans",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const lookaheadPlans = await listLookaheadPlans(
+          options.getRepository(),
+          token,
+          request.params.projectId,
+        );
+        return { lookaheadPlans };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get<{ Params: { planId: string } }>(
+    "/lookahead-plans/:planId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const result = await getLookaheadPlanDetail(options.getRepository(), token, request.params.planId);
+        return result;
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { planId: string };
+    Body: {
+      scheduleActivityId?: string | null;
+      customActivityName?: string | null;
+      plannedAction: string;
+      targetDate: string;
+      status?: LookaheadActivityStatus;
+      assignedTo?: string | null;
+      notes?: string | null;
+    };
+  }>(
+    "/lookahead-plans/:planId/activities",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.plannedAction?.trim() || !body.targetDate) {
+        reply.code(400);
+        return { error: "plannedAction and targetDate are required" };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const lookaheadActivity = await createLookaheadActivity(options.getRepository(), token, {
+          lookahead_plan_id: request.params.planId,
+          schedule_activity_id: body.scheduleActivityId ?? null,
+          custom_activity_name: body.customActivityName ?? null,
+          planned_action: body.plannedAction,
+          target_date: body.targetDate,
+          status: body.status,
+          assigned_to: body.assignedTo ?? null,
+          notes: body.notes ?? null,
+        });
+        reply.code(201);
+        return { lookaheadActivity };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        reply.code(400);
+        return { error: (error as Error).message };
+      }
+    },
+  );
+
+  app.patch<{
+    Params: { activityId: string };
+    Body: {
+      plannedAction?: string;
+      targetDate?: string;
+      status?: LookaheadActivityStatus;
+      assignedTo?: string | null;
+      notes?: string | null;
+    };
+  }>(
+    "/lookahead-activities/:activityId",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? {};
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const lookaheadActivity = await updateLookaheadActivity(
+          options.getRepository(),
+          token,
+          request.params.activityId,
+          {
+            ...(body.plannedAction !== undefined ? { planned_action: body.plannedAction } : {}),
+            ...(body.targetDate !== undefined ? { target_date: body.targetDate } : {}),
+            ...(body.status !== undefined ? { status: body.status } : {}),
+            ...(body.assignedTo !== undefined ? { assigned_to: body.assignedTo } : {}),
+            ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          },
+        );
+        return { lookaheadActivity };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.post<{
+    Params: { projectId: string };
+    Body: {
+      scheduleActivityId: string;
+      delayDays: number;
+      reasonCategory: DelayReasonCategory;
+      description: string;
+      mitigationPlan?: string | null;
+    };
+  }>(
+    "/projects/:projectId/delays",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const body = request.body ?? ({} as never);
+      if (!body.scheduleActivityId || !body.delayDays || !body.reasonCategory || !body.description?.trim()) {
+        reply.code(400);
+        return { error: "scheduleActivityId, delayDays, reasonCategory, and description are required" };
+      }
+      if (!DELAY_REASON_CATEGORIES.includes(body.reasonCategory)) {
+        reply.code(400);
+        return { error: `reasonCategory must be one of ${DELAY_REASON_CATEGORIES.join(", ")}` };
+      }
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const delayRecord = await createScheduleDelayRecord(options.getRepository(), token, {
+          project_id: request.params.projectId,
+          schedule_activity_id: body.scheduleActivityId,
+          delay_days: body.delayDays,
+          reason_category: body.reasonCategory,
+          description: body.description,
+          mitigation_plan: body.mitigationPlan ?? null,
+          recorded_by: callerUserId,
+        });
+        reply.code(201);
+        return { delayRecord };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        reply.code(400);
+        return { error: (error as Error).message };
+      }
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/delays",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const delayRecords = await listScheduleDelayRecords(
+          options.getRepository(),
+          token,
+          request.params.projectId,
+        );
+        return { delayRecords };
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/schedule/variance",
+    { preHandler: options.requirePermission("tenancy.project.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const variance = await getScheduleVariance(
+          options.getRepository(),
+          token,
+          request.params.projectId,
+        );
+        return { variance };
       } catch (error) {
         if (error instanceof NotFoundError) {
           reply.code(404);

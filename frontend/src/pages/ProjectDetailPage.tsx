@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "../lib/api";
 import { UserPicker } from "../components/UserPicker";
 import { PermissionGate } from "../components/PermissionGate";
 import { EngineeringSection } from "../components/EngineeringSection";
+import { ScheduleGanttSection } from "../components/ScheduleGanttSection";
 
 type ProjectStatus = "active" | "on_hold" | "closed";
 type MilestoneStatus = "pending" | "achieved" | "missed";
@@ -612,6 +613,13 @@ export function ProjectDetailPage() {
           </div>
 
           {session && <EngineeringSection projectId={id as string} token={session.access_token} />}
+          {session && (
+            <ScheduleGanttSection
+              projectId={id as string}
+              token={session.access_token}
+              onActivityUpdated={load}
+            />
+          )}
 
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">

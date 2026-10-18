@@ -1,14 +1,18 @@
 import type {
   AddScheduleActivityDependencyInput,
+  CreateLookaheadActivityInput,
+  CreateLookaheadPlanInput,
   CreateMilestoneInput,
   CreateProjectInput,
   CreateProjectTypeInput,
   CreateRegisterEntryInput,
   CreateScheduleActivityInput,
+  CreateScheduleDelayRecordInput,
   CreateWBSNodeInput,
   ListRegisterEntriesFilters,
   ProjectsRepository,
   RecordProgressEntryInput,
+  UpdateLookaheadActivityInput,
   UpdateMilestoneInput,
   UpdateProjectInput,
   UpdateProjectTypeInput,
@@ -18,8 +22,14 @@ import type {
 } from "./repository.js";
 import {
   CLOSEOUT_ITEM_KEYS,
+  DELAY_REASON_CATEGORIES,
   REGISTER_ENTRY_KINDS,
   type CloseoutItemKey,
+  type DelayReasonCategory,
+  type GanttActivity,
+  type GanttScheduleResponse,
+  type LookaheadActivity,
+  type LookaheadPlan,
   type Milestone,
   type ProgressEntry,
   type Project,
@@ -33,6 +43,8 @@ import {
   type RegisterEntryKind,
   type ScheduleActivity,
   type ScheduleActivityDependency,
+  type ScheduleDelayRecord,
+  type ScheduleVarianceSummary,
   type WBSNode,
 } from "./types.js";
 import { getWorkflowInstance, startWorkflowInstance } from "../workflow/service.js";
@@ -666,4 +678,349 @@ export async function completeCloseoutItem(
   });
   if (!updated) throw new NotFoundError();
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule, CPM, Lookahead & Delays (ticket 0120, M18)
+// ---------------------------------------------------------------------------
+
+function calculateDurationDays(startStr: string | null, endStr: string | null): number {
+  if (!startStr || !endStr) return 1;
+  const start = new Date(startStr).getTime();
+  const end = new Date(endStr).getTime();
+  if (isNaN(start) || isNaN(end) || end < start) return 1;
+  const days = Math.round((end - start) / 86400000);
+  return Math.max(1, days);
+}
+
+export async function computeGanttSchedule(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<GanttScheduleResponse> {
+  await getProject(repo, accessToken, projectId);
+
+  const [activities, wbsNodes, baselines, delayRecords] = await Promise.all([
+    repo.listScheduleActivities(accessToken, projectId),
+    repo.listWBSNodes(accessToken, projectId),
+    repo.listBaselines(accessToken, projectId),
+    repo.listScheduleDelayRecords(accessToken, projectId),
+  ]);
+
+  const approvedBaseline = baselines.find((b) => b.status === "approved");
+  const baselineActivitiesMap = new Map<string, { planned_start: string | null; planned_end: string | null }>();
+  if (approvedBaseline && typeof approvedBaseline.snapshot === "object" && approvedBaseline.snapshot !== null) {
+    const snap = approvedBaseline.snapshot as { scheduleActivities?: Array<{ id: string; planned_start: string | null; planned_end: string | null }> };
+    if (Array.isArray(snap.scheduleActivities)) {
+      for (const act of snap.scheduleActivities) {
+        baselineActivitiesMap.set(act.id, { planned_start: act.planned_start ?? null, planned_end: act.planned_end ?? null });
+      }
+    }
+  }
+
+  const wbsMap = new Map(wbsNodes.map((w) => [w.id, w]));
+  const delayedActivityIds = new Set(delayRecords.map((d) => d.schedule_activity_id));
+
+  // Fetch dependencies for all activities
+  const activityDepsMap = new Map<string, string[]>();
+  await Promise.all(
+    activities.map(async (act) => {
+      const deps = await repo.listScheduleActivityDependencies(accessToken, act.id);
+      activityDepsMap.set(act.id, deps.map((d) => d.depends_on_activity_id));
+    }),
+  );
+
+  const validActivityIds = new Set(activities.map((a) => a.id));
+  const predsMap = new Map<string, string[]>();
+  const succsMap = new Map<string, string[]>();
+  for (const act of activities) {
+    predsMap.set(act.id, []);
+    succsMap.set(act.id, []);
+  }
+
+  for (const act of activities) {
+    const rawDeps = activityDepsMap.get(act.id) ?? [];
+    for (const predId of rawDeps) {
+      if (validActivityIds.has(predId) && predId !== act.id) {
+        predsMap.get(act.id)!.push(predId);
+        succsMap.get(predId)!.push(act.id);
+      }
+    }
+  }
+
+  const now = new Date();
+  const durations = new Map<string, number>();
+  for (const act of activities) {
+    durations.set(act.id, calculateDurationDays(act.planned_start, act.planned_end));
+  }
+
+  // Forward Pass (Canonical CPM)
+  const ES = new Map<string, number>();
+  const EF = new Map<string, number>();
+  const inDegree = new Map<string, number>();
+
+  for (const act of activities) {
+    const p = predsMap.get(act.id)!;
+    inDegree.set(act.id, p.length);
+    ES.set(act.id, 0);
+    EF.set(act.id, durations.get(act.id)!);
+  }
+
+  const forwardQueue: string[] = activities
+    .filter((a) => (inDegree.get(a.id) ?? 0) === 0)
+    .map((a) => a.id);
+
+  while (forwardQueue.length > 0) {
+    const currId = forwardQueue.shift()!;
+    const currEF = EF.get(currId)!;
+
+    for (const succId of succsMap.get(currId)!) {
+      const existingES = ES.get(succId) ?? 0;
+      if (currEF > existingES) {
+        ES.set(succId, currEF);
+        EF.set(succId, currEF + durations.get(succId)!);
+      }
+      inDegree.set(succId, (inDegree.get(succId) ?? 1) - 1);
+      if (inDegree.get(succId) === 0) {
+        forwardQueue.push(succId);
+      }
+    }
+  }
+
+  // Backward Pass (Canonical CPM)
+  const maxProjectFinish = activities.length > 0
+    ? Math.max(...activities.map((a) => EF.get(a.id) ?? 0))
+    : 0;
+
+  const LF = new Map<string, number>();
+  const LS = new Map<string, number>();
+  const outDegree = new Map<string, number>();
+
+  for (const act of activities) {
+    const s = succsMap.get(act.id)!;
+    outDegree.set(act.id, s.length);
+    LF.set(act.id, maxProjectFinish);
+    LS.set(act.id, maxProjectFinish - durations.get(act.id)!);
+  }
+
+  const backwardQueue: string[] = activities
+    .filter((a) => (outDegree.get(a.id) ?? 0) === 0)
+    .map((a) => a.id);
+
+  while (backwardQueue.length > 0) {
+    const currId = backwardQueue.shift()!;
+    const currLS = LS.get(currId)!;
+
+    for (const predId of predsMap.get(currId)!) {
+      const existingLF = LF.get(predId) ?? maxProjectFinish;
+      if (currLS < existingLF) {
+        LF.set(predId, currLS);
+        LS.set(predId, currLS - durations.get(predId)!);
+      }
+      outDegree.set(predId, (outDegree.get(predId) ?? 1) - 1);
+      if (outDegree.get(predId) === 0) {
+        backwardQueue.push(predId);
+      }
+    }
+  }
+
+  const ganttActivities: GanttActivity[] = activities.map((act) => {
+    const duration_days = durations.get(act.id) ?? 1;
+    const es = ES.get(act.id) ?? 0;
+    const ls = LS.get(act.id) ?? es;
+    const floatDays = Math.max(0, ls - es);
+    const is_critical = floatDays === 0;
+
+    let status: GanttActivity["status"] = "not_started";
+    const percent = act.percent_complete ?? 0;
+    if (percent >= 100 || act.actual_end) {
+      status = "completed";
+    } else if (delayedActivityIds.has(act.id)) {
+      status = "delayed";
+    } else if (act.planned_end && new Date(act.planned_end).getTime() < now.getTime() && percent < 100) {
+      status = "delayed";
+    } else if (percent > 0 || act.actual_start) {
+      status = "in_progress";
+    }
+
+    const wbs = act.wbs_node_id ? wbsMap.get(act.wbs_node_id) : undefined;
+    const baseSnapshot = baselineActivitiesMap.get(act.id);
+
+    return {
+      id: act.id,
+      wbs_node_id: act.wbs_node_id,
+      wbs_code: wbs?.code ?? null,
+      wbs_name: wbs?.name ?? null,
+      name: act.name,
+      planned_start: act.planned_start,
+      planned_end: act.planned_end,
+      actual_start: act.actual_start,
+      actual_end: act.actual_end,
+      baseline_start: baseSnapshot ? baseSnapshot.planned_start : (approvedBaseline ? null : act.planned_start),
+      baseline_end: baseSnapshot ? baseSnapshot.planned_end : (approvedBaseline ? null : act.planned_end),
+      percent_complete: percent,
+      dependencies: activityDepsMap.get(act.id) ?? [],
+      is_critical,
+      total_float_days: floatDays,
+      duration_days,
+      status,
+    };
+  });
+
+  const criticalPath = ganttActivities
+    .filter((a) => a.is_critical)
+    .sort((a, b) => (ES.get(a.id) ?? 0) - (ES.get(b.id) ?? 0))
+    .map((a) => a.id);
+
+  const completedActivities = ganttActivities.filter((a) => a.status === "completed").length;
+  const overallProgress = activities.length > 0
+    ? Math.round(ganttActivities.reduce((acc, a) => acc + a.percent_complete, 0) / activities.length)
+    : 0;
+
+  return {
+    project_id: projectId,
+    baseline_version: approvedBaseline?.version ?? null,
+    activities: ganttActivities,
+    critical_path: criticalPath,
+    total_activities: activities.length,
+    completed_activities: completedActivities,
+    overall_progress: overallProgress,
+  };
+}
+
+export async function createLookaheadPlan(
+  repo: ProjectsRepository,
+  accessToken: string,
+  input: CreateLookaheadPlanInput,
+): Promise<LookaheadPlan> {
+  if (!input.title.trim()) {
+    throw new Error("title is required");
+  }
+  if (input.period_end < input.period_start) {
+    throw new Error("period_end must be greater than or equal to period_start");
+  }
+  await getProject(repo, accessToken, input.project_id);
+  return repo.createLookaheadPlan(accessToken, input);
+}
+
+export async function listLookaheadPlans(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<LookaheadPlan[]> {
+  await getProject(repo, accessToken, projectId);
+  return repo.listLookaheadPlans(accessToken, projectId);
+}
+
+export async function getLookaheadPlanDetail(
+  repo: ProjectsRepository,
+  accessToken: string,
+  planId: string,
+): Promise<{ plan: LookaheadPlan; activities: LookaheadActivity[] }> {
+  const plan = await repo.getLookaheadPlan(accessToken, planId);
+  if (!plan) throw new NotFoundError();
+  const activities = await repo.listLookaheadActivities(accessToken, planId);
+  return { plan, activities };
+}
+
+export async function createLookaheadActivity(
+  repo: ProjectsRepository,
+  accessToken: string,
+  input: CreateLookaheadActivityInput,
+): Promise<LookaheadActivity> {
+  if (!input.planned_action.trim()) {
+    throw new Error("planned_action is required");
+  }
+  const plan = await repo.getLookaheadPlan(accessToken, input.lookahead_plan_id);
+  if (!plan) throw new NotFoundError("lookahead plan not found");
+  return repo.createLookaheadActivity(accessToken, input);
+}
+
+export async function updateLookaheadActivity(
+  repo: ProjectsRepository,
+  accessToken: string,
+  activityId: string,
+  input: UpdateLookaheadActivityInput,
+): Promise<LookaheadActivity> {
+  const updated = await repo.updateLookaheadActivity(accessToken, activityId, input);
+  if (!updated) throw new NotFoundError();
+  return updated;
+}
+
+export async function createScheduleDelayRecord(
+  repo: ProjectsRepository,
+  accessToken: string,
+  input: CreateScheduleDelayRecordInput,
+): Promise<ScheduleDelayRecord> {
+  if (input.delay_days <= 0) {
+    throw new Error("delay_days must be greater than 0");
+  }
+  if (!input.description.trim()) {
+    throw new Error("description is required");
+  }
+  await getProject(repo, accessToken, input.project_id);
+  return repo.createScheduleDelayRecord(accessToken, input);
+}
+
+export async function listScheduleDelayRecords(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ScheduleDelayRecord[]> {
+  await getProject(repo, accessToken, projectId);
+  return repo.listScheduleDelayRecords(accessToken, projectId);
+}
+
+export async function getScheduleVariance(
+  repo: ProjectsRepository,
+  accessToken: string,
+  projectId: string,
+): Promise<ScheduleVarianceSummary> {
+  const gantt = await computeGanttSchedule(repo, accessToken, projectId);
+  const delays = await repo.listScheduleDelayRecords(accessToken, projectId);
+
+  const delaysByCategory: Record<DelayReasonCategory, number> = {
+    client: 0,
+    design: 0,
+    procurement: 0,
+    subcontractor: 0,
+    weather: 0,
+    permits: 0,
+    other: 0,
+  };
+
+  let totalDelayDays = 0;
+  const delayedActIds = new Set<string>();
+  const criticalDelayedActIds = new Set<string>();
+  const criticalSet = new Set(gantt.critical_path);
+
+  for (const d of delays) {
+    totalDelayDays += d.delay_days;
+    delayedActIds.add(d.schedule_activity_id);
+    if (criticalSet.has(d.schedule_activity_id)) {
+      criticalDelayedActIds.add(d.schedule_activity_id);
+    }
+    if (d.reason_category in delaysByCategory) {
+      delaysByCategory[d.reason_category] += d.delay_days;
+    }
+  }
+
+  for (const act of gantt.activities) {
+    if (act.status === "delayed") {
+      delayedActIds.add(act.id);
+      if (act.is_critical) {
+        criticalDelayedActIds.add(act.id);
+      }
+    }
+  }
+
+  return {
+    project_id: projectId,
+    total_activities: gantt.total_activities,
+    delayed_activities_count: delayedActIds.size,
+    total_delay_days: totalDelayDays,
+    critical_delayed_count: criticalDelayedActIds.size,
+    delays_by_category: delaysByCategory,
+    total_float_consumed_days: totalDelayDays,
+  };
 }
