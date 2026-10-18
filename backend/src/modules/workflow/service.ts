@@ -312,6 +312,76 @@ export async function addConditionToVersion(
   });
 }
 
+export async function updateNodeConfig(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  nodeId: string,
+  config: Record<string, unknown>,
+): Promise<WorkflowNode> {
+  const version = await requireVersion(repository, accessToken, versionId);
+  if (version.status !== "draft") {
+    throw new VersionNotDraftError(`version ${versionId} is ${version.status}, not draft`);
+  }
+  return repository.updateNode(accessToken, nodeId, config);
+}
+
+export async function deleteNodeFromVersion(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  nodeId: string,
+): Promise<void> {
+  const version = await requireVersion(repository, accessToken, versionId);
+  if (version.status !== "draft") {
+    throw new VersionNotDraftError(`version ${versionId} is ${version.status}, not draft`);
+  }
+  return repository.deleteNode(accessToken, nodeId);
+}
+
+export async function deleteTransitionFromVersion(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  transitionId: string,
+): Promise<void> {
+  const version = await requireVersion(repository, accessToken, versionId);
+  if (version.status !== "draft") {
+    throw new VersionNotDraftError(`version ${versionId} is ${version.status}, not draft`);
+  }
+  return repository.deleteTransition(accessToken, transitionId);
+}
+
+export async function deleteConditionFromVersion(
+  repository: WorkflowRepository,
+  accessToken: string,
+  versionId: string,
+  conditionId: string,
+): Promise<void> {
+  const version = await requireVersion(repository, accessToken, versionId);
+  if (version.status !== "draft") {
+    throw new VersionNotDraftError(`version ${versionId} is ${version.status}, not draft`);
+  }
+  return repository.deleteCondition(accessToken, conditionId);
+}
+
+export interface UpdateWorkflowDefinitionMetaInput {
+  name?: string;
+  description?: string | null;
+}
+
+export async function updateWorkflowDefinitionMeta(
+  repository: WorkflowRepository,
+  accessToken: string,
+  id: string,
+  input: UpdateWorkflowDefinitionMetaInput,
+  updatedBy: string | null,
+): Promise<WorkflowDefinition> {
+  const definition = await repository.getDefinition(accessToken, id);
+  if (!definition) throw new WorkflowNotFoundError(`definition ${id} not found`);
+  return repository.updateWorkflowDefinitionMeta(accessToken, id, input, updatedBy);
+}
+
 export async function submitForApproval(
   repository: WorkflowRepository,
   accessToken: string,

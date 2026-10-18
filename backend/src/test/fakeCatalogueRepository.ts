@@ -1,7 +1,9 @@
 import type {
   CatalogueRepository,
+  CreateWorkItemInput,
   ImportCatalogueInput,
   ImportSummary,
+  UpdateSourceWorkItemFields,
   UpdateWorkItemFields,
 } from "../modules/catalogue/repository.js";
 import { applySearchInMemory, filterWorkItemsInMemory, toSummary } from "../modules/catalogue/repository.js";
@@ -95,6 +97,7 @@ export class FakeCatalogueRepository implements CatalogueRepository {
           configuration_status: "unconfigured",
           capability_key: null,
           workflow_template_id: null,
+          source_type: "imported" as const,
           current_version: 1,
           created_by: input.importedBy,
           updated_by: null,
@@ -160,6 +163,61 @@ export class FakeCatalogueRepository implements CatalogueRepository {
       .filter((v) => v.work_item_definition_id === id)
       .sort((a, b) => a.version - b.version);
     return { definition, source, versions };
+  }
+
+  async createWorkItem(_accessToken: string, input: CreateWorkItemInput): Promise<WorkItemDefinition> {
+    const sourceId = nextId("source");
+    const source: SourceWorkItem = {
+      id: sourceId,
+      tenant_id: null,
+      import_id: "",
+      source_serial: Date.now(),
+      department: input.department,
+      work_item_name: input.work_item_name,
+      who_is_responsible: input.who_is_responsible,
+      description: input.description ?? null,
+      trigger_text: input.trigger_text ?? null,
+      action_text: input.action_text ?? null,
+      output_evidence: input.output_evidence ?? null,
+      control_handoff: input.control_handoff ?? null,
+      continuity_escalation: input.continuity_escalation ?? null,
+      timing: input.timing ?? null,
+      governance_understanding: null,
+      governance_sop_inputs: null,
+    };
+    this.sourceWorkItemsById.set(sourceId, source);
+    const defId = nextId("definition");
+    const def: WorkItemDefinition = {
+      id: defId,
+      tenant_id: null,
+      source_work_item_id: sourceId,
+      canonical_role_id: input.canonical_role_id ?? null,
+      department_cluster: null,
+      disposition: input.disposition,
+      status: "draft",
+      priority: input.priority ?? null,
+      risk_tier: input.risk_tier ?? null,
+      phase_target: input.phase_target ?? null,
+      validation_state: "unvalidated",
+      configuration_status: "unconfigured",
+      capability_key: input.capability_key ?? null,
+      workflow_template_id: null,
+      ticket_ref: null,
+      source_type: "manual" as const,
+      current_version: 1,
+      created_by: input.created_by,
+      updated_by: null,
+    };
+    this.definitionsById.set(defId, def);
+    this.definitionsBySourceId.set(sourceId, def);
+    return def;
+  }
+
+  async updateSourceWorkItemFields(_accessToken: string, sourceWorkItemId: string, fields: UpdateSourceWorkItemFields): Promise<void> {
+    const source = this.sourceWorkItemsById.get(sourceWorkItemId);
+    if (!source) throw new Error(`updateSourceWorkItemFields: source ${sourceWorkItemId} not found`);
+    const updated = { ...source, ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined)) };
+    this.sourceWorkItemsById.set(sourceWorkItemId, updated as SourceWorkItem);
   }
 
   async updateWorkItemDefinition(

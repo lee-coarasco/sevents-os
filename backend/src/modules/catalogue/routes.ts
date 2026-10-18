@@ -1,8 +1,8 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
 import type { AuthenticatedRequest } from "../authority/guard.js";
 import type { CatalogueRepository } from "./repository.js";
-import { InvalidDispositionError, WorkItemNotFoundError, getWorkItem, listWorkItems, updateWorkItem } from "./service.js";
-import type { UpdateWorkItemInput } from "./service.js";
+import { InvalidDispositionError, WorkItemNotFoundError, createWorkItem, getWorkItem, listWorkItems, updateWorkItem } from "./service.js";
+import type { CreateWorkItemServiceInput, UpdateWorkItemInput } from "./service.js";
 import type { Disposition, PaginatedWorkItems, WorkItemStatus } from "./types.js";
 
 export interface CatalogueRouteOptions {
@@ -77,6 +77,26 @@ export async function catalogueRoutes(app: FastifyInstance, options: CatalogueRo
         return { error: "not found" };
       }
       return { workItem: detail };
+    },
+  );
+
+  app.post<{ Body: CreateWorkItemServiceInput }>(
+    "/catalogue/work-items",
+    { preHandler: options.requirePermission("catalogue.workitem.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      const callerUserId = (request as AuthenticatedRequest).authUserId ?? null;
+      try {
+        const workItem = await createWorkItem(options.getRepository(), token, request.body ?? {}, callerUserId);
+        reply.code(201);
+        return { workItem };
+      } catch (error) {
+        if (error instanceof InvalidDispositionError) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
     },
   );
 

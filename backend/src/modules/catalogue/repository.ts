@@ -36,6 +36,39 @@ export interface UpdateWorkItemFields {
   workflow_template_id?: string | null;
 }
 
+export interface CreateWorkItemInput {
+  work_item_name: string;
+  department: string;
+  who_is_responsible: string;
+  description?: string | null;
+  trigger_text?: string | null;
+  action_text?: string | null;
+  output_evidence?: string | null;
+  control_handoff?: string | null;
+  continuity_escalation?: string | null;
+  timing?: string | null;
+  disposition: Disposition;
+  canonical_role_id?: string | null;
+  priority?: string | null;
+  risk_tier?: string | null;
+  phase_target?: string | null;
+  capability_key?: string | null;
+  created_by: string | null;
+}
+
+export interface UpdateSourceWorkItemFields {
+  work_item_name?: string;
+  department?: string;
+  who_is_responsible?: string;
+  description?: string | null;
+  trigger_text?: string | null;
+  action_text?: string | null;
+  output_evidence?: string | null;
+  control_handoff?: string | null;
+  continuity_escalation?: string | null;
+  timing?: string | null;
+}
+
 /**
  * Same convention as modules/tenancy and modules/authority: mutating/
  * reading-as-the-caller methods take the caller's own access token and
@@ -51,6 +84,7 @@ export interface CatalogueRepository {
   importCatalogue(input: ImportCatalogueInput): Promise<ImportSummary>;
   listWorkItems(accessToken: string, filters: WorkItemFilters): Promise<WorkItemSummary[]>;
   getWorkItemDetail(accessToken: string, id: string): Promise<WorkItemDetail | null>;
+  createWorkItem(accessToken: string, input: CreateWorkItemInput): Promise<WorkItemDefinition>;
   updateWorkItemDefinition(
     accessToken: string,
     id: string,
@@ -58,6 +92,7 @@ export interface CatalogueRepository {
     nextVersion: number,
     updatedBy: string | null,
   ): Promise<WorkItemDefinition>;
+  updateSourceWorkItemFields(accessToken: string, sourceWorkItemId: string, fields: UpdateSourceWorkItemFields): Promise<void>;
   insertDefinitionVersion(
     accessToken: string,
     definitionId: string,
@@ -337,6 +372,49 @@ export function createSupabaseCatalogueRepository(
       };
     },
 
+    async createWorkItem(_accessToken, input) {
+      // Insert a manual source_work_item first, then the work_item_definition.
+      const sourceSerial = Date.now(); // synthetic serial for manual items
+      const { data: sourceRow, error: sourceError } = await serviceClient
+        .from("source_work_items")
+        .insert({
+          source_serial: sourceSerial,
+          department: input.department,
+          work_item_name: input.work_item_name,
+          who_is_responsible: input.who_is_responsible,
+          description: input.description ?? null,
+          trigger_text: input.trigger_text ?? null,
+          action_text: input.action_text ?? null,
+          output_evidence: input.output_evidence ?? null,
+          control_handoff: input.control_handoff ?? null,
+          continuity_escalation: input.continuity_escalation ?? null,
+          timing: input.timing ?? null,
+          import_id: null,
+        })
+        .select("id")
+        .single();
+      if (sourceError || !sourceRow) throw new Error(`createWorkItem (source row): ${sourceError?.message ?? "no row returned"}`);
+
+      const { data: defRow, error: defError } = await serviceClient
+        .from("work_item_definitions")
+        .insert({
+          source_work_item_id: sourceRow.id as string,
+          disposition: input.disposition,
+          canonical_role_id: input.canonical_role_id ?? null,
+          priority: input.priority ?? null,
+          risk_tier: input.risk_tier ?? null,
+          phase_target: input.phase_target ?? null,
+          capability_key: input.capability_key ?? null,
+          source_type: "manual",
+          current_version: 1,
+          created_by: input.created_by,
+        })
+        .select("*")
+        .single();
+      if (defError || !defRow) throw new Error(`createWorkItem (definition): ${defError?.message ?? "no row returned"}`);
+      return defRow as WorkItemDefinition;
+    },
+
     async updateWorkItemDefinition(_accessToken, id, fields, nextVersion, updatedBy) {
       // Service client: catalogue rows are global (tenant_id IS NULL); app-layer
       // auth is already enforced by requirePermission("catalogue.workitem.manage").
@@ -348,6 +426,16 @@ export function createSupabaseCatalogueRepository(
         .single();
       if (error || !data) throw new Error(`updateWorkItemDefinition: ${error?.message ?? "no row returned"}`);
       return data as WorkItemDefinition;
+    },
+
+    async updateSourceWorkItemFields(_accessToken, sourceWorkItemId, fields) {
+      const updatePayload: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined) updatePayload[key] = value;
+      }
+      if (Object.keys(updatePayload).length === 0) return;
+      const { error } = await serviceClient.from("source_work_items").update(updatePayload).eq("id", sourceWorkItemId);
+      if (error) throw new Error(`updateSourceWorkItemFields: ${error.message}`);
     },
 
     async insertDefinitionVersion(_accessToken, definitionId, version, snapshot, changeNote, createdBy) {

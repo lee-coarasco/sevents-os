@@ -91,6 +91,7 @@ export interface WorkItemDefinition {
   capability_key: string | null;
   workflow_template_id: string | null;
   ticket_ref: string | null;
+  source_type: "imported" | "manual";
   current_version: number;
   created_by: string | null;
   updated_by: string | null;

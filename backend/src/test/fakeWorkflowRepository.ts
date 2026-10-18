@@ -232,6 +232,18 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     return node;
   }
 
+  async updateNode(_accessToken: string, nodeId: string, config: Record<string, unknown>): Promise<WorkflowNode> {
+    const node = this.nodesById.get(nodeId);
+    if (!node) throw new Error(`updateNode: node ${nodeId} not found`);
+    const updated = { ...node, config };
+    this.nodesById.set(nodeId, updated);
+    return updated;
+  }
+
+  async deleteNode(_accessToken: string, nodeId: string): Promise<void> {
+    this.nodesById.delete(nodeId);
+  }
+
   async addTransition(_accessToken: string, input: AddTransitionInput): Promise<WorkflowTransition> {
     const transition: WorkflowTransition = {
       id: nextId("workflow-transition"),
@@ -246,6 +258,10 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     return transition;
   }
 
+  async deleteTransition(_accessToken: string, transitionId: string): Promise<void> {
+    this.transitionsById.delete(transitionId);
+  }
+
   async addCondition(_accessToken: string, input: AddConditionInput): Promise<WorkflowCondition> {
     const condition: WorkflowCondition = {
       id: nextId("workflow-condition"),
@@ -256,6 +272,18 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     };
     this.conditionsById.set(condition.id, condition);
     return condition;
+  }
+
+  async deleteCondition(_accessToken: string, conditionId: string): Promise<void> {
+    this.conditionsById.delete(conditionId);
+  }
+
+  async updateWorkflowDefinitionMeta(_accessToken: string, id: string, fields: { name?: string; description?: string | null }, updatedBy: string | null): Promise<WorkflowDefinition> {
+    const def = this.definitionsById.get(id);
+    if (!def) throw new Error(`updateWorkflowDefinitionMeta: definition ${id} not found`);
+    const updated = { ...def, ...fields, updated_by: updatedBy };
+    this.definitionsById.set(id, updated);
+    return updated;
   }
 
   async getVersionGraph(_accessToken: string, versionId: string): Promise<WorkflowVersionGraph> {
