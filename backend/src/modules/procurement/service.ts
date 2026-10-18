@@ -514,3 +514,14 @@ export async function updatePurchaseOrderItemDelivery(
 
   return updated;
 }
+
+export async function removePurchaseOrderItem(
+  repo: ProcurementRepository,
+  accessToken: string,
+  itemId: string,
+): Promise<boolean> {
+  const removed = await repo.removePurchaseOrderItem(accessToken, itemId);
+  if (!removed) throw new NotFoundError("PurchaseOrderItem", itemId);
+  return true;
+}
+
