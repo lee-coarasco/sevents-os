@@ -837,6 +837,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M24 onward in CLAUDE.md's build order table (M24 Insurance, M26 Logistics & Customs, M27 Real Estate, … through M38) has no code. Don't assume
+Everything from M24 onward in CLAUDE.md's build order table (M24 People, Recruitment & Performance, M26 Customer/Stakeholder Communications, M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.
