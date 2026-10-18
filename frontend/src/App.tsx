@@ -25,6 +25,7 @@ import { WorkflowDefinitionDetailPage } from "./pages/WorkflowDefinitionDetailPa
 import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
 import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { ProcurementPage } from "./pages/ProcurementPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -113,6 +114,14 @@ export function App() {
               }
             />
             <Route path="documents/:id" element={<DocumentDetailPage />} />
+            <Route
+              path="procurement"
+              element={
+                <ProtectedRoute anyPermission={["procurement.requisition.manage", "procurement.po.manage", "procurement.vendor.manage"]}>
+                  <ProcurementPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="catalogue"
               element={

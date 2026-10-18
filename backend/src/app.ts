@@ -86,6 +86,11 @@ import {
   createSupabaseSiteRepository,
   type SiteRepository,
 } from "./modules/site/repository.js";
+import { procurementRoutes } from "./modules/procurement/routes.js";
+import {
+  createSupabaseProcurementRepository,
+  type ProcurementRepository,
+} from "./modules/procurement/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -133,6 +138,8 @@ export interface BuildAppOptions {
   getEngineeringRepository?: () => EngineeringRepository;
   /** Override for tests; defaults to a Supabase-backed repository. */
   getSiteRepository?: () => SiteRepository;
+  /** Override for tests; defaults to a Supabase-backed repository. */
+  getProcurementRepository?: () => ProcurementRepository;
 }
 
 let cachedIdentityRepository: IdentityRepository | null = null;
@@ -299,6 +306,15 @@ function defaultSiteRepository(): SiteRepository {
   return cachedSiteRepository;
 }
 
+let cachedProcurementRepository: ProcurementRepository | null = null;
+
+function defaultProcurementRepository(): ProcurementRepository {
+  if (!cachedProcurementRepository) {
+    cachedProcurementRepository = createSupabaseProcurementRepository(createUserScopedClient);
+  }
+  return cachedProcurementRepository;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
@@ -407,6 +423,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(siteRoutes, {
     getRepository: options.getSiteRepository ?? defaultSiteRepository,
+    requirePermission: guard,
+  });
+
+  app.register(procurementRoutes, {
+    getRepository: options.getProcurementRepository ?? defaultProcurementRepository,
     requirePermission: guard,
   });
 

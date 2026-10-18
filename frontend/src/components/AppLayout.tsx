@@ -136,6 +136,9 @@ export function AppLayout() {
               "site.dpr.manage",
               "site.dpr.approve",
               "site.instruction.manage",
+              "procurement.requisition.manage",
+              "procurement.po.manage",
+              "procurement.vendor.manage",
             ]}
           >
             <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
@@ -155,6 +158,14 @@ export function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
                 </svg>
                 Site Operations &amp; DPR
+              </NavLink>
+            </PermissionGate>
+            <PermissionGate anyPermission={["procurement.requisition.manage", "procurement.po.manage", "procurement.vendor.manage"]}>
+              <NavLink to="/procurement" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                </svg>
+                Procurement &amp; Orders
               </NavLink>
             </PermissionGate>
             <PermissionGate permission="crm.lead.manage">

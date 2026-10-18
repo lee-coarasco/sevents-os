@@ -560,6 +560,29 @@ banner instead of silently failing.
 
 ---
 
+## M14 — Procurement, Requisitions & Purchase Orders
+
+**Status:** done (ticket 0161)
+
+**What's built:** Backend `procurement` module (`/procurement/vendors`, `/procurement/requisitions`, `/procurement/orders`, `/projects/:projectId/procurement/...`) with multi-tenant RLS isolation and permission enforcement.
+Frontend: `ProcurementPage`, nav label "Procurement & Orders" under Projects at `/procurement`.
+
+**How to use it:**
+- Navigate to "Procurement & Orders" from the sidebar navigation (under Projects) or go to `/procurement`.
+- **Approved Vendor List (AVL)**: Switch to the "Approved Vendor List (AVL)" tab to view and filter registered suppliers by category (`materials`, `plant_machinery`, `services`, `specialist_contractor`) or KYC status (`active`, `pending_kyc`, `suspended`, `blacklisted`). Click "+ Register New Vendor" to onboard vendors with trade license (TL), tax registration number (TRN), contact details, and performance star ratings.
+- **Purchase Requisitions (PR)**:
+  - View project requisitions with priority badges (`low`, `normal`, `urgent`) and status pills.
+  - Click "+ New Requisition" to draft a material requirement with required delivery date.
+  - Click "View Items" to open the requisition drawer, add line items with cost codes, quantities, and estimated unit rates (which auto-computes line totals and requisition total estimated value).
+  - Click "Submit for Approval" when items are finalized. Authorizers can click "Approve Requisition" or "Return / Reject" with specific revision feedback.
+- **Purchase Orders (PO)**:
+  - View official purchase orders issued to approved vendors with subtotal, 5% UAE VAT, and total order amounts.
+  - Click "+ New Purchase Order" to generate an order linked to an approved vendor and delivery address.
+  - Click "Manage" to open the PO drawer, add order line items (which automatically updates order subtotal, adds 5% VAT, and recalculates total amount), and issue the PO.
+  - Update line-level delivery status (`pending` → `partial` → `delivered`) to track material deliveries to the project site. When all line items are delivered, the PO status automatically transitions to `delivered`.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
