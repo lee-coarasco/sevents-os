@@ -32,6 +32,7 @@ import { QualityPage } from "./pages/QualityPage";
 import { SafetyPage } from "./pages/SafetyPage";
 import { EquipmentPage } from "./pages/EquipmentPage";
 import { FinancePage } from "./pages/FinancePage";
+import { BillingPage } from "./pages/BillingPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -173,6 +174,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["finance.budget.manage", "finance.budget.approve", "finance.forecast.manage", "finance.expense.manage", "finance.expense.approve", "finance.period.manage"]}>
                   <FinancePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="billing"
+              element={
+                <ProtectedRoute anyPermission={["billing.application.manage", "billing.application.certify", "billing.invoice.manage", "billing.receipt.record", "billing.vendor_bill.manage", "billing.vendor_bill.approve", "billing.retention.manage"]}>
+                  <BillingPage />
                 </ProtectedRoute>
               }
             />

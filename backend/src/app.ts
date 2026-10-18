@@ -121,6 +121,11 @@ import {
   createSupabaseFinanceRepository,
   type FinanceRepository,
 } from "./modules/finance/repository.js";
+import { registerBillingRoutes } from "./modules/billing/routes.js";
+import {
+  createSupabaseBillingRepository,
+  type BillingRepository,
+} from "./modules/billing/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -180,6 +185,16 @@ export interface BuildAppOptions {
   getSafetyRepository?: () => SafetyRepository;
   getEquipmentRepository?: () => EquipmentRepository;
   getFinanceRepository?: () => FinanceRepository;
+  getBillingRepository?: () => BillingRepository;
+}
+
+let cachedBillingRepository: BillingRepository | null = null;
+
+function defaultBillingRepository(): BillingRepository {
+  if (!cachedBillingRepository) {
+    cachedBillingRepository = createSupabaseBillingRepository(createUserScopedClient);
+  }
+  return cachedBillingRepository;
 }
 
 let cachedFinanceRepository: FinanceRepository | null = null;
@@ -552,6 +567,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerFinanceRoutes({
     getRepository: options.getFinanceRepository ?? defaultFinanceRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerBillingRoutes({
+    getRepository: options.getBillingRepository ?? defaultBillingRepository,
     permissionGuard: guard,
   }));
 

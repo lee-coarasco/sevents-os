@@ -759,6 +759,33 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M22: Billing, Invoicing, Receivables & Payables
+
+- **Route**: `/billing`
+- **Requires permission**: Any of `billing.application.manage`, `billing.application.certify`, `billing.invoice.manage`, `billing.receipt.record`, `billing.vendor_bill.manage`, `billing.vendor_bill.approve`, `billing.retention.manage`.
+- **Primary personas**: Quantity Surveyor, Senior Accountant (Lead), Accountant, CFO.
+
+### What it does
+
+- **Client Applications for Payment (Interim Payment Certificates / IPC)**:
+  - Submit progressive work valuations by project and milestone cut-off date.
+  - Automatically calculates advance recovery deduction and 10% standard construction retention withholding.
+  - Automatically computes net certified valuation and 5% UAE VAT.
+  - Commercial Lead / Project Lead signs and certifies IPCs (`submitted` -> `certified`).
+- **Official Tax Invoices & Accounts Receivable (AR)**:
+  - Generates VAT-compliant tax invoices linked to certified payment applications or standalone advance payments.
+  - Real-time Accounts Receivable (AR) aging analysis: Current (<=30 days), 31-60 days, 61-90 days, and 90+ days overdue.
+  - Client collection receipt recording (`bank_transfer`, `cheque`, `credit_card`) automatically updating invoice paid amounts and status (`unpaid` -> `partially_paid` -> `paid`).
+- **Vendor Bills & Accounts Payable (AP) with 3-Way Match**:
+  - Registers supplier and subcontractor tax invoices against project cost codes and Purchase Orders (PO).
+  - Automated 3-way match checking against PO amounts; flags discrepancies > 2% as `Variance Flagged`.
+  - Senior Accountant bill approval and payment run voucher recording.
+- **Retention Ledger & DLP Release Controls**:
+  - Segregated tracking of Client Retentions (Receivable) and Subcontractor Retentions (Payable).
+  - Two-stage milestone releases: 50% release upon Substantial Completion / Taking-Over Certificate (TOC) and 50% release upon Defect Liability Period (DLP) expiry.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -784,6 +811,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M22 onward in CLAUDE.md's build order table (M22 Billing, Invoicing, Receivables & Payables, … through M38) has no code. Don't assume
+Everything from M23 onward in CLAUDE.md's build order table (M23 Contracts, Claims, Variations & EOT, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.
