@@ -116,6 +116,11 @@ import {
   createSupabaseEquipmentRepository,
   type EquipmentRepository,
 } from "./modules/equipment/repository.js";
+import { registerFinanceRoutes } from "./modules/finance/routes.js";
+import {
+  createSupabaseFinanceRepository,
+  type FinanceRepository,
+} from "./modules/finance/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -174,6 +179,16 @@ export interface BuildAppOptions {
   /** Override for tests; defaults to a Supabase-backed repository. */
   getSafetyRepository?: () => SafetyRepository;
   getEquipmentRepository?: () => EquipmentRepository;
+  getFinanceRepository?: () => FinanceRepository;
+}
+
+let cachedFinanceRepository: FinanceRepository | null = null;
+
+function defaultFinanceRepository(): FinanceRepository {
+  if (!cachedFinanceRepository) {
+    cachedFinanceRepository = createSupabaseFinanceRepository(createUserScopedClient);
+  }
+  return cachedFinanceRepository;
 }
 
 let cachedEquipmentRepository: EquipmentRepository | null = null;
@@ -532,6 +547,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerEquipmentRoutes({
     getRepository: options.getEquipmentRepository ?? defaultEquipmentRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerFinanceRoutes({
+    getRepository: options.getFinanceRepository ?? defaultFinanceRepository,
     permissionGuard: guard,
   }));
 

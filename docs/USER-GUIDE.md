@@ -725,6 +725,40 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M21 — Finance, Budgets & Cost Control
+
+**Status:** done (ticket 0167); backend `finance` module, database migrations, and frontend screen `FinancePage` mounted at `/finance`. Starts Phase 6 (Finance, billing and contracts).
+
+**What's built:**
+- **Cost Code Master & Cost Breakdown Structure (CBS)**: Hierarchical project cost codes categorized across `materials`, `labour`, `subcontractor`, `equipment`, and `overhead`.
+- **Project Budgets & Variance Reporting**: Multi-version project budgets with baseline locking (`draft` &rarr; `submitted` &rarr; `approved` &rarr; `locked_baseline`). Detailed line-item CBS tracking original budget, revised budget, committed expenditures, actual costs incurred, accruals, estimate-to-complete (ETC), estimate-at-completion (EAC = Actuals + ETC), and projected cost variance (Revised - EAC).
+- **Budget Revisions & Reallocations**: Controlled transfer workflow between cost codes or contingency reserves with reason justification and managerial approval.
+- **Expense Claims & Petty Cash**: Employee and site direct costs with cost code allocation, currency selection (default AED), receipt tracking, and multi-stage approval (`draft` &rarr; `submitted` &rarr; `approved` &rarr; `paid`).
+- **Financial Period Governance & Period Close**: Accounting period management with `open`, `closing_in_progress`, and `closed` states. Strictly enforces period lock protection (FR-FIN-003) — backdating expenses or transactions into closed periods is automatically rejected.
+
+**How to use it:**
+- Navigate to "Finance & Budgets" from the sidebar navigation (under Projects) or go to `/finance`.
+- **Budget & Cost Variance (CBS)**:
+  - Real-time KPI summary cards display Approved Budget, Total Commitments, Incurred Actuals, EAC, and Projected Variance (color-coded green for surplus, red for overrun).
+  - Filter cost breakdown by category (`materials`, `labour`, `subcontractor`, `equipment`, `overhead`).
+  - Click "+ Setup Project Budget" to start a new project baseline.
+  - Click "+ Add Budget Line" to add or update cost codes with original/revised budgets and estimate-to-complete.
+  - Click "Submit Budget" when lines are drafted. CFO / Finance Managers click "Approve & Lock Baseline" to formally lock the budget version.
+- **Budget Revisions & Transfers**:
+  - Switch to the "Budget Revisions & Transfers" tab to view reallocations.
+  - Click "+ Request Budget Transfer" to specify source/destination cost codes, transfer amount, and scope justification.
+  - Commercial / Finance approvers click "Approve" or "Reject".
+- **Expense Claims & Petty Cash**:
+  - Switch to the "Expense Claims & Petty Cash" tab to review staff reimbursement claims.
+  - Click "+ Submit Expense Claim" to record claimant, claim date, cost code, amount, currency, description, and receipt reference.
+  - Authorized managers click "Approve", and finance marks the claim "Mark Paid" once disbursed.
+- **Financial Periods & Controls**:
+  - Switch to the "Financial Periods & Controls" tab to review monthly fiscal ledgers.
+  - Click "+ Open New Period" to initialize an accounting month.
+  - Financial Controllers click "Close Accounting Period" to close and freeze the ledger against retroactive adjustments.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -750,6 +784,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M21 onward in CLAUDE.md's build order table (M21 Finance, Budgets & Cost Control, … through M38) has no code. Don't assume
+Everything from M22 onward in CLAUDE.md's build order table (M22 Billing, Invoicing, Receivables & Payables, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

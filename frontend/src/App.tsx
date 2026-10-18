@@ -31,6 +31,7 @@ import { SubcontractorsPage } from "./pages/SubcontractorsPage";
 import { QualityPage } from "./pages/QualityPage";
 import { SafetyPage } from "./pages/SafetyPage";
 import { EquipmentPage } from "./pages/EquipmentPage";
+import { FinancePage } from "./pages/FinancePage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -164,6 +165,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["equipment.asset.manage", "equipment.allocation.manage", "equipment.allocation.approve", "equipment.log.manage", "equipment.maintenance.manage", "equipment.certificate.manage"]}>
                   <EquipmentPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="finance"
+              element={
+                <ProtectedRoute anyPermission={["finance.budget.manage", "finance.budget.approve", "finance.forecast.manage", "finance.expense.manage", "finance.expense.approve", "finance.period.manage"]}>
+                  <FinancePage />
                 </ProtectedRoute>
               }
             />
