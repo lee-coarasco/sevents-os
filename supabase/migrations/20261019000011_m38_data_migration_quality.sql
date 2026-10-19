@@ -41,14 +41,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Grant permissions to Platform Administrator and Company Administrator
 INSERT INTO public.role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM public.roles r
-CROSS JOIN (
-    SELECT unnest(ARRAY[
-        'migration.job.view',
-        'migration.import.execute',
-        'migration.rollback.execute'
-    ]) as id
-) p
-WHERE r.key IN ('role.platform_administrator', 'role.company_administrator')
+VALUES 
+    ('role.platform_administrator', 'migration.job.view'),
+    ('role.platform_administrator', 'migration.import.execute'),
+    ('role.platform_administrator', 'migration.rollback.execute'),
+    ('role.company_administrator', 'migration.job.view'),
+    ('role.company_administrator', 'migration.import.execute'),
+    ('role.company_administrator', 'migration.rollback.execute')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
+
