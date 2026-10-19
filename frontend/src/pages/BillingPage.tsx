@@ -532,7 +532,7 @@ export function BillingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-            Billing, Invoicing & Receivables / Payables (M22)
+            Billing, Invoicing &amp; Receivables / Payables
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
             Interim payment certificates (IPC), progressive valuations, UAE 5% VAT invoicing, 3-way matching, and retention ledgers.

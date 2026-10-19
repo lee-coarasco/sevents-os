@@ -311,9 +311,6 @@ export function PlatformAdminPage() {
             <h1 className="font-heading text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
               Platform Administration &amp; Support
             </h1>
-            <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">
-              Module M36
-            </span>
           </div>
           <p className="mt-1 text-sm text-zinc-500">
             Tenant configuration, system health telemetry, experimental feature flags, maintenance windows, and helpdesk support.

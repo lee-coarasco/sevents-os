@@ -167,7 +167,7 @@ describe("M22: Billing, Invoicing, Receivables & Payables Page", () => {
   it("renders page header, KPI cards, and payment applications table", async () => {
     renderComponent();
 
-    expect(await screen.findByText(/Billing, Invoicing & Receivables \/ Payables \(M22\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Billing, Invoicing & Receivables \/ Payables/i)).toBeInTheDocument();
     expect(screen.getByText(/Certified Progress \(Net\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Accounts Receivable \(AR\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Accounts Payable \(AP\)/i)).toBeInTheDocument();

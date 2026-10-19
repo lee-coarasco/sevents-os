@@ -317,9 +317,6 @@ export function IntegrationsPage() {
             <h1 className="font-heading text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
               Integrations &amp; API Management
             </h1>
-            <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">
-              Module M34
-            </span>
           </div>
           <p className="mt-1 text-sm text-zinc-500">
             Secure developer gateway: machine-to-machine API tokens, real-time outbound webhooks, enterprise ERP connectors, and audit logs.
