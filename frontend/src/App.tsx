@@ -41,6 +41,7 @@ import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { PlatformAdminPage } from "./pages/PlatformAdminPage";
 import { FieldModePage } from "./pages/FieldModePage";
 import { MigrationPage } from "./pages/MigrationPage";
+import { AiKnowledgePage } from "./pages/AiKnowledgePage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { OfflineSyncProvider } from "./context/OfflineSyncContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -259,6 +260,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["migration.job.view", "migration.import.execute"]}>
                   <MigrationPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ai/knowledge"
+              element={
+                <ProtectedRoute anyPermission={["ai.assistant.query", "ai.knowledge.manage"]}>
+                  <AiKnowledgePage />
                 </ProtectedRoute>
               }
             />

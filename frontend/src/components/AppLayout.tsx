@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthContext";
@@ -5,6 +6,7 @@ import { NotificationBell } from "./NotificationBell";
 import { OfflineSyncBadge } from "./OfflineSyncBadge";
 import { PermissionGate } from "./PermissionGate";
 import { clearPermissionsCache } from "../context/PermissionsContext";
+import { AiAssistantDrawer } from "./AiAssistantDrawer";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -16,6 +18,18 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function AppLayout() {
   const { session } = useAuth();
   const initials = session?.user.email?.slice(0, 2).toUpperCase() ?? "?";
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setIsAiAssistantOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-stone-50 font-body">
@@ -357,6 +371,17 @@ export function AppLayout() {
               </NavLink>
             </PermissionGate>
           </PermissionGate>
+          <PermissionGate anyPermission={["ai.assistant.query", "ai.knowledge.manage"]}>
+            <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+              Intelligence
+            </p>
+            <NavLink to="/ai/knowledge" className={navLinkClass}>
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              AI Knowledge Base
+            </NavLink>
+          </PermissionGate>
         </nav>
 
         {/* User footer */}
@@ -390,6 +415,19 @@ export function AppLayout() {
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-100 bg-white px-8">
           <div />
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAiAssistantOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-amber-100 transition-colors shadow-xs"
+              title="Open AI Knowledge Assistant (Ctrl+/)"
+            >
+              <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span>AI Assistant</span>
+              <kbd className="hidden sm:inline rounded bg-white px-1 py-0.2 font-mono text-[10px] text-zinc-500 border border-zinc-200">
+                Ctrl+/
+              </kbd>
+            </button>
             <OfflineSyncBadge />
             <NotificationBell />
             <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50">
@@ -401,6 +439,9 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating AI Assistant Drawer */}
+      <AiAssistantDrawer isOpen={isAiAssistantOpen} onClose={() => setIsAiAssistantOpen(false)} />
     </div>
   );
 }
