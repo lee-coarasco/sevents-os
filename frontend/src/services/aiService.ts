@@ -114,4 +114,35 @@ export const aiService = {
       body: JSON.stringify(payload),
     });
   },
+
+  async listProviders(token: string): Promise<ProviderMeta[]> {
+    const res = await apiFetch<{ providers: ProviderMeta[] }>("/ai/providers", token);
+    return res.providers;
+  },
+
+  async testProvider(
+    token: string,
+    provider: string,
+    apiKey?: string
+  ): Promise<{ ok: boolean; message: string; latencyMs: number }> {
+    const res = await apiFetch<{ result: { ok: boolean; message: string; latencyMs: number } }>(
+      "/ai/providers/test",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ provider, apiKey }),
+      }
+    );
+    return res.result;
+  },
 };
+
+export interface ProviderMeta {
+  id: "openai" | "gemini" | "anthropic" | "azure" | "local";
+  name: string;
+  defaultModel: string;
+  supportedModels: string[];
+  isConfigured: boolean;
+  requiresKey: boolean;
+}
+

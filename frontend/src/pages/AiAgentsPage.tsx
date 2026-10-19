@@ -7,6 +7,7 @@ import {
   type AgentExecution,
   type HitlPolicy,
 } from "../services/agentService";
+import { aiService } from "../services/aiService";
 
 export function AiAgentsPage() {
   const { session } = useAuth();
@@ -16,8 +17,13 @@ export function AiAgentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tabs: studio | console | tools | audit
-  const [activeTab, setActiveTab] = useState<"studio" | "console" | "tools" | "audit">("studio");
+  // Tabs: studio | console | tools | audit | providers
+  const [activeTab, setActiveTab] = useState<"studio" | "console" | "tools" | "audit" | "providers">("studio");
+
+  // Providers State
+  const [providers, setProviders] = useState<Array<{ id: string; name: string; defaultModel: string; supportedModels: string[]; isConfigured: boolean; requiresKey: boolean }>>([]);
+  const [providerTestingId, setProviderTestingId] = useState<string | null>(null);
+  const [providerTestResults, setProviderTestResults] = useState<Record<string, { ok: boolean; message: string; latencyMs: number }>>({});
 
   // Console State
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
@@ -50,14 +56,16 @@ export function AiAgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [agentList, toolList, execList] = await Promise.all([
+      const [agentList, toolList, execList, provList] = await Promise.all([
         agentService.listAgents(session.access_token),
         agentService.listTools(session.access_token),
         agentService.listExecutions(session.access_token),
+        aiService.listProviders(session.access_token).catch(() => []),
       ]);
       setAgents(agentList);
       setTools(toolList);
       setExecutions(execList);
+      setProviders(provList);
       if (agentList.length > 0 && !selectedAgentId) {
         setSelectedAgentId(agentList[0].id);
       }
@@ -71,6 +79,22 @@ export function AiAgentsPage() {
   useEffect(() => {
     loadData();
   }, [session?.access_token]);
+
+  const handleTestProvider = async (providerId: string) => {
+    if (!session?.access_token || providerTestingId) return;
+    setProviderTestingId(providerId);
+    try {
+      const res = await aiService.testProvider(session.access_token, providerId);
+      setProviderTestResults((prev) => ({ ...prev, [providerId]: res }));
+    } catch (err: any) {
+      setProviderTestResults((prev) => ({
+        ...prev,
+        [providerId]: { ok: false, message: err.message || "Connection failed", latencyMs: 0 },
+      }));
+    } finally {
+      setProviderTestingId(null);
+    }
+  };
 
   const handleRunAgent = async (presetPrompt?: string) => {
     const promptToSend = (presetPrompt || consolePrompt).trim();
@@ -280,6 +304,16 @@ export function AiAgentsPage() {
           }`}
         >
           Execution History &amp; Audit ({executions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("providers")}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "providers"
+              ? "border-zinc-900 text-zinc-900"
+              : "border-transparent text-zinc-500 hover:text-zinc-800"
+          }`}
+        >
+          AI Providers &amp; Adapters ({providers.length || 5})
         </button>
       </div>
 
@@ -772,6 +806,178 @@ export function AiAgentsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: AI PROVIDERS & ADAPTERS */}
+          {activeTab === "providers" && (
+            <div className="space-y-6">
+              {/* Architecture Intro */}
+              <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-zinc-900">
+                    Pluggable Multi-Provider AI Architecture
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    SEVENTS OS supports pluggable LLM &amp; vector embedding providers. Seamlessly switch between cloud AI models or air-gapped local engines.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-zinc-100 px-3 py-1.5 text-xs text-zinc-700 font-mono">
+                  Default Provider: <span className="font-bold text-zinc-900">Auto-Detected</span>
+                </div>
+              </div>
+
+              {/* Providers Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {(providers.length > 0
+                  ? providers
+                  : [
+                      {
+                        id: "openai",
+                        name: "OpenAI",
+                        defaultModel: "gpt-4o-mini",
+                        supportedModels: ["gpt-4o-mini", "gpt-4o", "text-embedding-3-small"],
+                        isConfigured: false,
+                        requiresKey: true,
+                      },
+                      {
+                        id: "gemini",
+                        name: "Google Gemini",
+                        defaultModel: "gemini-1.5-flash",
+                        supportedModels: ["gemini-1.5-flash", "gemini-1.5-pro", "text-embedding-004"],
+                        isConfigured: false,
+                        requiresKey: true,
+                      },
+                      {
+                        id: "anthropic",
+                        name: "Anthropic Claude",
+                        defaultModel: "claude-3-5-sonnet-20241022",
+                        supportedModels: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+                        isConfigured: false,
+                        requiresKey: true,
+                      },
+                      {
+                        id: "azure",
+                        name: "Azure OpenAI",
+                        defaultModel: "gpt-4o",
+                        supportedModels: ["gpt-4o", "text-embedding-3-small"],
+                        isConfigured: false,
+                        requiresKey: true,
+                      },
+                      {
+                        id: "local",
+                        name: "SEVENTS Local Engine",
+                        defaultModel: "sevents-local-v1",
+                        supportedModels: ["sevents-local-v1", "deterministic-1536"],
+                        isConfigured: true,
+                        requiresKey: false,
+                      },
+                    ]
+                ).map((prov) => {
+                  const testRes = providerTestResults[prov.id];
+                  const isTesting = providerTestingId === prov.id;
+
+                  return (
+                    <div
+                      key={prov.id}
+                      className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-bold text-zinc-900 text-base">{prov.name}</h3>
+                          {prov.isConfigured ? (
+                            <span className="rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              Configured &amp; Active
+                            </span>
+                          ) : prov.requiresKey ? (
+                            <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              API Key Pending
+                            </span>
+                          ) : (
+                            <span className="rounded bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                              Built-in (Offline)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 text-xs mb-4">
+                          <div className="flex justify-between text-zinc-500">
+                            <span>Default Model:</span>
+                            <span className="font-mono font-medium text-zinc-800">
+                              {prov.defaultModel}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-500 block mb-1">Supported Models:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {prov.supportedModels.map((m) => (
+                                <span
+                                  key={m}
+                                  className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-mono text-zinc-700"
+                                >
+                                  {m}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Test Result Display */}
+                        {testRes && (
+                          <div
+                            className={`rounded-xl p-3 text-xs mb-3 border ${
+                              testRes.ok
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                : "bg-rose-50 border-rose-200 text-rose-800"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between font-semibold mb-0.5">
+                              <span>{testRes.ok ? "Connected" : "Failed"}</span>
+                              <span className="font-mono text-[10px]">{testRes.latencyMs}ms</span>
+                            </div>
+                            <p className="text-[11px] leading-tight">{testRes.message}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-zinc-100 pt-3 flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-400 font-mono">
+                          Adapter: {prov.id}
+                        </span>
+                        <button
+                          onClick={() => handleTestProvider(prov.id)}
+                          disabled={isTesting}
+                          className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                        >
+                          {isTesting ? "Testing..." : "Test Connection"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Configuration Guide */}
+              <div className="rounded-2xl border border-zinc-200/80 bg-zinc-900 text-white p-6 shadow-xs">
+                <h3 className="font-bold text-sm text-white mb-2">
+                  Environment Configuration Reference (.env)
+                </h3>
+                <p className="text-xs text-zinc-400 mb-3">
+                  Configure your primary provider and credentials in your deployment environment or container secrets:
+                </p>
+                <div className="rounded-xl bg-zinc-800 p-4 font-mono text-xs text-zinc-200 overflow-x-auto">
+                  <p className="text-zinc-400"># Active Provider: "openai" | "gemini" | "anthropic" | "azure" | "local"</p>
+                  <p>AI_DEFAULT_PROVIDER=openai</p>
+                  <p className="mt-2 text-zinc-400"># Provider Credentials:</p>
+                  <p>OPENAI_API_KEY=sk-proj-...</p>
+                  <p>GEMINI_API_KEY=AIzaSy...</p>
+                  <p>ANTHROPIC_API_KEY=sk-ant-...</p>
+                  <p className="mt-2 text-zinc-400"># Azure OpenAI (Enterprise Private Cloud):</p>
+                  <p>AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/</p>
+                  <p>AZURE_OPENAI_API_KEY=...</p>
+                  <p>AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o</p>
+                </div>
               </div>
             </div>
           )}

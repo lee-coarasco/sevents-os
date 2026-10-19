@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { AiRepository } from "./repository.js";
 import { createAiKnowledgeService } from "./service.js";
 import type { AiChatRequest, AiFeedbackInput, KnowledgeSourceType } from "./types.js";
+import { listSupportedProviders, createAiAdapter, type AiProviderType } from "./adapters/index.js";
 
 export interface AiRoutesOptions {
   getRepository: () => AiRepository;
@@ -144,5 +145,33 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
         return reply.status(500).send({ error: err.message });
       }
     });
+
+    /**
+     * GET /ai/providers
+     * List all supported AI providers and their configuration status
+     */
+    app.get("/ai/providers", queryGuard, async (_req, reply) => {
+      const providers = listSupportedProviders();
+      return reply.send({ providers });
+    });
+
+    /**
+     * POST /ai/providers/test
+     * Test connection to a specific AI provider
+     */
+    app.post<{ Body: { provider: AiProviderType; apiKey?: string } }>(
+      "/ai/providers/test",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { provider, apiKey } = req.body;
+          const adapter = createAiAdapter({ provider, apiKey });
+          const result = await adapter.testConnection();
+          return reply.send({ result });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
   };
 }
