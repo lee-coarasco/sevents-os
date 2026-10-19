@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBell } from "./NotificationBell";
+import { OfflineSyncBadge } from "./OfflineSyncBadge";
 import { PermissionGate } from "./PermissionGate";
 import { clearPermissionsCache } from "../context/PermissionsContext";
 
@@ -105,6 +106,14 @@ export function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                 </svg>
                 Platform Administration
+              </NavLink>
+            </PermissionGate>
+            <PermissionGate anyPermission={["migration.job.view", "migration.import.execute"]}>
+              <NavLink to="/migration" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                Data Migration
               </NavLink>
             </PermissionGate>
             <PermissionGate anyPermission={["identity.user.invite", "admin.users.manage"]}>
@@ -213,6 +222,12 @@ export function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
                 </svg>
                 Site Operations &amp; DPR
+              </NavLink>
+              <NavLink to="/field" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Field Mode (Offline)
               </NavLink>
             </PermissionGate>
             <PermissionGate anyPermission={["procurement.requisition.manage", "procurement.po.manage", "procurement.vendor.manage"]}>
@@ -375,6 +390,7 @@ export function AppLayout() {
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-100 bg-white px-8">
           <div />
           <div className="flex items-center gap-2">
+            <OfflineSyncBadge />
             <NotificationBell />
             <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50">
               Feedback

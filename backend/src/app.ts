@@ -157,6 +157,11 @@ import {
   createSupabasePlatformAdminRepository,
   type PlatformAdminRepository,
 } from "./modules/platform-admin/repository.js";
+import { registerMigrationRoutes } from "./modules/migration/routes.js";
+import {
+  createSupabaseMigrationRepository,
+  type MigrationRepository,
+} from "./modules/migration/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import type { DashboardRepository } from "./modules/dashboard/repository.js";
@@ -225,6 +230,16 @@ export interface BuildAppOptions {
   getDashboardRepository?: () => DashboardRepository;
   getIntegrationsRepository?: () => IntegrationsRepository;
   getPlatformAdminRepository?: () => PlatformAdminRepository;
+  getMigrationRepository?: () => MigrationRepository;
+}
+
+let cachedMigrationRepository: MigrationRepository | null = null;
+
+function defaultMigrationRepository(): MigrationRepository {
+  if (!cachedMigrationRepository) {
+    cachedMigrationRepository = createSupabaseMigrationRepository(createUserScopedClient);
+  }
+  return cachedMigrationRepository;
 }
 
 let cachedPlatformAdminRepository: PlatformAdminRepository | null = null;
@@ -711,6 +726,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerPlatformAdminRoutes({
     getRepository: options.getPlatformAdminRepository ?? defaultPlatformAdminRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerMigrationRoutes({
+    getRepository: options.getMigrationRepository ?? defaultMigrationRepository,
     permissionGuard: guard,
   }));
 

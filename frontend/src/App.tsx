@@ -39,14 +39,21 @@ import { CommunicationsPage } from "./pages/CommunicationsPage";
 import { LegalPage } from "./pages/LegalPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { PlatformAdminPage } from "./pages/PlatformAdminPage";
+import { FieldModePage } from "./pages/FieldModePage";
+import { MigrationPage } from "./pages/MigrationPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
+import { OfflineSyncProvider } from "./context/OfflineSyncContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   if (loading) return null;
   if (!session) return <Navigate to="/login" replace />;
-  return <PermissionsProvider>{children}</PermissionsProvider>;
+  return (
+    <PermissionsProvider>
+      <OfflineSyncProvider>{children}</OfflineSyncProvider>
+    </PermissionsProvider>
+  );
 }
 
 export function App() {
@@ -105,6 +112,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["site.dpr.manage", "site.dpr.approve", "site.instruction.manage"]}>
                   <SiteOperationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="field"
+              element={
+                <ProtectedRoute anyPermission={["site.dpr.manage", "site.dpr.approve", "site.instruction.manage", "safety.hazard.manage", "quality.inspection.manage"]}>
+                  <FieldModePage />
                 </ProtectedRoute>
               }
             />
@@ -236,6 +251,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["platform.settings.view", "platform.settings.manage", "platform.feature_flags.manage", "platform.health.view", "platform.maintenance.manage", "platform.support.view", "platform.support.manage"]}>
                   <PlatformAdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="migration"
+              element={
+                <ProtectedRoute anyPermission={["migration.job.view", "migration.import.execute"]}>
+                  <MigrationPage />
                 </ProtectedRoute>
               }
             />
