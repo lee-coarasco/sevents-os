@@ -923,6 +923,37 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M34 — Integrations & API Management
+
+- **Status**: `done` (Phase 8 Platform Completion — ticket #0174)
+- **Database Tables**:
+  - `api_keys`: Developer M2M tokens, SHA-256 hashed secret, prefix display, scopes, rate limits.
+  - `webhook_subscriptions`: Outbound webhook endpoints, HMAC secret, event filters, active toggle.
+  - `webhook_deliveries`: Delivery audit logs, payload JSON, HTTP response status, response body, delivery status.
+  - `service_connectors`: Third-party integration connectors (Xero, QuickBooks, DocuSign, AWS/Azure, Banking WPS), masked credentials, environment settings.
+- **Permissions**: `integrations.api_key.manage`, `integrations.api_key.revoke`, `integrations.webhook.manage`, `integrations.webhook.test`, `integrations.connector.manage`, `integrations.log.view`. Seeded to Platform Admin, IT Administrator, Project Director, and Senior Accountant.
+- **Backend API (`backend/src/modules/integrations/`)**:
+  - `GET /integrations/api-keys`, `POST /integrations/api-keys`, `POST /integrations/api-keys/:id/revoke`: Manage API key lifecycle.
+  - `GET /integrations/webhooks`, `POST /integrations/webhooks`, `PATCH /integrations/webhooks/:id`, `DELETE /integrations/webhooks/:id`, `POST /integrations/webhooks/:id/test`: Register, pause, delete, and test ping webhooks.
+  - `GET /integrations/connectors`, `POST /integrations/connectors`, `POST /integrations/connectors/:id/disconnect`: Configure and disconnect third-party connectors.
+  - `GET /integrations/deliveries`: Query outbound webhook delivery and retry logs.
+- **Frontend Screen (`frontend/src/pages/IntegrationsPage.tsx`)**:
+  - Route `/integrations` in App.tsx and sidebar navigation link under Platform & System settings.
+  - 4 Operational Tabs:
+    1. **API Keys & Access Scopes**: Issue scoped API keys with rate limits, one-time plaintext key reveal modal, and instant revocation.
+    2. **Outbound Webhooks**: Manage webhook subscriptions, event filters (`project.created`, `billing.invoice_approved`, etc.), active/paused toggling, and "Test Ping" trigger.
+    3. **Service Connectors**: Configuration cards for Xero/QuickBooks, DocuSign e-sign, Cloud Storage, and Banking WPS with credential masking and environment selection.
+    4. **Delivery & Audit Logs**: Real-time HTTP delivery audit trail with response status badges and payload inspection modal.
+
+**How to use it:**
+1. Navigate to `/integrations` via the "Integrations & APIs" sidebar link.
+2. **API Keys Tab**: Click "+ Generate API Key" to create a token for automated scripts or ERP integration, select required scopes, copy the secret token immediately upon creation, or revoke compromised tokens.
+3. **Outbound Webhooks Tab**: Click "+ New Webhook" to register an HTTPS destination, select triggering events, click "Test Ping" to verify endpoint connectivity, or pause subscriptions.
+4. **Service Connectors Tab**: Click "Connect" or "Configure" on Xero, DocuSign, or Banking WPS connectors to enter credentials and environment parameters (sandbox vs. production).
+5. **Delivery Logs Tab**: Inspect delivery timestamps, HTTP response codes (200, 404, 500), and click "Inspect" to view the exact JSON payload dispatched.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,

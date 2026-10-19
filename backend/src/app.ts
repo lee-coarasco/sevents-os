@@ -147,6 +147,11 @@ import {
   createSupabaseLegalRepository,
   type LegalRepository,
 } from "./modules/legal/repository.js";
+import { registerIntegrationsRoutes } from "./modules/integrations/routes.js";
+import {
+  createSupabaseIntegrationsRepository,
+  type IntegrationsRepository,
+} from "./modules/integrations/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import type { DashboardRepository } from "./modules/dashboard/repository.js";
@@ -213,6 +218,16 @@ export interface BuildAppOptions {
   getCommunicationsRepository?: () => CommunicationsRepository;
   getLegalRepository?: () => LegalRepository;
   getDashboardRepository?: () => DashboardRepository;
+  getIntegrationsRepository?: () => IntegrationsRepository;
+}
+
+let cachedIntegrationsRepository: IntegrationsRepository | null = null;
+
+function defaultIntegrationsRepository(): IntegrationsRepository {
+  if (!cachedIntegrationsRepository) {
+    cachedIntegrationsRepository = createSupabaseIntegrationsRepository(createUserScopedClient);
+  }
+  return cachedIntegrationsRepository;
 }
 
 let cachedLegalRepository: LegalRepository | null = null;
@@ -673,6 +688,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     getRepository: options.getDashboardRepository ? () => options.getDashboardRepository!() : undefined,
     permissionGuard: guard,
   });
+
+  app.register(registerIntegrationsRoutes({
+    getRepository: options.getIntegrationsRepository ?? defaultIntegrationsRepository,
+    permissionGuard: guard,
+  }));
 
   app.register(adminUsersRoutes, {
     getServiceClient: createServiceClient,
