@@ -15,6 +15,7 @@ import {
 } from "./modules/tenancy/repository.js";
 import { authorityRoutes } from "./modules/authority/routes.js";
 import { requirePermission } from "./modules/authority/guard.js";
+import { hasPermission as checkAuthorityPermission } from "./modules/authority/service.js";
 import {
   createSupabaseAuthorityRepository,
   type AuthorityRepository,
@@ -654,11 +655,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     getRepository: options.getLegalRepository ?? defaultLegalRepository,
     permissionGuard: guard,
     hasPermission: async (token: string, perm: string) => {
-      const auth = authorityRepo();
-      const session = await auth.getSession(token);
-      if (!session) return false;
-      const effective = await auth.getEffectivePermissions(session.tenant_id, session.user_id);
-      return effective.includes(perm);
+      const auth = getAuthorityRepository();
+      const ctx = await auth.resolveCallerContext(token);
+      if (!ctx) return false;
+      return checkAuthorityPermission(auth, ctx.userId, ctx.tenantId, perm);
     },
   }));
 
