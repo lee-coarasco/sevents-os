@@ -1,5 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AgentDefinition, AgentTool, AgentExecution } from "./types.js";
+import type {
+  AgentDefinition,
+  AgentTool,
+  AgentExecution,
+  AgentRunAuditLog,
+  AgentIncidentReview,
+  CostAnalyticsSummary,
+} from "./types.js";
+
+export interface ListExecutionsFilters {
+  agentId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
 
 export interface AgentsRepository {
   listAgents(token: string): Promise<AgentDefinition[]>;
@@ -10,7 +25,14 @@ export interface AgentsRepository {
   listTools(token: string): Promise<AgentTool[]>;
   saveExecution(token: string, execution: AgentExecution): Promise<AgentExecution>;
   getExecutionById(token: string, id: string): Promise<AgentExecution | null>;
-  listExecutions(token: string, agentId?: string): Promise<AgentExecution[]>;
+  listExecutions(token: string, filters?: ListExecutionsFilters | string): Promise<AgentExecution[]>;
+  findExecutionByIdempotencyKey(token: string, tenantId: string, key: string): Promise<AgentExecution | null>;
+  saveRunAuditLog(token: string, log: AgentRunAuditLog): Promise<void>;
+  listRunAuditLogs(token: string, executionId: string): Promise<AgentRunAuditLog[]>;
+  createIncident(token: string, incident: AgentIncidentReview): Promise<AgentIncidentReview>;
+  listIncidents(token: string, filters?: { isResolved?: boolean }): Promise<AgentIncidentReview[]>;
+  resolveIncident(token: string, id: string, resolvedBy: string, notes: string): Promise<AgentIncidentReview>;
+  getCostAnalytics(token: string): Promise<CostAnalyticsSummary>;
 }
 
 export function createAgentsRepository(
@@ -33,6 +55,11 @@ export function createAgentsRepository(
         allowed_tools: ["search_knowledge_base", "query_project_schedule", "create_site_rfi", "calculate_delay_impact"],
         hitl_policy: "require_for_mutations",
         is_active: true,
+        max_steps: 10,
+        timeout_seconds: 60,
+        spend_budget_usd: 5.0,
+        risk_tier: "medium",
+        is_paused: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -52,6 +79,11 @@ export function createAgentsRepository(
         allowed_tools: ["get_boq_items", "check_inventory_stock", "search_knowledge_base"],
         hitl_policy: "require_for_mutations",
         is_active: true,
+        max_steps: 8,
+        timeout_seconds: 45,
+        spend_budget_usd: 3.0,
+        risk_tier: "medium",
+        is_paused: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -71,6 +103,11 @@ export function createAgentsRepository(
         allowed_tools: ["log_safety_observation", "search_knowledge_base"],
         hitl_policy: "always",
         is_active: true,
+        max_steps: 5,
+        timeout_seconds: 30,
+        spend_budget_usd: 2.0,
+        risk_tier: "high",
+        is_paused: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -78,6 +115,8 @@ export function createAgentsRepository(
   ]);
 
   const inMemoryExecutions = new Map<string, AgentExecution>();
+  const inMemoryAuditLogs = new Map<string, AgentRunAuditLog[]>();
+  const inMemoryIncidents = new Map<string, AgentIncidentReview>();
 
   return {
     async listAgents(token: string): Promise<AgentDefinition[]> {
@@ -130,6 +169,12 @@ export function createAgentsRepository(
         allowed_tools: input.allowed_tools || [],
         hitl_policy: input.hitl_policy || "require_for_mutations",
         is_active: input.is_active ?? true,
+        max_steps: input.max_steps ?? 10,
+        timeout_seconds: input.timeout_seconds ?? 60,
+        spend_budget_usd: input.spend_budget_usd ?? 5.0,
+        risk_tier: input.risk_tier ?? "medium",
+        is_paused: input.is_paused ?? false,
+        pause_reason: input.pause_reason || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -194,7 +239,6 @@ export function createAgentsRepository(
         if (!error && data && data.length > 0) return data as AgentTool[];
       } catch {}
 
-      // Fallback default registry
       return [
         {
           key: "search_knowledge_base",
@@ -293,7 +337,38 @@ export function createAgentsRepository(
       return inMemoryExecutions.get(id) || null;
     },
 
-    async listExecutions(token: string, agentId?: string): Promise<AgentExecution[]> {
+    async findExecutionByIdempotencyKey(
+      token: string,
+      tenantId: string,
+      key: string
+    ): Promise<AgentExecution | null> {
+      const supabase = getClient(token);
+      try {
+        const { data, error } = await supabase
+          .from("agent_executions")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .eq("idempotency_key", key)
+          .maybeSingle();
+
+        if (!error && data) return data as AgentExecution;
+      } catch {}
+
+      for (const exec of inMemoryExecutions.values()) {
+        if (exec.tenant_id === tenantId && exec.idempotency_key === key) {
+          return exec;
+        }
+      }
+      return null;
+    },
+
+    async listExecutions(
+      token: string,
+      filters?: ListExecutionsFilters | string
+    ): Promise<AgentExecution[]> {
+      const parsedFilters: ListExecutionsFilters =
+        typeof filters === "string" ? { agentId: filters } : filters || {};
+
       const supabase = getClient(token);
       try {
         let q = supabase
@@ -301,16 +376,180 @@ export function createAgentsRepository(
           .select("*")
           .order("created_at", { ascending: false });
 
-        if (agentId) {
-          q = q.eq("agent_id", agentId);
+        if (parsedFilters.agentId) {
+          q = q.eq("agent_id", parsedFilters.agentId);
+        }
+        if (parsedFilters.status) {
+          q = q.eq("status", parsedFilters.status);
+        }
+        if (parsedFilters.from) {
+          q = q.gte("created_at", parsedFilters.from);
+        }
+        if (parsedFilters.to) {
+          q = q.lte("created_at", parsedFilters.to);
         }
 
-        const { data, error } = await q.limit(50);
+        const limit = parsedFilters.limit || 50;
+        const { data, error } = await q.limit(limit);
         if (!error && data && data.length > 0) return data as AgentExecution[];
       } catch {}
 
-      const all = Array.from(inMemoryExecutions.values());
-      return agentId ? all.filter((e) => e.agent_id === agentId) : all;
+      let all = Array.from(inMemoryExecutions.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      if (parsedFilters.agentId) {
+        all = all.filter((e) => e.agent_id === parsedFilters.agentId);
+      }
+      if (parsedFilters.status) {
+        all = all.filter((e) => e.status === parsedFilters.status);
+      }
+      if (parsedFilters.from) {
+        all = all.filter((e) => new Date(e.created_at) >= new Date(parsedFilters.from!));
+      }
+      if (parsedFilters.to) {
+        all = all.filter((e) => new Date(e.created_at) <= new Date(parsedFilters.to!));
+      }
+      return all.slice(0, parsedFilters.limit || 50);
+    },
+
+    async saveRunAuditLog(token: string, log: AgentRunAuditLog): Promise<void> {
+      const supabase = getClient(token);
+      try {
+        await supabase.from("agent_run_audit_logs").insert(log);
+      } catch {}
+
+      const existing = inMemoryAuditLogs.get(log.execution_id) || [];
+      existing.push(log);
+      inMemoryAuditLogs.set(log.execution_id, existing);
+    },
+
+    async listRunAuditLogs(token: string, executionId: string): Promise<AgentRunAuditLog[]> {
+      const supabase = getClient(token);
+      try {
+        const { data, error } = await supabase
+          .from("agent_run_audit_logs")
+          .select("*")
+          .eq("execution_id", executionId)
+          .order("created_at", { ascending: true });
+
+        if (!error && data) return data as AgentRunAuditLog[];
+      } catch {}
+
+      return inMemoryAuditLogs.get(executionId) || [];
+    },
+
+    async createIncident(
+      token: string,
+      incident: AgentIncidentReview
+    ): Promise<AgentIncidentReview> {
+      const supabase = getClient(token);
+      try {
+        const { data, error } = await supabase
+          .from("agent_incident_reviews")
+          .insert(incident)
+          .select()
+          .single();
+
+        if (!error && data) return data as AgentIncidentReview;
+      } catch {}
+
+      inMemoryIncidents.set(incident.id, incident);
+      return incident;
+    },
+
+    async listIncidents(
+      token: string,
+      filters?: { isResolved?: boolean }
+    ): Promise<AgentIncidentReview[]> {
+      const supabase = getClient(token);
+      try {
+        let q = supabase
+          .from("agent_incident_reviews")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (filters && typeof filters.isResolved === "boolean") {
+          q = q.eq("is_resolved", filters.isResolved);
+        }
+
+        const { data, error } = await q.limit(50);
+        if (!error && data) return data as AgentIncidentReview[];
+      } catch {}
+
+      let all = Array.from(inMemoryIncidents.values());
+      if (filters && typeof filters.isResolved === "boolean") {
+        all = all.filter((i) => i.is_resolved === filters.isResolved);
+      }
+      return all;
+    },
+
+    async resolveIncident(
+      token: string,
+      id: string,
+      resolvedBy: string,
+      notes: string
+    ): Promise<AgentIncidentReview> {
+      const supabase = getClient(token);
+      const updates = {
+        is_resolved: true,
+        resolved_by: resolvedBy,
+        resolution_notes: notes,
+        resolved_at: new Date().toISOString(),
+      };
+
+      try {
+        const { data, error } = await supabase
+          .from("agent_incident_reviews")
+          .update(updates)
+          .eq("id", id)
+          .select()
+          .single();
+
+        if (!error && data) return data as AgentIncidentReview;
+      } catch {}
+
+      const existing = inMemoryIncidents.get(id);
+      if (!existing) throw new Error(`Incident not found: ${id}`);
+      const updated = { ...existing, ...updates };
+      inMemoryIncidents.set(id, updated);
+      return updated;
+    },
+
+    async getCostAnalytics(token: string): Promise<CostAnalyticsSummary> {
+      const executions = await this.listExecutions(token, { limit: 1000 });
+      let totalTokens = 0;
+      let totalCostUsd = 0;
+
+      const agentMap = new Map<string, { agentId: string; agentName: string; costUsd: number; runCount: number }>();
+      const modelMap = new Map<string, { model: string; costUsd: number; tokenCount: number }>();
+
+      for (const exec of executions) {
+        const tokens = exec.total_tokens || 0;
+        const cost = exec.cost_usd || 0;
+        totalTokens += tokens;
+        totalCostUsd += cost;
+
+        const agentId = exec.agent_id || "unknown";
+        const agentName = exec.agent?.name || agentId;
+        const currentAgent = agentMap.get(agentId) || { agentId, agentName, costUsd: 0, runCount: 0 };
+        currentAgent.costUsd += cost;
+        currentAgent.runCount += 1;
+        agentMap.set(agentId, currentAgent);
+
+        const model = exec.agent?.model || "gpt-4o-mini";
+        const currentModel = modelMap.get(model) || { model, costUsd: 0, tokenCount: 0 };
+        currentModel.costUsd += cost;
+        currentModel.tokenCount += tokens;
+        modelMap.set(model, currentModel);
+      }
+
+      return {
+        totalTokens,
+        totalCostUsd: Number(totalCostUsd.toFixed(6)),
+        totalRuns: executions.length,
+        costByAgent: Array.from(agentMap.values()).map((a) => ({ ...a, costUsd: Number(a.costUsd.toFixed(6)) })),
+        costByModel: Array.from(modelMap.values()).map((m) => ({ ...m, costUsd: Number(m.costUsd.toFixed(6)) })),
+      };
     },
   };
 }

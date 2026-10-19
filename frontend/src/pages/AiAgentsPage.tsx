@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   agentService,
@@ -247,15 +248,23 @@ export function AiAgentsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => handleOpenCreateModal()}
-          className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 shadow-xs transition-colors self-start"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Create Agent Profile
-        </button>
+        <div className="flex items-center gap-2 self-start">
+          <Link
+            to="/ai/runs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 shadow-xs transition-colors"
+          >
+            <span>📊</span> Runs &amp; Audit (M30)
+          </Link>
+          <button
+            onClick={() => handleOpenCreateModal()}
+            className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 shadow-xs transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Agent Profile
+          </button>
+        </div>
       </div>
 
       {/* Navigation Tabs */}

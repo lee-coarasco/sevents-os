@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
-import type { AgentsRepository } from "./repository.js";
+import type { AgentsRepository, ListExecutionsFilters } from "./repository.js";
 import { createAgentsService } from "./service.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -27,6 +27,9 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
     const manageGuard = { preHandler: [options.permissionGuard("ai.agent.manage")] };
     const executeGuard = { preHandler: [options.permissionGuard("ai.agent.execute")] };
     const approveGuard = { preHandler: [options.permissionGuard("ai.agent.approve")] };
+    const interveneGuard = { preHandler: [options.permissionGuard("ai.agent.intervene")] };
+    const auditGuard = { preHandler: [options.permissionGuard("ai.agent.audit")] };
+    const incidentGuard = { preHandler: [options.permissionGuard("ai.agent.incident")] };
 
     /**
      * GET /agents
@@ -121,6 +124,27 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
     );
 
     /**
+     * PUT /agents/:id/kill-switch
+     * Emergency pause or resume an agent globally or per tenant (FR-AG-006)
+     */
+    app.put<{ Params: { id: string }; Body: { isPaused: boolean; reason?: string } }>(
+      "/agents/:id/kill-switch",
+      interveneGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        try {
+          const { isPaused, reason } = req.body;
+          const agent = await service.toggleAgentKillSwitch(token, req.params.id, isPaused, reason);
+          return reply.send({ agent });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
      * DELETE /agents/:id
      * Remove an agent definition
      */
@@ -162,9 +186,9 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
 
     /**
      * GET /agents/executions
-     * List execution history and audit logs
+     * List execution history with filters (M30 Run Queue)
      */
-    app.get<{ Querystring: { agentId?: string } }>(
+    app.get<{ Querystring: ListExecutionsFilters }>(
       "/agents/executions",
       executeGuard,
       async (req, reply) => {
@@ -172,7 +196,7 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
         if (!token) return reply.status(401).send({ error: "Missing authorization token" });
 
         try {
-          const executions = await service.listExecutions(token, req.query.agentId);
+          const executions = await service.listExecutions(token, req.query);
           return reply.send({ executions });
         } catch (err: any) {
           return reply.status(500).send({ error: err.message });
@@ -182,7 +206,7 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
 
     /**
      * GET /agents/executions/:id
-     * Get a specific execution with its full message history & pending action
+     * Get a specific execution with its full message history & structured steps
      */
     app.get<{ Params: { id: string } }>(
       "/agents/executions/:id",
@@ -201,8 +225,28 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
     );
 
     /**
+     * GET /agents/executions/:id/audit
+     * Get immutable audit trail for a specific execution
+     */
+    app.get<{ Params: { id: string } }>(
+      "/agents/executions/:id/audit",
+      auditGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        try {
+          const auditLogs = await service.listAuditLogs(token, req.params.id);
+          return reply.send({ auditLogs });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
      * POST /agents/executions/:id/approve
-     * Confirm or reject a pending Human-in-the-Loop action
+     * Confirm or reject a pending Human-in-the-Loop action (with parameter modification)
      */
     app.post<{ Params: { id: string }; Body: ApproveAgentInput }>(
       "/agents/executions/:id/approve",
@@ -215,7 +259,7 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
         const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
 
         try {
-          const { approved, rejectionReason } = req.body;
+          const { approved, rejectionReason, modifiedInput, notes } = req.body;
           if (typeof approved !== "boolean") {
             return reply.status(400).send({ error: "approved boolean is required" });
           }
@@ -224,9 +268,116 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
             token,
             tenantId,
             req.params.id,
-            { approved, rejectionReason }
+            { approved, rejectionReason, modifiedInput, notes },
+            user?.id
           );
           return reply.send({ execution });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /agents/executions/:id/retry
+     * Operator retry of failed or cancelled execution
+     */
+    app.post<{ Params: { id: string } }>(
+      "/agents/executions/:id/retry",
+      interveneGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        const user = (req as any).user;
+        const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
+
+        try {
+          const execution = await service.retryExecution(token, tenantId, req.params.id, user?.id);
+          return reply.send({ execution });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /agents/executions/:id/cancel
+     * Cancel an in-flight or paused execution
+     */
+    app.post<{ Params: { id: string }; Body: { reason: string } }>(
+      "/agents/executions/:id/cancel",
+      interveneGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        const user = (req as any).user;
+
+        try {
+          const reason = req.body?.reason || "Execution cancelled by operator";
+          const execution = await service.cancelExecution(token, req.params.id, reason, user?.id);
+          return reply.send({ execution });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * GET /agents/analytics/costs
+     * Token consumption & spend analytics across agents & models
+     */
+    app.get("/agents/analytics/costs", auditGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      try {
+        const analytics = await service.getCostAnalytics(token);
+        return reply.send({ analytics });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * GET /agents/incidents
+     * List safety, cost limit, and prompt injection incident reviews
+     */
+    app.get<{ Querystring: { isResolved?: string } }>(
+      "/agents/incidents",
+      incidentGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        try {
+          const isResolved =
+            req.query.isResolved !== undefined ? req.query.isResolved === "true" : undefined;
+          const incidents = await service.listIncidents(token, isResolved);
+          return reply.send({ incidents });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /agents/incidents/:id/resolve
+     * Resolve and redact flagged AI incident review
+     */
+    app.post<{ Params: { id: string }; Body: { notes: string } }>(
+      "/agents/incidents/:id/resolve",
+      incidentGuard,
+      async (req, reply) => {
+        const token = bearerToken(req.headers.authorization);
+        if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+        const user = (req as any).user;
+        try {
+          const notes = req.body?.notes || "Incident reviewed and resolved";
+          const incident = await service.resolveIncident(token, req.params.id, notes, user?.id || "system");
+          return reply.send({ incident });
         } catch (err: any) {
           return reply.status(500).send({ error: err.message });
         }

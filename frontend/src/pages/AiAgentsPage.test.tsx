@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { AiAgentsPage } from "./AiAgentsPage";
 import { agentService } from "../services/agentService";
 
@@ -94,7 +95,11 @@ describe("AiAgentsPage (M29 Agent Studio & Tool Registry)", () => {
     (agentService.listTools as any).mockResolvedValueOnce(mockTools);
     (agentService.listExecutions as any).mockResolvedValueOnce(mockExecutions);
 
-    render(<AiAgentsPage />);
+    render(
+      <MemoryRouter>
+        <AiAgentsPage />
+      </MemoryRouter>
+    );
 
     expect(screen.getByText("AI Agent Studio & Tool Registry")).toBeInTheDocument();
     expect(screen.getByText("Module M29")).toBeInTheDocument();
@@ -111,7 +116,11 @@ describe("AiAgentsPage (M29 Agent Studio & Tool Registry)", () => {
     (agentService.listTools as any).mockResolvedValueOnce(mockTools);
     (agentService.listExecutions as any).mockResolvedValueOnce(mockExecutions);
 
-    render(<AiAgentsPage />);
+    render(
+      <MemoryRouter>
+        <AiAgentsPage />
+      </MemoryRouter>
+    );
     await waitFor(() => screen.getByText("Site Engineering Copilot"));
 
     const toolsTab = screen.getByRole("button", { name: /Tool Registry/i });
@@ -162,7 +171,11 @@ describe("AiAgentsPage (M29 Agent Studio & Tool Registry)", () => {
       ],
     });
 
-    render(<AiAgentsPage />);
+    render(
+      <MemoryRouter>
+        <AiAgentsPage />
+      </MemoryRouter>
+    );
     await waitFor(() => screen.getByText("Site Engineering Copilot"));
 
     // Switch to console tab

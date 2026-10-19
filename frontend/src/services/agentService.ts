@@ -3,11 +3,15 @@ import { apiFetch } from "../lib/api";
 export type HitlPolicy = "always" | "require_for_mutations" | "never";
 
 export type AgentExecutionStatus =
+  | "queued"
   | "running"
   | "paused_waiting_approval"
   | "completed"
   | "failed"
-  | "rejected";
+  | "rejected"
+  | "cancelled";
+
+export type AgentRiskTier = "low" | "medium" | "high" | "critical";
 
 export interface AgentDefinition {
   id: string;
@@ -22,6 +26,12 @@ export interface AgentDefinition {
   allowed_tools: string[];
   hitl_policy: HitlPolicy;
   is_active: boolean;
+  max_steps?: number;
+  timeout_seconds?: number;
+  spend_budget_usd?: number;
+  risk_tier?: AgentRiskTier;
+  is_paused?: boolean;
+  pause_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +64,30 @@ export interface AgentMessage {
   toolName?: string;
 }
 
+export interface AgentExecutionStep {
+  stepNumber: number;
+  type: "thought" | "tool_call" | "synthesis" | "human_approval";
+  thought?: string;
+  toolKey?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  toolOutput?: Record<string, unknown> | unknown[] | string;
+  confidence: number;
+  tokens?: { prompt: number; completion: number; total: number };
+  costUsd: number;
+  latencyMs: number;
+  status: "success" | "pending" | "paused" | "failed" | "skipped";
+  error?: string;
+}
+
+export interface ApprovalMetadata {
+  approvedBy?: string;
+  approvedAt?: string;
+  modifiedInput?: Record<string, unknown>;
+  rejectionReason?: string;
+  notes?: string;
+}
+
 export interface AgentExecution {
   id: string;
   tenant_id: string;
@@ -65,9 +99,58 @@ export interface AgentExecution {
   messages: AgentMessage[];
   pending_action: PendingAction | null;
   output_summary: string | null;
+  tokens_prompt?: number;
+  tokens_completion?: number;
+  total_tokens?: number;
+  cost_usd?: number;
+  latency_ms?: number;
+  steps_count?: number;
+  plan_steps?: AgentExecutionStep[];
+  confidence_score?: number;
+  approval_metadata?: ApprovalMetadata | null;
+  error_details?: Record<string, unknown> | null;
+  retry_count?: number;
+  idempotency_key?: string | null;
   created_at: string;
   updated_at: string;
   agent?: Partial<AgentDefinition>;
+}
+
+export interface AgentRunAuditLog {
+  id: string;
+  tenant_id: string;
+  execution_id: string;
+  agent_id: string | null;
+  actor_type: "agent" | "human_reviewer" | "system";
+  actor_id: string | null;
+  event_type: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentIncidentReview {
+  id: string;
+  tenant_id: string;
+  execution_id: string;
+  agent_id: string | null;
+  incident_type: string;
+  severity: AgentRiskTier;
+  description: string;
+  raw_content?: string | null;
+  redacted_content?: string | null;
+  is_resolved: boolean;
+  resolved_by?: string | null;
+  resolution_notes?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+}
+
+export interface CostAnalyticsSummary {
+  totalTokens: number;
+  totalCostUsd: number;
+  totalRuns: number;
+  costByAgent: { agentId: string; agentName: string; costUsd: number; runCount: number }[];
+  costByModel: { model: string; costUsd: number; tokenCount: number }[];
 }
 
 export interface CreateAgentPayload {
@@ -80,6 +163,10 @@ export interface CreateAgentPayload {
   canonicalRoleId?: string;
   allowedTools?: string[];
   hitlPolicy?: HitlPolicy;
+  maxSteps?: number;
+  timeoutSeconds?: number;
+  spendBudgetUsd?: number;
+  riskTier?: AgentRiskTier;
 }
 
 export interface UpdateAgentPayload {
@@ -92,6 +179,20 @@ export interface UpdateAgentPayload {
   allowedTools?: string[];
   hitlPolicy?: HitlPolicy;
   isActive?: boolean;
+  maxSteps?: number;
+  timeoutSeconds?: number;
+  spendBudgetUsd?: number;
+  riskTier?: AgentRiskTier;
+  isPaused?: boolean;
+  pauseReason?: string;
+}
+
+export interface ListExecutionsFilters {
+  agentId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
 }
 
 export const agentService = {
@@ -121,6 +222,19 @@ export const agentService = {
     return res.agent;
   },
 
+  async toggleKillSwitch(
+    token: string,
+    id: string,
+    isPaused: boolean,
+    reason?: string
+  ): Promise<AgentDefinition> {
+    const res = await apiFetch<{ agent: AgentDefinition }>(`/agents/${id}/kill-switch`, token, {
+      method: "PUT",
+      body: JSON.stringify({ isPaused, reason }),
+    });
+    return res.agent;
+  },
+
   async deleteAgent(token: string, id: string): Promise<void> {
     await apiFetch<{ success: boolean }>(`/agents/${id}`, token, {
       method: "DELETE",
@@ -136,17 +250,30 @@ export const agentService = {
     token: string,
     agentId: string,
     inputPrompt: string,
-    projectId?: string
+    projectId?: string,
+    idempotencyKey?: string
   ): Promise<AgentExecution> {
     const res = await apiFetch<{ execution: AgentExecution }>("/agents/run", token, {
       method: "POST",
-      body: JSON.stringify({ agentId, inputPrompt, projectId }),
+      body: JSON.stringify({ agentId, inputPrompt, projectId, idempotencyKey }),
     });
     return res.execution;
   },
 
-  async listExecutions(token: string, agentId?: string): Promise<AgentExecution[]> {
-    const qs = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
+  async listExecutions(
+    token: string,
+    filters?: ListExecutionsFilters | string
+  ): Promise<AgentExecution[]> {
+    const parsed: ListExecutionsFilters =
+      typeof filters === "string" ? { agentId: filters } : filters || {};
+    const params = new URLSearchParams();
+    if (parsed.agentId) params.set("agentId", parsed.agentId);
+    if (parsed.status) params.set("status", parsed.status);
+    if (parsed.from) params.set("from", parsed.from);
+    if (parsed.to) params.set("to", parsed.to);
+    if (parsed.limit) params.set("limit", String(parsed.limit));
+
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await apiFetch<{ executions: AgentExecution[] }>(`/agents/executions${qs}`, token);
     return res.executions;
   },
@@ -156,20 +283,73 @@ export const agentService = {
     return res.execution;
   },
 
+  async getExecutionAudit(token: string, id: string): Promise<AgentRunAuditLog[]> {
+    const res = await apiFetch<{ auditLogs: AgentRunAuditLog[] }>(`/agents/executions/${id}/audit`, token);
+    return res.auditLogs;
+  },
+
   async approveAction(
     token: string,
     executionId: string,
     approved: boolean,
-    rejectionReason?: string
+    rejectionReason?: string,
+    modifiedInput?: Record<string, unknown>,
+    notes?: string
   ): Promise<AgentExecution> {
     const res = await apiFetch<{ execution: AgentExecution }>(
       `/agents/executions/${executionId}/approve`,
       token,
       {
         method: "POST",
-        body: JSON.stringify({ approved, rejectionReason }),
+        body: JSON.stringify({ approved, rejectionReason, modifiedInput, notes }),
       }
     );
     return res.execution;
+  },
+
+  async retryExecution(token: string, executionId: string): Promise<AgentExecution> {
+    const res = await apiFetch<{ execution: AgentExecution }>(
+      `/agents/executions/${executionId}/retry`,
+      token,
+      {
+        method: "POST",
+      }
+    );
+    return res.execution;
+  },
+
+  async cancelExecution(token: string, executionId: string, reason: string): Promise<AgentExecution> {
+    const res = await apiFetch<{ execution: AgentExecution }>(
+      `/agents/executions/${executionId}/cancel`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return res.execution;
+  },
+
+  async getCostAnalytics(token: string): Promise<CostAnalyticsSummary> {
+    const res = await apiFetch<{ analytics: CostAnalyticsSummary }>("/agents/analytics/costs", token);
+    return res.analytics;
+  },
+
+  async listIncidents(token: string, isResolved?: boolean): Promise<AgentIncidentReview[]> {
+    const qs = isResolved !== undefined ? `?isResolved=${isResolved}` : "";
+    const res = await apiFetch<{ incidents: AgentIncidentReview[] }>(`/agents/incidents${qs}`, token);
+    return res.incidents;
+  },
+
+  async resolveIncident(token: string, incidentId: string, notes: string): Promise<AgentIncidentReview> {
+    const res = await apiFetch<{ incident: AgentIncidentReview }>(
+      `/agents/incidents/${incidentId}/resolve`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ notes }),
+      }
+    );
+    return res.incident;
   },
 };

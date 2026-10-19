@@ -43,6 +43,7 @@ import { FieldModePage } from "./pages/FieldModePage";
 import { MigrationPage } from "./pages/MigrationPage";
 import { AiKnowledgePage } from "./pages/AiKnowledgePage";
 import { AiAgentsPage } from "./pages/AiAgentsPage";
+import { AiAgentRunsPage } from "./pages/AiAgentRunsPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { OfflineSyncProvider } from "./context/OfflineSyncContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -277,6 +278,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["ai.agent.execute", "ai.agent.manage"]}>
                   <AiAgentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ai/runs"
+              element={
+                <ProtectedRoute anyPermission={["ai.agent.execute", "ai.agent.manage", "ai.agent.audit"]}>
+                  <AiAgentRunsPage />
                 </ProtectedRoute>
               }
             />

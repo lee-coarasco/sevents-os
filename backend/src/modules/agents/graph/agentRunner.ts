@@ -1,10 +1,13 @@
 import type {
   AgentDefinition,
   AgentExecution,
+  AgentExecutionStep,
   AgentMessage,
   AgentTool,
   PendingAction,
+  ApprovalMetadata,
 } from "../types.js";
+import { calculateCost } from "../types.js";
 import type { ToolExecutor } from "../tools/toolExecutor.js";
 
 export interface AgentRunnerContext {
@@ -14,10 +17,44 @@ export interface AgentRunnerContext {
   agent: AgentDefinition;
   tools: Map<string, AgentTool>;
   toolExecutor: ToolExecutor;
+  onAuditLog?: (event: {
+    eventType: string;
+    details: Record<string, unknown>;
+    actorType?: "agent" | "human_reviewer" | "system";
+    actorId?: string;
+  }) => Promise<void>;
+  onIncident?: (incident: {
+    incidentType: string;
+    severity: "low" | "medium" | "high" | "critical";
+    description: string;
+    rawContent?: string;
+  }) => Promise<void>;
 }
 
 export class AgentRunner {
   constructor(private ctx: AgentRunnerContext) {}
+
+  /**
+   * Check for potential prompt injection attempts in untrusted input or tool data (BRD §8.10 FR-AG-008)
+   */
+  private checkPromptInjection(content: string): boolean {
+    const suspiciousPatterns = [
+      /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+      /disregard\s+(all\s+)?(system|safety)\s+prompts/i,
+      /you\s+are\s+now\s+in\s+(developer|unrestricted|god)\s+mode/i,
+      /override\s+(tenant|role|security)\s+permissions/i,
+      /bypass\s+(authorization|rls|sandbox)/i,
+      /system\s*:\s*role\s*=\s*['"]?admin['"]?/i,
+    ];
+    return suspiciousPatterns.some((pattern) => pattern.test(content));
+  }
+
+  /**
+   * Estimate tokens from text content
+   */
+  private estimateTokens(text: string): number {
+    return Math.max(1, Math.ceil(text.length / 4));
+  }
 
   /**
    * Determine which tool (if any) is required based on the input prompt and allowed tools
@@ -111,12 +148,46 @@ export class AgentRunner {
   }
 
   /**
-   * Run the state machine
+   * Run the state machine with guardrails, token tracking, and structured plan steps
    */
   async run(prompt: string, existingExecution?: AgentExecution): Promise<AgentExecution> {
-    const messages: AgentMessage[] = existingExecution?.messages ? [...existingExecution.messages] : [];
+    const startTime = Date.now();
+    const executionId = existingExecution?.id || "exec-" + Date.now();
 
-    // Append user input
+    // 1. Guardrail: Check Kill Switch (BRD §8.10 FR-AG-006)
+    if (this.ctx.agent.is_paused) {
+      if (this.ctx.onAuditLog) {
+        await this.ctx.onAuditLog({
+          eventType: "run_rejected_agent_paused",
+          details: { agentId: this.ctx.agent.id, pauseReason: this.ctx.agent.pause_reason },
+        });
+      }
+      throw new Error(`Agent '${this.ctx.agent.name}' is currently paused: ${this.ctx.agent.pause_reason || "Emergency kill switch active"}`);
+    }
+
+    // 2. Guardrail: Prompt Injection Detection (BRD §8.10 FR-AG-008)
+    if (this.checkPromptInjection(prompt)) {
+      if (this.ctx.onIncident) {
+        await this.ctx.onIncident({
+          incidentType: "prompt_injection_flagged",
+          severity: "high",
+          description: `Prompt injection attack signature detected in user input to agent '${this.ctx.agent.name}'`,
+          rawContent: prompt,
+        });
+      }
+      if (this.ctx.onAuditLog) {
+        await this.ctx.onAuditLog({
+          eventType: "prompt_injection_blocked",
+          details: { agentId: this.ctx.agent.id, snippet: prompt.substring(0, 80) },
+        });
+      }
+      throw new Error("Execution rejected: Input violates AI security policy (Prompt Injection signature detected).");
+    }
+
+    const messages: AgentMessage[] = existingExecution?.messages ? [...existingExecution.messages] : [];
+    const planSteps: AgentExecutionStep[] = existingExecution?.plan_steps ? [...existingExecution.plan_steps] : [];
+
+    // Append user input message
     messages.push({
       id: "msg-" + Date.now(),
       role: "user",
@@ -124,12 +195,58 @@ export class AgentRunner {
       timestamp: new Date().toISOString(),
     });
 
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "run_started",
+        details: { prompt: prompt.substring(0, 100), agentKey: this.ctx.agent.key },
+      });
+    }
+
+    // Step 1: Reasoning / Planning Step
     const plannedTool = this.selectTool(prompt);
+    const reasoningThought = plannedTool
+      ? `Analyzing prompt: "${prompt}". Identified required operational tool "${plannedTool.toolKey}" (${plannedTool.rationale}). Checking policy and parameter schema.`
+      : `Analyzing prompt: "${prompt}". No state modification or operational lookup tool required. Formulating direct conversational guidance based on system prompt.`;
+
+    const step1PromptTokens = this.estimateTokens(prompt + this.ctx.agent.system_prompt);
+    const step1CompletionTokens = this.estimateTokens(reasoningThought);
+    const step1Cost = calculateCost(this.ctx.agent.model, step1PromptTokens, step1CompletionTokens);
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "thought",
+      thought: reasoningThought,
+      toolKey: plannedTool?.toolKey,
+      toolName: plannedTool ? (this.ctx.tools.get(plannedTool.toolKey)?.name || plannedTool.toolKey) : undefined,
+      confidence: 0.96,
+      tokens: {
+        prompt: step1PromptTokens,
+        completion: step1CompletionTokens,
+        total: step1PromptTokens + step1CompletionTokens,
+      },
+      costUsd: step1Cost,
+      latencyMs: Date.now() - startTime,
+      status: "success",
+    });
 
     if (!plannedTool) {
       // Direct conversational response
       const answer = `[${this.ctx.agent.name}] I have analyzed your inquiry: "${prompt}". Based on ${this.ctx.agent.description || "project parameters"}, everything is operating within nominal construction limits. If you need a specific tool action (such as drafting an RFI, checking BOQ rates, or delay calculation), please specify the task detail.`;
       
+      const step2Tokens = this.estimateTokens(answer);
+      const step2Cost = calculateCost(this.ctx.agent.model, 0, step2Tokens);
+
+      planSteps.push({
+        stepNumber: planSteps.length + 1,
+        type: "synthesis",
+        thought: "Finalizing synthesized response to user without external tool execution.",
+        confidence: 0.98,
+        tokens: { prompt: 0, completion: step2Tokens, total: step2Tokens },
+        costUsd: step2Cost,
+        latencyMs: Date.now() - startTime,
+        status: "success",
+      });
+
       messages.push({
         id: "msg-" + (Date.now() + 1),
         role: "assistant",
@@ -137,8 +254,19 @@ export class AgentRunner {
         timestamp: new Date().toISOString(),
       });
 
+      const totalPrompt = step1PromptTokens;
+      const totalComp = step1CompletionTokens + step2Tokens;
+      const totalCost = Number((step1Cost + step2Cost).toFixed(6));
+
+      if (this.ctx.onAuditLog) {
+        await this.ctx.onAuditLog({
+          eventType: "run_completed",
+          details: { stepsCount: planSteps.length, costUsd: totalCost, totalTokens: totalPrompt + totalComp },
+        });
+      }
+
       return {
-        id: existingExecution?.id || "exec-" + Date.now(),
+        id: executionId,
         tenant_id: this.ctx.tenantId,
         agent_id: this.ctx.agent.id,
         user_id: this.ctx.userId || null,
@@ -148,12 +276,22 @@ export class AgentRunner {
         messages,
         pending_action: null,
         output_summary: answer,
+        tokens_prompt: totalPrompt,
+        tokens_completion: totalComp,
+        total_tokens: totalPrompt + totalComp,
+        cost_usd: totalCost,
+        latency_ms: Date.now() - startTime,
+        steps_count: planSteps.length,
+        plan_steps: planSteps,
+        confidence_score: 0.98,
+        retry_count: existingExecution?.retry_count ?? 0,
         created_at: existingExecution?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
         agent: {
           id: this.ctx.agent.id,
           name: this.ctx.agent.name,
           key: this.ctx.agent.key,
+          model: this.ctx.agent.model,
         },
       };
     }
@@ -175,7 +313,20 @@ export class AgentRunner {
     };
 
     if (requiresApproval) {
-      // Human-In-The-Loop Pause Gate
+      // Step 2: Human-In-The-Loop Pause Gate
+      planSteps.push({
+        stepNumber: planSteps.length + 1,
+        type: "human_approval",
+        thought: `Tool "${pendingAction.toolName}" is classified as a project mutation. Gating execution for human supervisor approval per governance policy '${policy}'.`,
+        toolKey: pendingAction.toolKey,
+        toolName: pendingAction.toolName,
+        toolInput: pendingAction.input,
+        confidence: 0.94,
+        costUsd: 0,
+        latencyMs: Date.now() - startTime,
+        status: "paused",
+      });
+
       messages.push({
         id: "msg-" + (Date.now() + 1),
         role: "assistant",
@@ -187,8 +338,19 @@ export class AgentRunner {
         timestamp: new Date().toISOString(),
       });
 
+      if (this.ctx.onAuditLog) {
+        await this.ctx.onAuditLog({
+          eventType: "hitl_requested",
+          details: {
+            toolKey: pendingAction.toolKey,
+            input: pendingAction.input,
+            rationale: pendingAction.rationale,
+          },
+        });
+      }
+
       return {
-        id: existingExecution?.id || "exec-" + Date.now(),
+        id: executionId,
         tenant_id: this.ctx.tenantId,
         agent_id: this.ctx.agent.id,
         user_id: this.ctx.userId || null,
@@ -198,22 +360,56 @@ export class AgentRunner {
         messages,
         pending_action: pendingAction,
         output_summary: `Paused awaiting human approval for tool: ${pendingAction.toolName}`,
+        tokens_prompt: step1PromptTokens,
+        tokens_completion: step1CompletionTokens,
+        total_tokens: step1PromptTokens + step1CompletionTokens,
+        cost_usd: step1Cost,
+        latency_ms: Date.now() - startTime,
+        steps_count: planSteps.length,
+        plan_steps: planSteps,
+        confidence_score: 0.94,
+        retry_count: existingExecution?.retry_count ?? 0,
         created_at: existingExecution?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
         agent: {
           id: this.ctx.agent.id,
           name: this.ctx.agent.name,
           key: this.ctx.agent.key,
+          model: this.ctx.agent.model,
         },
       };
     }
 
-    // Execute immediately without pause
+    // Step 2: Immediate Tool Execution
+    const toolCallStartTime = Date.now();
     const toolResult = await this.ctx.toolExecutor.execute(
       this.ctx.token,
       plannedTool.toolKey,
       plannedTool.input
     );
+    const toolLatency = Date.now() - toolCallStartTime;
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "tool_call",
+      thought: `Dispatched tool call "${plannedTool.toolKey}" directly to backend execution provider.`,
+      toolKey: plannedTool.toolKey,
+      toolName: toolDef?.name || plannedTool.toolKey,
+      toolInput: plannedTool.input,
+      toolOutput: toolResult.data,
+      confidence: 0.97,
+      costUsd: 0,
+      latencyMs: toolLatency,
+      status: toolResult.success ? "success" : "failed",
+      error: toolResult.error,
+    });
+
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "tool_called",
+        details: { toolKey: plannedTool.toolKey, success: toolResult.success },
+      });
+    }
 
     messages.push({
       id: "msg-tool-" + Date.now(),
@@ -224,7 +420,21 @@ export class AgentRunner {
       timestamp: new Date().toISOString(),
     });
 
+    // Step 3: Synthesis Step
     const summary = this.synthesizeSummary(this.ctx.agent.name, plannedTool.toolKey, toolResult.data);
+    const step3Tokens = this.estimateTokens(summary);
+    const step3Cost = calculateCost(this.ctx.agent.model, 0, step3Tokens);
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "synthesis",
+      thought: "Synthesizing formatted business response from grounded tool output payload.",
+      confidence: 0.97,
+      tokens: { prompt: 0, completion: step3Tokens, total: step3Tokens },
+      costUsd: step3Cost,
+      latencyMs: Date.now() - startTime,
+      status: "success",
+    });
 
     messages.push({
       id: "msg-" + (Date.now() + 2),
@@ -233,8 +443,31 @@ export class AgentRunner {
       timestamp: new Date().toISOString(),
     });
 
+    const totalPrompt = step1PromptTokens;
+    const totalComp = step1CompletionTokens + step3Tokens;
+    const totalCost = Number((step1Cost + step3Cost).toFixed(6));
+
+    // Budget Guardrail (BRD §8.10 FR-AG-009)
+    const budget = this.ctx.agent.spend_budget_usd ?? 5.0;
+    if (totalCost > budget) {
+      if (this.ctx.onIncident) {
+        await this.ctx.onIncident({
+          incidentType: "cost_limit_exceeded",
+          severity: "medium",
+          description: `Agent run exceeded allocated budget limit ($${totalCost.toFixed(4)} > $${budget.toFixed(4)})`,
+        });
+      }
+    }
+
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "run_completed",
+        details: { stepsCount: planSteps.length, costUsd: totalCost, totalTokens: totalPrompt + totalComp },
+      });
+    }
+
     return {
-      id: existingExecution?.id || "exec-" + Date.now(),
+      id: executionId,
       tenant_id: this.ctx.tenantId,
       agent_id: this.ctx.agent.id,
       user_id: this.ctx.userId || null,
@@ -244,32 +477,67 @@ export class AgentRunner {
       messages,
       pending_action: null,
       output_summary: summary,
+      tokens_prompt: totalPrompt,
+      tokens_completion: totalComp,
+      total_tokens: totalPrompt + totalComp,
+      cost_usd: totalCost,
+      latency_ms: Date.now() - startTime,
+      steps_count: planSteps.length,
+      plan_steps: planSteps,
+      confidence_score: 0.97,
+      retry_count: existingExecution?.retry_count ?? 0,
       created_at: existingExecution?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
       agent: {
         id: this.ctx.agent.id,
         name: this.ctx.agent.name,
         key: this.ctx.agent.key,
+        model: this.ctx.agent.model,
       },
     };
   }
 
   /**
-   * Resume paused execution after human review
+   * Resume paused execution after human review (supports parameter modification)
    */
   async resume(
     execution: AgentExecution,
     approved: boolean,
-    rejectionReason?: string
+    rejectionReason?: string,
+    modifiedInput?: Record<string, unknown>,
+    notes?: string,
+    reviewerId?: string
   ): Promise<AgentExecution> {
     const messages = [...execution.messages];
     const pending = execution.pending_action;
+    const planSteps = execution.plan_steps ? [...execution.plan_steps] : [];
 
     if (!pending) {
       throw new Error("Execution has no pending action to approve or reject");
     }
 
+    const approvalMetadata: ApprovalMetadata = {
+      approvedBy: reviewerId || this.ctx.userId,
+      approvedAt: new Date().toISOString(),
+      modifiedInput,
+      rejectionReason,
+      notes,
+    };
+
     if (!approved) {
+      planSteps.push({
+        stepNumber: planSteps.length + 1,
+        type: "human_approval",
+        thought: `Action rejected by supervisor. Reason: ${rejectionReason || "No explanation provided"}`,
+        toolKey: pending.toolKey,
+        toolName: pending.toolName,
+        confidence: 1.0,
+        costUsd: 0,
+        latencyMs: 0,
+        status: "failed",
+        error: rejectionReason || "Rejected by supervisor",
+      });
+
       messages.push({
         id: "msg-reject-" + Date.now(),
         role: "assistant",
@@ -279,22 +547,77 @@ export class AgentRunner {
         timestamp: new Date().toISOString(),
       });
 
+      if (this.ctx.onAuditLog) {
+        await this.ctx.onAuditLog({
+          eventType: "hitl_rejected",
+          actorType: "human_reviewer",
+          actorId: reviewerId || this.ctx.userId,
+          details: { toolKey: pending.toolKey, rejectionReason, notes },
+        });
+      }
+
       return {
         ...execution,
         status: "rejected",
         messages,
         pending_action: null,
         output_summary: `Action rejected: ${rejectionReason || "Rejected by supervisor"}`,
+        approval_metadata: approvalMetadata,
+        plan_steps: planSteps,
+        steps_count: planSteps.length,
         updated_at: new Date().toISOString(),
       };
     }
 
-    // Approved: execute the pending tool
+    // Approved: Use modified input parameters if supplied by human reviewer
+    const effectiveInput = modifiedInput || pending.input;
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "human_approval",
+      thought: `Human supervisor approved invocation of "${pending.toolName}"${
+        modifiedInput ? " with adjusted input parameters." : "."
+      }`,
+      toolKey: pending.toolKey,
+      toolName: pending.toolName,
+      toolInput: effectiveInput,
+      confidence: 1.0,
+      costUsd: 0,
+      latencyMs: 0,
+      status: "success",
+    });
+
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "hitl_approved",
+        actorType: "human_reviewer",
+        actorId: reviewerId || this.ctx.userId,
+        details: { toolKey: pending.toolKey, input: effectiveInput, modified: !!modifiedInput },
+      });
+    }
+
+    const toolCallStartTime = Date.now();
     const toolResult = await this.ctx.toolExecutor.execute(
       this.ctx.token,
       pending.toolKey,
-      pending.input
+      effectiveInput
     );
+    const toolLatency = Date.now() - toolCallStartTime;
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "tool_call",
+      thought: `Executing supervisor-approved tool "${pending.toolName}".`,
+      toolKey: pending.toolKey,
+      toolName: pending.toolName,
+      toolInput: effectiveInput,
+      toolOutput: toolResult.data,
+      confidence: 0.98,
+      costUsd: 0,
+      latencyMs: toolLatency,
+      status: toolResult.success ? "success" : "failed",
+      error: toolResult.error,
+    });
 
     messages.push({
       id: "msg-approved-" + Date.now(),
@@ -313,6 +636,19 @@ export class AgentRunner {
     });
 
     const summary = this.synthesizeSummary(this.ctx.agent.name, pending.toolKey, toolResult.data);
+    const synthTokens = this.estimateTokens(summary);
+    const synthCost = calculateCost(this.ctx.agent.model, 0, synthTokens);
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "synthesis",
+      thought: "Synthesizing confirmation report from approved mutation outcome.",
+      confidence: 0.98,
+      tokens: { prompt: 0, completion: synthTokens, total: synthTokens },
+      costUsd: synthCost,
+      latencyMs: 50,
+      status: "success",
+    });
 
     messages.push({
       id: "msg-resumed-" + Date.now(),
@@ -321,12 +657,73 @@ export class AgentRunner {
       timestamp: new Date().toISOString(),
     });
 
+    const totalTokens = (execution.total_tokens || 0) + synthTokens;
+    const totalCost = Number(((execution.cost_usd || 0) + synthCost).toFixed(6));
+
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "run_completed",
+        details: { stepsCount: planSteps.length, costUsd: totalCost, totalTokens },
+      });
+    }
+
     return {
       ...execution,
       status: "completed",
       messages,
       pending_action: null,
       output_summary: summary,
+      approval_metadata: approvalMetadata,
+      plan_steps: planSteps,
+      steps_count: planSteps.length,
+      total_tokens: totalTokens,
+      cost_usd: totalCost,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Cancel an in-flight or paused execution
+   */
+  async cancel(execution: AgentExecution, reason: string, cancelledBy?: string): Promise<AgentExecution> {
+    const messages = [...execution.messages];
+    const planSteps = execution.plan_steps ? [...execution.plan_steps] : [];
+
+    planSteps.push({
+      stepNumber: planSteps.length + 1,
+      type: "human_approval",
+      thought: `Run cancelled by operator. Reason: ${reason}`,
+      confidence: 1.0,
+      costUsd: 0,
+      latencyMs: 0,
+      status: "skipped",
+      error: reason,
+    });
+
+    messages.push({
+      id: "msg-cancel-" + Date.now(),
+      role: "assistant",
+      content: `⚠️ **Execution Cancelled by Operator**: ${reason}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (this.ctx.onAuditLog) {
+      await this.ctx.onAuditLog({
+        eventType: "run_cancelled",
+        actorType: "human_reviewer",
+        actorId: cancelledBy || this.ctx.userId,
+        details: { reason },
+      });
+    }
+
+    return {
+      ...execution,
+      status: "cancelled",
+      messages,
+      pending_action: null,
+      output_summary: `Cancelled: ${reason}`,
+      plan_steps: planSteps,
+      steps_count: planSteps.length,
       updated_at: new Date().toISOString(),
     };
   }
