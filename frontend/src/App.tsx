@@ -36,6 +36,7 @@ import { BillingPage } from "./pages/BillingPage";
 import { ContractsPage } from "./pages/ContractsPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { CommunicationsPage } from "./pages/CommunicationsPage";
+import { LegalPage } from "./pages/LegalPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -209,6 +210,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["communications.stakeholder.manage", "communications.log.manage", "communications.minutes.manage", "communications.complaint.manage", "communications.complaint.resolve"]}>
                   <CommunicationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="legal"
+              element={
+                <ProtectedRoute anyPermission={["legal.licence.manage", "legal.licence.renew", "legal.matter.manage", "legal.matter.view_privileged", "legal.counsel.manage", "legal.compliance.manage"]}>
+                  <LegalPage />
                 </ProtectedRoute>
               }
             />

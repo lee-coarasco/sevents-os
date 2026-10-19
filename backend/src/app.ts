@@ -141,6 +141,11 @@ import {
   createSupabaseCommunicationsRepository,
   type CommunicationsRepository,
 } from "./modules/communications/repository.js";
+import { registerLegalRoutes } from "./modules/legal/routes.js";
+import {
+  createSupabaseLegalRepository,
+  type LegalRepository,
+} from "./modules/legal/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -204,6 +209,16 @@ export interface BuildAppOptions {
   getContractsRepository?: () => ContractsRepository;
   getPeopleRepository?: () => PeopleRepository;
   getCommunicationsRepository?: () => CommunicationsRepository;
+  getLegalRepository?: () => LegalRepository;
+}
+
+let cachedLegalRepository: LegalRepository | null = null;
+
+function defaultLegalRepository(): LegalRepository {
+  if (!cachedLegalRepository) {
+    cachedLegalRepository = createSupabaseLegalRepository(createUserScopedClient);
+  }
+  return cachedLegalRepository;
 }
 
 let cachedCommunicationsRepository: CommunicationsRepository | null = null;
@@ -633,6 +648,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(registerCommunicationsRoutes({
     getRepository: options.getCommunicationsRepository ?? defaultCommunicationsRepository,
     permissionGuard: guard,
+  }));
+
+  app.register(registerLegalRoutes({
+    getRepository: options.getLegalRepository ?? defaultLegalRepository,
+    permissionGuard: guard,
+    hasPermission: async (token: string, perm: string) => {
+      const auth = authorityRepo();
+      const session = await auth.getSession(token);
+      if (!session) return false;
+      const effective = await auth.getEffectivePermissions(session.tenant_id, session.user_id);
+      return effective.includes(perm);
+    },
   }));
 
   app.register(storageRoutes, {

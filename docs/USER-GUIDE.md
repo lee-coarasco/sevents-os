@@ -864,6 +864,33 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M27 — Legal, Licences & Regulatory Register
+
+**Status:** done (ticket 0172)
+
+**What's built:**
+- **Database Schema**: `licences_permits`, `legal_matters`, `external_counsel`, and `compliance_obligations` tables with multi-tenant RLS isolation (`public.current_tenant_id()`).
+- **Permissions**: `legal.licence.manage`, `legal.licence.renew`, `legal.matter.manage`, `legal.matter.view_privileged`, `legal.counsel.manage`, `legal.compliance.manage`. Seeded to Platform Admin, CLO, Legal Counsel Lead, and Contracts & Legal Assistant.
+- **Backend Service**:
+  - Statutory licence & permit register with automatic expiry proximity calculation and lead-day warnings.
+  - Licence renewal workflow recording new validity dates and actual renewal fees.
+  - Legal matters & disputes tracker (arbitration, litigation, adjudication, mediation, labour claims, and regulatory inquiries) with exposure metrics and legal privilege filtering (`privileged_confidential` guarded by `legal.matter.view_privileged`).
+  - External counsel management recording fee arrangements, retainers, legal spend vs budgets, and billing updates.
+  - Compliance obligations calendar with recurring statutory schedules (WPS, VAT filings, audit requirements, environmental certifications) and evidence-backed filing actions.
+- **Frontend Screen**: `LegalPage` at `/legal`, nav link "Legal & Licences" in `AppLayout.tsx` under the "Projects" section.
+  - 4 tabs: Licences & Permits Register, Legal Matters & Disputes, External Counsel & Advisors, and Compliance Obligations & Filings.
+  - KPI metric cards: Active Licences & Permits, Active Dispute Exposure (AED), External Counsel Spend vs Budget, and Pending Statutory Filings.
+  - Modals: "+ Register Licence / Permit", "Renew Licence / Permit", "+ Record Dispute / Matter", "+ Retain External Counsel", "Update Counsel Billing", "+ Add Compliance Obligation", and "Record Regulatory Filing".
+
+**How to use it:**
+1. Navigate to `/legal` via the sidebar under "Projects &rarr; Legal & Licences".
+2. **Licences & Permits Register Tab**: View corporate trade licences, civil defense, municipality permits, environmental clearances, and customs codes. Licences approaching expiry show `expiring soon` or `expired` pills. Authorized users click "Renew" to record new expiry dates and actual renewal fees.
+3. **Legal Matters & Disputes Tab**: Track active arbitration, litigation, and claims across forums (e.g. DIAC, ADGM, DIFC, local courts). Matters marked `privileged_confidential` are visible only to users with privileged viewing permissions. Click "+ Record Dispute / Matter" to log claims, quantum, and opposing counsel. Advance matter status (pleadings, hearing, settled, judgment awarded, closed).
+4. **External Counsel & Advisors Tab**: Manage retained law firms and counsel budgets. Track cumulative billed spend against caps, view fee arrangements (hourly, fixed, capped, contingency), and update billing via "Update Billing".
+5. **Compliance Obligations & Filings Tab**: Monitor statutory filing deadlines (e.g., MOHRE WPS, FTA VAT, corporate tax, annual audits). Click "Record Filing" to upload an evidence reference, record the filing date, and mark the obligation filed.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -889,6 +916,7 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M27 onward in CLAUDE.md's build order table (M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
+Everything from M28 onward in CLAUDE.md's build order table (M28 Project Financial Closeout & Audit, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.
+
