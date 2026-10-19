@@ -891,6 +891,38 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M32 — Dashboards, Reports & KPI Builder
+
+**Status:** done (ticket 0173)
+
+**What's built:**
+- **Database Schema**: `dashboard_reports` table with multi-tenant RLS isolation (`public.current_tenant_id()`) storing saved and preset report configurations.
+- **Permissions**: `dashboard.executive.view`, `dashboard.financial.view`, `dashboard.operations.view`, `dashboard.reports.manage`, `dashboard.reports.export`. Seeded to Platform Admin, CEO, COO, CFO, Project Director, Senior Accountant, QHSE Director, and Project Engineer Lead.
+- **Backend Analytics Engine (`backend/src/modules/dashboard/`)**:
+  - `GET /dashboard/summary`: High-level tenant platform counts.
+  - `GET /dashboard/analytics/executive`: Aggregates portfolio contract values, project delivery health distribution, physical progress %, and open approvals.
+  - `GET /dashboard/analytics/financial`: Cross-module financial variance comparing budgets vs. committed purchase orders vs. certified subcontractor claims vs. billings & cash collections.
+  - `GET /dashboard/analytics/operations`: Site manpower deployment efficiency %, plant & equipment fleet utilization %, quality NCR closure rates, and HSE safe man-hours / active PTWs.
+  - `GET /dashboard/reports`, `POST /dashboard/reports`, `DELETE /dashboard/reports/:id`: Management of custom and preset report definitions.
+  - `POST /dashboard/reports/generate`: Dynamic query engine over core operational entities (projects, purchase orders, quality NCRs, etc.) returning tabular rows and summary metrics.
+- **Frontend Screen (`frontend/src/pages/DashboardPage.tsx`)**:
+  - Top header with global Project Scope filter dropdown ("All Projects" vs individual project).
+  - 4 Operational Tabs:
+    1. **Executive Command Center**: High-level corporate health KPIs, portfolio contract totals, delivery status pills, S-curve progress bars, and fast-track navigation grid.
+    2. **Financial & Commercial**: Cost variance waterfall (Budget vs Committed vs Incurred), Billing vs Cash collections, and Variation quantum.
+    3. **Operations, Fleet & QHSE**: Manpower efficiency, equipment uptime %, Quality NCRs, HSE safe man-hours and open PTWs.
+    4. **Custom Reports & Export**: Preset reports list, custom report builder modal, dynamic table rendering, and instant browser CSV export.
+
+**How to use it:**
+1. Navigate to `/dashboard` or click "Home" via the sidebar.
+2. Filter by project using the top dropdown or view the aggregated "All Projects (Corporate Portfolio)".
+3. **Executive Command Center Tab**: View portfolio contract values, physical progress %, project health distribution (on-track, at-risk, delayed), and jump directly to any active project.
+4. **Financial & Commercial Tab**: Inspect portfolio baseline budgets against commitments and certified billings to detect budget overrun risks immediately.
+5. **Operations, Fleet & QHSE Tab**: Track site mobilization efficiency (demanded vs supplied headcount), equipment fleet uptime, and site safety stats (safe hours worked and active permits to work).
+6. **Custom Reports & Export Tab**: Pick any module entity (projects, POs, NCRs), click "Generate Live Report" to preview tabular data with summary stats, export directly to a `.csv` spreadsheet, or save the query as a reusable preset.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,

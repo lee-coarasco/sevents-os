@@ -149,6 +149,7 @@ import {
 } from "./modules/legal/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
+import type { DashboardRepository } from "./modules/dashboard/repository.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
 import {
   createAnonClient,
@@ -211,6 +212,7 @@ export interface BuildAppOptions {
   getPeopleRepository?: () => PeopleRepository;
   getCommunicationsRepository?: () => CommunicationsRepository;
   getLegalRepository?: () => LegalRepository;
+  getDashboardRepository?: () => DashboardRepository;
 }
 
 let cachedLegalRepository: LegalRepository | null = null;
@@ -668,6 +670,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(dashboardRoutes, {
     getUserScopedClient: createUserScopedClient,
+    getRepository: options.getDashboardRepository ? () => options.getDashboardRepository!() : undefined,
+    permissionGuard: guard,
   });
 
   app.register(adminUsersRoutes, {
