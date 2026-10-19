@@ -5,7 +5,7 @@
 -- 1. Equipment Assets Master Register
 create table if not exists public.equipment_assets (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.companies(id) on delete cascade,
+  tenant_id uuid not null default public.current_tenant_id() references public.tenants(id) on delete cascade,
   asset_code text not null,
   name text not null,
   category text not null check (category in ('heavy_plant', 'earthmoving', 'lifting_rigging', 'power_generation', 'fleet_vehicle', 'small_tools')),
@@ -37,7 +37,7 @@ create policy equipment_assets_tenant_isolation on public.equipment_assets
 -- 2. Equipment Allocations / Mobilizations
 create table if not exists public.equipment_allocations (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.companies(id) on delete cascade,
+  tenant_id uuid not null default public.current_tenant_id() references public.tenants(id) on delete cascade,
   equipment_id uuid not null references public.equipment_assets(id) on delete cascade,
   project_id uuid not null references public.projects(id) on delete cascade,
   allocation_number text not null,
@@ -66,7 +66,7 @@ create policy equipment_allocations_tenant_isolation on public.equipment_allocat
 -- 3. Equipment Daily Utilization Logs
 create table if not exists public.equipment_daily_logs (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.companies(id) on delete cascade,
+  tenant_id uuid not null default public.current_tenant_id() references public.tenants(id) on delete cascade,
   equipment_id uuid not null references public.equipment_assets(id) on delete cascade,
   project_id uuid not null references public.projects(id) on delete cascade,
   log_date date not null default current_date,
@@ -96,7 +96,7 @@ create policy equipment_daily_logs_tenant_isolation on public.equipment_daily_lo
 -- 4. Equipment Maintenance & Inspections Records
 create table if not exists public.equipment_maintenance_records (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.companies(id) on delete cascade,
+  tenant_id uuid not null default public.current_tenant_id() references public.tenants(id) on delete cascade,
   equipment_id uuid not null references public.equipment_assets(id) on delete cascade,
   maintenance_type text not null check (maintenance_type in ('preventive_service', 'breakdown_repair', 'safety_inspection', 'statutory_certification')),
   maintenance_date date not null default current_date,
@@ -122,7 +122,7 @@ create policy equipment_maintenance_tenant_isolation on public.equipment_mainten
 -- 5. Equipment Statutory Third-Party Certificates
 create table if not exists public.equipment_statutory_certificates (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references public.companies(id) on delete cascade,
+  tenant_id uuid not null default public.current_tenant_id() references public.tenants(id) on delete cascade,
   equipment_id uuid not null references public.equipment_assets(id) on delete cascade,
   certificate_type text not null check (certificate_type in ('safe_working_load_3rd_party', 'lifting_tackle_inspection', 'registration_mulkiya', 'insurance_policy', 'emission_test')),
   certificate_number text not null,

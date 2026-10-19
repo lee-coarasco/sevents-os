@@ -56,7 +56,7 @@ export async function hasPermission(
   atIso: string = nowIso(),
 ): Promise<boolean> {
   const permissions = await getEffectivePermissions(repo, userId, tenantId, atIso);
-  return permissions.has(permissionKey);
+  return permissions.has("*") || permissions.has(permissionKey);
 }
 
 export async function createDepartment(

@@ -37,7 +37,7 @@ export function requirePermission(getRepository: () => AuthorityRepository, perm
     }
 
     const permissions = await getEffectivePermissions(repo, context.userId, context.tenantId);
-    if (!permissions.has(permissionKey)) {
+    if (!permissions.has("*") && !permissions.has(permissionKey)) {
       reply.code(403);
       return reply.send({ error: "forbidden" });
     }

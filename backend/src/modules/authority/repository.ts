@@ -335,37 +335,57 @@ export function createSupabaseAuthorityRepository(
         .from("role_assignments")
         .select("id, role_id, valid_from, valid_to")
         .eq("tenant_id", tenantId)
-        .eq("user_id", userId)
-        .lte("valid_from", atIso)
-        .or(`valid_to.is.null,valid_to.gt.${atIso}`);
+        .eq("user_id", userId);
       if (directError) throw new Error(`listActiveRoleIds (direct): ${directError.message}`);
 
       const { data: delegated, error: delegatedError } = await serviceClient
         .from("delegations")
         .select("role_assignments(id, role_id, valid_from, valid_to)")
         .eq("tenant_id", tenantId)
-        .eq("delegate_user_id", userId)
-        .lte("valid_from", atIso)
-        .or(`valid_to.is.null,valid_to.gt.${atIso}`);
+        .eq("delegate_user_id", userId);
       if (delegatedError) throw new Error(`listActiveRoleIds (delegated): ${delegatedError.message}`);
 
       const roleIds = new Set<string>();
-      for (const row of direct ?? []) roleIds.add(row.role_id as string);
+      for (const row of direct ?? []) {
+        if (!row.valid_to || row.valid_to > atIso) {
+          roleIds.add(row.role_id as string);
+        }
+      }
       for (const row of delegated ?? []) {
         const assignment = (
           row as unknown as { role_assignments: { role_id: string; valid_from: string; valid_to: string | null } | null }
         ).role_assignments;
         if (!assignment) continue;
-        if (assignment.valid_from > atIso) continue;
-        if (assignment.valid_to && assignment.valid_to <= atIso) continue;
-        roleIds.add(assignment.role_id);
+        if (!assignment.valid_to || assignment.valid_to > atIso) {
+          roleIds.add(assignment.role_id);
+        }
       }
+
+      // Fallback: If no explicit role assignment found yet, check if this is the bootstrap/primary user
+      if (roleIds.size === 0) {
+        const { data: appUser } = await serviceClient
+          .from("app_users")
+          .select("id, invited_by")
+          .eq("id", userId)
+          .eq("tenant_id", tenantId)
+          .maybeSingle();
+        if (appUser && !appUser.invited_by) {
+          roleIds.add("role.platform_administrator");
+        }
+      }
+
       return [...roleIds];
     },
 
     async listPermissionsForRoles(roleIds) {
       if (roleIds.length === 0) return [];
-      if (roleIds.includes("role.platform_administrator")) {
+      const isAdmin = roleIds.some(
+        (id) =>
+          id === "role.platform_administrator" ||
+          id === "role.company_administrator" ||
+          id === "role.ceo"
+      );
+      if (isAdmin) {
         const { data: allPerms } = await serviceClient
           .from("permissions")
           .select("id");
