@@ -42,6 +42,7 @@ import { PlatformAdminPage } from "./pages/PlatformAdminPage";
 import { FieldModePage } from "./pages/FieldModePage";
 import { MigrationPage } from "./pages/MigrationPage";
 import { AiKnowledgePage } from "./pages/AiKnowledgePage";
+import { AiAgentsPage } from "./pages/AiAgentsPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { OfflineSyncProvider } from "./context/OfflineSyncContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -268,6 +269,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["ai.assistant.query", "ai.knowledge.manage"]}>
                   <AiKnowledgePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ai/agents"
+              element={
+                <ProtectedRoute anyPermission={["ai.agent.execute", "ai.agent.manage"]}>
+                  <AiAgentsPage />
                 </ProtectedRoute>
               }
             />

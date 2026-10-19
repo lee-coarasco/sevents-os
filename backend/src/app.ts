@@ -167,6 +167,11 @@ import {
   createSupabaseAiRepository,
   type AiRepository,
 } from "./modules/ai/repository.js";
+import { registerAgentsRoutes } from "./modules/agents/routes.js";
+import {
+  createAgentsRepository,
+  type AgentsRepository,
+} from "./modules/agents/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import type { DashboardRepository } from "./modules/dashboard/repository.js";
@@ -237,6 +242,16 @@ export interface BuildAppOptions {
   getPlatformAdminRepository?: () => PlatformAdminRepository;
   getMigrationRepository?: () => MigrationRepository;
   getAiRepository?: () => AiRepository;
+  getAgentsRepository?: () => AgentsRepository;
+}
+
+let cachedAgentsRepository: AgentsRepository | null = null;
+
+function defaultAgentsRepository(): AgentsRepository {
+  if (!cachedAgentsRepository) {
+    cachedAgentsRepository = createAgentsRepository(createUserScopedClient);
+  }
+  return cachedAgentsRepository;
 }
 
 let cachedAiRepository: AiRepository | null = null;
@@ -751,6 +766,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerAiRoutes({
     getRepository: options.getAiRepository ?? defaultAiRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerAgentsRoutes({
+    getRepository: options.getAgentsRepository ?? defaultAgentsRepository,
+    getClient: createUserScopedClient,
     permissionGuard: guard,
   }));
 

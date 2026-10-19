@@ -371,16 +371,26 @@ export function AppLayout() {
               </NavLink>
             </PermissionGate>
           </PermissionGate>
-          <PermissionGate anyPermission={["ai.assistant.query", "ai.knowledge.manage"]}>
+          <PermissionGate anyPermission={["ai.assistant.query", "ai.knowledge.manage", "ai.agent.execute", "ai.agent.manage"]}>
             <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
               Intelligence
             </p>
-            <NavLink to="/ai/knowledge" className={navLinkClass}>
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              AI Knowledge Base
-            </NavLink>
+            <PermissionGate anyPermission={["ai.assistant.query", "ai.knowledge.manage"]}>
+              <NavLink to="/ai/knowledge" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                AI Knowledge Base
+              </NavLink>
+            </PermissionGate>
+            <PermissionGate anyPermission={["ai.agent.execute", "ai.agent.manage"]}>
+              <NavLink to="/ai/agents" className={navLinkClass}>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.942A4.5 4.5 0 0115.88 17H8.12a4.5 4.5 0 01-2.35-.658L5 15.3m14.8 0A2.25 2.25 0 0021 13.37V9.75a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9.75v3.62c0 .858.484 1.636 1.25 1.93" />
+                </svg>
+                AI Agent Studio
+              </NavLink>
+            </PermissionGate>
           </PermissionGate>
         </nav>
 
