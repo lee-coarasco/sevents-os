@@ -2,13 +2,14 @@ import type { AiAdapter, AiCompletionOptions, AiCompletionResponse } from "./typ
 import { createDeterministicMockEmbedding } from "./localAdapter.js";
 
 export class OpenAiAdapter implements AiAdapter {
-  readonly provider = "openai" as const;
+  readonly provider: string;
   private apiKey?: string;
   private baseUrl: string;
 
-  constructor(apiKey?: string, baseUrl?: string) {
-    this.apiKey = apiKey || process.env.OPENAI_API_KEY;
-    this.baseUrl = (baseUrl || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  constructor(apiKey?: string, baseUrl?: string, providerId: string = "openai") {
+    this.provider = providerId;
+    this.apiKey = apiKey || (providerId === "openai" ? process.env.OPENAI_API_KEY : undefined);
+    this.baseUrl = (baseUrl || (providerId === "openai" ? (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1") : "https://api.openai.com/v1")).replace(/\/+$/, "");
   }
 
   async generateEmbedding(text: string, model: string = "text-embedding-3-small"): Promise<number[]> {
@@ -106,36 +107,40 @@ export class OpenAiAdapter implements AiAdapter {
 
   async testConnection(): Promise<{ ok: boolean; message: string; latencyMs: number }> {
     const start = Date.now();
-    if (!this.apiKey) {
+    const isLocal = this.baseUrl.includes("localhost") || this.baseUrl.includes("127.0.0.1");
+
+    if (!this.apiKey && !isLocal) {
       return {
         ok: false,
-        message: "OPENAI_API_KEY is not configured.",
+        message: `${this.provider.toUpperCase()} API key is not configured.`,
         latencyMs: 0,
       };
     }
 
     try {
-      const res = await fetch(`${this.baseUrl}/models`, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      });
+      const headers: Record<string, string> = {};
+      if (this.apiKey) {
+        headers["Authorization"] = `Bearer ${this.apiKey}`;
+      }
+      const res = await fetch(`${this.baseUrl}/models`, { headers });
       const latency = Date.now() - start;
       if (res.ok) {
         return {
           ok: true,
-          message: "OpenAI connection established successfully.",
+          message: `${this.provider} connection established successfully.`,
           latencyMs: latency,
         };
       } else {
         return {
           ok: false,
-          message: `OpenAI returned status ${res.status}: ${res.statusText}`,
+          message: `${this.provider} returned status ${res.status}: ${res.statusText}`,
           latencyMs: latency,
         };
       }
     } catch (err: any) {
       return {
         ok: false,
-        message: err.message || "Failed to reach OpenAI API.",
+        message: err.message || `Failed to reach ${this.provider} API at ${this.baseUrl}.`,
         latencyMs: Date.now() - start,
       };
     }

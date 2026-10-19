@@ -138,9 +138,6 @@ export function AiKnowledgePage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900">AI Knowledge Base &amp; Search</h1>
-            <span className="rounded-full bg-brand/20 px-2 py-0.5 text-xs font-semibold text-zinc-900 border border-brand/30">
-              Module M28
-            </span>
           </div>
           <p className="mt-1 text-sm text-zinc-500">
             Vectorized repository of drawings, specifications, RFIs, and contracts powering grounded AI queries with zero hallucination.

@@ -90,7 +90,7 @@ describe("AiAgentsPage (M29 Agent Studio & Tool Registry)", () => {
     vi.clearAllMocks();
   });
 
-  it("renders page title, Module M29 badge, tabs, and agent cards", async () => {
+  it("renders page title, tabs, and agent cards", async () => {
     (agentService.listAgents as any).mockResolvedValueOnce(mockAgents);
     (agentService.listTools as any).mockResolvedValueOnce(mockTools);
     (agentService.listExecutions as any).mockResolvedValueOnce(mockExecutions);
@@ -102,7 +102,7 @@ describe("AiAgentsPage (M29 Agent Studio & Tool Registry)", () => {
     );
 
     expect(screen.getByText("AI Agent Studio & Tool Registry")).toBeInTheDocument();
-    expect(screen.getByText("Module M29")).toBeInTheDocument();
+    expect(screen.getByText(/Configure autonomous construction agents/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("Site Engineering Copilot")).toBeInTheDocument();

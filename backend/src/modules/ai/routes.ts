@@ -1,12 +1,17 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { AiRepository } from "./repository.js";
 import { createAiKnowledgeService } from "./service.js";
+import type { AiChatRequest, KnowledgeSourceType, AiFeedbackInput } from "./types.js";
 import {
   listSupportedProviders,
   createAiAdapter,
   resolveDefaultProvider,
   setRuntimeDefaultProvider,
+  registerCustomProvider,
+  removeCustomProvider,
+  addModelToProvider,
   type AiProviderType,
+  type CustomProviderInput,
 } from "./adapters/index.js";
 
 export interface AiRoutesOptions {
@@ -186,15 +191,96 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
      * POST /ai/providers/test
      * Test connection to a specific AI provider
      */
-    app.post<{ Body: { provider: AiProviderType; apiKey?: string } }>(
+    app.post<{ Body: { provider: AiProviderType; apiKey?: string; baseUrl?: string } }>(
       "/ai/providers/test",
       manageGuard,
       async (req, reply) => {
         try {
-          const { provider, apiKey } = req.body;
-          const adapter = createAiAdapter({ provider, apiKey });
+          const { provider, apiKey, baseUrl } = req.body;
+          const adapter = createAiAdapter({ provider, apiKey, baseUrl });
           const result = await adapter.testConnection();
           return reply.send({ result });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /ai/providers/custom
+     * Dynamically register or update a custom AI provider (OpenAI-compatible)
+     */
+    app.post<{ Body: CustomProviderInput }>(
+      "/ai/providers/custom",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { id, name, baseUrl, defaultModel } = req.body;
+          if (!id || !name || !baseUrl || !defaultModel) {
+            return reply.status(400).send({
+              error: "id, name, baseUrl, and defaultModel are required to register a custom provider",
+            });
+          }
+
+          const provider = registerCustomProvider(req.body);
+          return reply.status(201).send({
+            success: true,
+            provider,
+            providers: listSupportedProviders(),
+          });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * DELETE /ai/providers/custom/:id
+     * Remove a custom registered AI provider
+     */
+    app.delete<{ Params: { id: string } }>(
+      "/ai/providers/custom/:id",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { id } = req.params;
+          if (!id) return reply.status(400).send({ error: "Provider ID is required" });
+
+          const removed = removeCustomProvider(id);
+          return reply.send({
+            success: removed,
+            providers: listSupportedProviders(),
+          });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /ai/providers/models
+     * Dynamically add a new model to an existing or custom provider
+     */
+    app.post<{ Body: { providerId: string; model: string } }>(
+      "/ai/providers/models",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { providerId, model } = req.body;
+          if (!providerId || !model) {
+            return reply.status(400).send({ error: "providerId and model are required" });
+          }
+
+          const updated = addModelToProvider(providerId, model);
+          if (!updated) {
+            return reply.status(404).send({ error: "Provider not found" });
+          }
+
+          return reply.send({
+            success: true,
+            provider: updated,
+            providers: listSupportedProviders(),
+          });
         } catch (err: any) {
           return reply.status(500).send({ error: err.message });
         }

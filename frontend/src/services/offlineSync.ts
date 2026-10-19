@@ -39,7 +39,7 @@ const FORBIDDEN_OFFLINE_FINANCIAL_ENTITIES = new Set([
 export class OfflineFinancialPolicyError extends Error {
   constructor(entity: string) {
     super(
-      `Offline financial and commercial approvals for "${entity}" are strictly prohibited by company policy (BRD §7 M37). Network connectivity is required.`
+      `Offline financial and commercial approvals for "${entity}" are strictly prohibited by company policy. Network connectivity is required.`
     );
     this.name = "OfflineFinancialPolicyError";
   }

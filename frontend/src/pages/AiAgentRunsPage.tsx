@@ -224,15 +224,15 @@ export function AiAgentRunsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                  Module M30
+                <span className="rounded bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-200">
+                  Governance &amp; Audit
                 </span>
                 <span className="text-xs font-medium text-zinc-500">
-                  BRD §8.10 Governance & Audit
+                  Autonomous Agent Operations
                 </span>
               </div>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900">
-                Agent Runs, Human Review & Audit
+                Agent Runs, Human Review &amp; Audit
               </h1>
               <p className="mt-1 text-sm text-zinc-500">
                 Live run queue monitoring, Human-In-The-Loop review, step timeline, token spend tracking, and safety incidents.
@@ -244,13 +244,13 @@ export function AiAgentRunsPage() {
                 to="/ai/agents"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
               >
-                <span>🤖</span> Agent Studio (M29)
+                <span>🤖</span> Agent Studio
               </Link>
               <Link
                 to="/ai/knowledge"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50"
               >
-                <span>📚</span> Knowledge Search (M28)
+                <span>📚</span> Knowledge Search
               </Link>
               <button
                 disabled={loading}
@@ -512,7 +512,7 @@ export function AiAgentRunsPage() {
           <div className="space-y-6">
             <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
               <h2 className="text-sm font-semibold text-amber-900">
-                🛡️ Human-In-The-Loop Governance Gate (BRD §8.10 FR-AG-004 & FR-AG-010)
+                🛡️ Human-In-The-Loop Governance Gate
               </h2>
               <p className="mt-1 text-xs text-amber-800">
                 State-modifying actions (RFIs, POs, Subcontractor NCRs, schedule milestones) are strictly held in quarantine.
@@ -827,7 +827,7 @@ export function AiAgentRunsPage() {
                   {/* Immutable Audit Log Records for Execution */}
                   <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                      Append-Only Run Audit Trail (FR-AUD-001)
+                      Append-Only Run Audit Trail
                     </h3>
                     {loadingAudit ? (
                       <div className="text-xs text-zinc-500">Loading audit trail...</div>
@@ -899,7 +899,7 @@ export function AiAgentRunsPage() {
               <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
                 <div>
                   <h2 className="text-base font-bold text-rose-900 flex items-center gap-2">
-                    <span>🛑</span> Emergency Agent Kill Switches (BRD §8.10 FR-AG-006)
+                    <span>🛑</span> Emergency Agent Kill Switches
                   </h2>
                   <p className="mt-1 text-xs text-zinc-500">
                     Immediately pause or quarantine any autonomous agent globally or for the tenant. Active and pending runs are halted immediately.
@@ -1001,7 +1001,7 @@ export function AiAgentRunsPage() {
           <div className="space-y-6">
             <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
               <h2 className="text-sm font-semibold text-rose-900">
-                🚨 AI Security, Prompt Injection & Guardrail Incidents (FR-AG-008 & FR-AG-009)
+                🚨 AI Security, Prompt Injection &amp; Guardrail Incidents
               </h2>
               <p className="mt-1 text-xs text-rose-800">
                 Adversarial jailbreaks, prompt injection signatures, budget breaches, and unauthorized mutation attempts are automatically flagged for security compliance audit.

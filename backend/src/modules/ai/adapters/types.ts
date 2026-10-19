@@ -1,4 +1,4 @@
-export type AiProviderType = "openai" | "gemini" | "anthropic" | "azure" | "local";
+export type AiProviderType = "openai" | "gemini" | "anthropic" | "azure" | "local" | string;
 
 export interface AiProviderConfig {
   provider: AiProviderType;

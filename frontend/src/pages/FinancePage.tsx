@@ -839,7 +839,7 @@ export function FinancePage() {
             <div>
               <h3 className="text-base font-bold text-zinc-900">Financial Accounting Periods</h3>
               <p className="text-xs text-zinc-500">
-                Period locks enforce financial governance and prevent backdating expenses or transactions into closed periods (FR-FIN-003).
+                Period locks enforce financial governance and prevent backdating expenses or transactions into closed periods.
               </p>
             </div>
             <PermissionGate permission="finance.period.manage">

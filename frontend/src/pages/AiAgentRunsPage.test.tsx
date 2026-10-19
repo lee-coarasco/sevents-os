@@ -154,7 +154,7 @@ describe("AiAgentRunsPage (Module M30)", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Agent Runs, Human Review & Audit/i)).toBeInTheDocument();
-      expect(screen.getByText(/Module M30/i)).toBeInTheDocument();
+      expect(screen.getByText(/Governance & Audit/i)).toBeInTheDocument();
       expect(screen.getByText(/Total Runs/i)).toBeInTheDocument();
       expect(screen.getByText(/Awaiting Human Review/i)).toBeInTheDocument();
     });

@@ -342,7 +342,7 @@ export function QualityPage() {
             Quality Control, Inspection &amp; NCR
           </h1>
           <p className="font-body text-sm text-zinc-500">
-            M19 QA/QC Governance: Inspection &amp; Test Plans (ITP), Site Work Inspection Requests (WIR), and Non-Conformance Management (NCR/CAPA).
+            QA/QC Governance: Inspection &amp; Test Plans (ITP), Site Work Inspection Requests (WIR), and Non-Conformance Management (NCR/CAPA).
           </p>
         </div>
 

@@ -45,7 +45,7 @@ describe("Module M37: Offline Sync & Field Storage Engine", () => {
     expect(getOfflineDrafts()).toHaveLength(0);
   });
 
-  it("enforces BRD §7 strict financial policy by blocking offline approvals", () => {
+  it("enforces strict financial policy by blocking offline approvals", () => {
     expect(() => {
       assertNoOfflineFinancialAction("payment_application");
     }).toThrow(OfflineFinancialPolicyError);

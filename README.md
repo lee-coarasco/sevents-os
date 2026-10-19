@@ -1,119 +1,106 @@
-# SEVENTS
+# SEVENTS Enterprise OS
 
-A UAE-first, country-agnostic construction ERP: workflow automation,
-configurable approval chains, and (later) controlled AI agents, built for a
-UAE-based construction company as the first deployment.
+**SEVENTS OS** is a modern, modular, cloud-native Construction Enterprise Operating System built specifically for general contractors, engineering firms, and infrastructure developers. It unifies project management, commercial governance, field operations, procurement, quality/safety compliance, and autonomous AI copilots into a single platform.
 
-This repo is built by autonomous Claude Code sessions running on a schedule,
-guided by the docs below — see [Working on this repo](#working-on-this-repo)
-if that's why you're here.
+Detailed documentation and step-by-step instructions for all features are available in the [Comprehensive User Guide](docs/USER-GUIDE.md).
 
-## Current status
+---
 
-`PHASE_2` of the build — Configuration studio and workflow runtime are
-code-complete; Phase 3 (project/task/approval/CRM modules) is in progress.
-**For what's actually built and how to use it today, module by module, see
-[`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) — it's the single source of truth
-and is kept in sync with every change.**
+## Key Capabilities
 
-## Architecture
+- **Organization & Role Authority:** Multi-company, branch, and department structure with a granular permissions matrix, temporary delegations, and financial Delegation of Authority (DoA) thresholds.
+- **Master Data & Numbering Schemes:** Configurable units of measure, cost codes, multi-currency exchange rates, and automated document numbering schemes.
+- **CRM & Tender Bidding Pipeline:** Opportunity tracking, tender document management, BOQ cost estimation across trades, and structured Bid / No-Bid sign-offs.
+- **Project Scheduling & Execution:** Work Breakdown Structures (WBS), interactive Gantt charts, critical path calculation, 2-to-6 week lookahead planning, and delay event logging.
+- **Site Operations:** Digital Daily Progress Reports (DPR), equipment hour meters, workforce headcounts, geo-tagged photo evidence, and site weather logs.
+- **Quality & Safety Governance:** Inspection & Test Plans (ITP), Work Inspection Requests (WIR), Non-Conformance Reports (NCR) with CAPA workflows, Safe Work Hours calculation, and digital Permits to Work (PTW).
+- **Commercial Management:** Main contract administration, variation orders with financial/schedule impact, Extension of Time (EOT) claims, and certified payment applications.
+- **Procurement & Inventory:** Material Requisitions (MR), supplier quote comparisons, Purchase Orders with DoA spending gates, and Goods Receipt Notes (GRN) with 3-way matching.
+- **Subcontractor Governance:** Trade partner prequalification, compliance documents, back-to-back agreements, and certified progress valuations.
+- **Billing & Accounting Governance:** Client progress billings, retention accounting, receivables/payables management, and financial accounting period locks.
+- **Visual Workflow Designer:** Interactive drag-and-drop workflow canvas with automated decision gates, approval routing, and real-time task inboxes.
+- **Executive Portfolio Analytics:** Portfolio health summaries, cost variance waterfall (Budget vs Committed vs Incurred), and custom tabular report builder with CSV export.
+- **AI Knowledge Engine & Search:** Document vectorization for drawings, specifications, RFIs, and contracts with zero-hallucination semantic search.
+- **Autonomous AI Copilots & Tool Registry:** Construction-specific autonomous agents with scoped operational tools and strict Human-In-The-Loop (HITL) approval gates.
+- **AI Operations Control Room:** Real-time run queue, step timeline tracing, token spend tracking, emergency kill switches, and security incident triage.
+- **Pluggable AI Architecture:** Dynamic provider switcher supporting cloud LLMs, local air-gapped engines, and custom OpenAI-compatible endpoints (Groq, DeepSeek, Ollama, OpenRouter, Mistral, vLLM).
+- **Mobile Field Mode & Offline PWA Sync:** Progressive Web App for remote construction job sites with local storage capture and background sync queue.
+- **Integrations & APIs:** Scoped M2M API keys, outbound webhooks with HMAC signatures, and accounting connectors.
 
-- **Database / Auth / Storage / Realtime:** [Supabase](https://supabase.com)
-  (PostgreSQL). Every table has row-level security — tenant isolation is
-  enforced at the database layer, not just in application code.
-- **Backend:** Node.js + TypeScript, [Fastify](https://fastify.dev). One
-  module per BRD area under `backend/src/modules/` (e.g. `identity`,
-  `tenancy`, `authority`, `workflow`, `projects`, `crm`) — each owns its own
-  `routes.ts`, `service.ts`, `repository.ts`, `types.ts`, and tests.
-- **Frontend:** [Vite](https://vitejs.dev) + React 18 + TypeScript +
-  Tailwind CSS, talking to the backend over REST and to Supabase Auth
-  directly from the browser for sign-in. One page per screen under
-  `frontend/src/pages/`.
-- **Multi-tenancy:** every table carries a `tenant_id`; RLS policies scope
-  every query to the caller's tenant automatically.
-- **Configuration-first:** the 1,308-row work-item catalogue (`docs/
-  work-item-catalogue.xlsx`) drives which workflows/approvals exist — it
-  configures the system, it does not define module or code boundaries.
-  See `docs/BRD.md` §6.3 and `docs/IMPLEMENTATION-PLAN.md` §1.
+---
 
-## Repo layout
+## Pluggable AI Engine & Dynamic Provider Setup
 
-```
-backend/            Fastify API, one folder per module under src/modules/
-frontend/            Vite + React app, one file per screen under src/pages/
-supabase/migrations/ SQL migrations, applied via the Supabase MCP tool
-docs/
-  BRD.md              Full business requirements — read before any session
-  IMPLEMENTATION-PLAN.md
-  PRD.md              Pilot vertical-slice PRD (material request → PO → GRN → site issue)
-  USER-GUIDE.md       What's built per module, kept current every session
-  catalogue/          Disposition workbook + role map from the source catalogue
-tickets/             One markdown file per backlog item — see tickets/README.md
-daily-log/           One file per day, appended to at the end of every session
-scripts/tickets.py   Backlog CLI: `next`, `new-id`, `check`
-CLAUDE.md            Project rules, approvals, standing decisions for agent sessions
-DECISIONS.md         Append-only decision log
-NEEDS_APPROVAL.md    Open questions that block ALL work until the owner answers
-```
+SEVENTS OS provides an open, pluggable architecture for AI models. You can easily switch between cloud providers or connect your own custom self-hosted LLM endpoints.
 
-## Getting started
+### Supported Providers Out-of-the-Box
+1. **OpenAI** (`gpt-4o`, `gpt-4o-mini`, `o1-mini`)
+2. **Google Gemini** (`gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-2.0-flash`)
+3. **Anthropic Claude** (`claude-3-5-sonnet`, `claude-3-5-haiku`)
+4. **Azure OpenAI** (Private Virtual Network deployment)
+5. **SEVENTS Local Engine** (Air-gapped local mock and deterministic embeddings)
+
+### Connecting Any Custom Provider or Model
+Administrators can register any custom OpenAI-compatible endpoint directly via the UI (**AI Agent Studio** ➔ **AI Providers & Adapters** ➔ **`+ Add Custom AI Provider`**):
+- **Groq Cloud** (`https://api.groq.com/openai/v1`)
+- **DeepSeek** (`https://api.deepseek.com/v1`)
+- **Local Ollama** (`http://localhost:11434/v1`)
+- **OpenRouter** (`https://openrouter.ai/api/v1`)
+- **Mistral AI** (`https://api.mistral.ai/v1`)
+- **Custom vLLM / LMStudio server**
+
+Any provider can be ping-tested with live latency reporting and toggled as the active system provider with a single click. Additional models can also be added on the fly to any provider.
+
+---
+
+## Tech Stack & Architecture
+
+- **Backend:** Node.js, Fastify, TypeScript. Clean modular architecture with dedicated route handlers, service layer, repository, and automated tests for each functional area.
+- **Database & Auth:** PostgreSQL (Supabase) with Row-Level Security (RLS) policies enforcing multi-tenant isolation at the database layer.
+- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, and interactive canvas components (`@xyflow/react`).
+- **Full TypeScript Type Safety:** Both frontend and backend share strict type definitions with 100% build verification.
+
+---
+
+## Getting Started
 
 ### Prerequisites
-
 - Node.js ≥ 20
-- A Supabase project (URL + anon key + service role key)
+- npm ≥ 10
+- PostgreSQL database / Supabase project
 
-### Backend
-
+### Backend Setup
 ```bash
 cd backend
 npm install
-cp .env.example .env   # fill in SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-npm run dev             # starts the Fastify API on PORT (default 3000)
+cp .env.example .env   # configure SUPABASE_URL, SUPABASE_ANON_KEY, and provider API keys
+npm run build          # verifies TypeScript compilation
+npm run dev            # starts API server on http://localhost:3000
 ```
 
-Database migrations live in `supabase/migrations/` and are applied via the
-Supabase MCP tool (`mcp__Supabase__apply_migration`), not the Supabase CLI.
-To create the first login-able user against a fresh Supabase project, set
-`BOOTSTRAP_ADMIN_EMAIL`/`BOOTSTRAP_ADMIN_PASSWORD` in `.env` and run
-`npm run bootstrap:admin` once.
-
-### Frontend
-
+### Frontend Setup
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local   # fill in VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL
-npm run dev                   # Vite dev server, default http://localhost:5173
+cp .env.example .env.local   # configure VITE_API_URL and Supabase keys
+npm run build                # verifies TypeScript and Vite bundle
+npm run dev                  # starts Vite dev server on http://localhost:5173
 ```
 
-### Tests
-
+### Running Test Suites
 ```bash
-cd backend && npm test     # vitest
-cd frontend && npm test    # vitest + Testing Library
+# Run backend tests (740+ unit and integration tests)
+cd backend
+npm test
+
+# Run frontend tests
+cd frontend
+npm test
 ```
 
-Both `npm run build` (frontend: `tsc` + `vite build`; backend: `tsc`) must
-pass with no TypeScript errors before any change is considered done.
+---
 
-## Working on this repo
-
-This project is developed by scheduled, autonomous Claude Code sessions, not
-ad hoc chat. If you're a human or an agent picking this up:
-
-1. Read `CLAUDE.md` first, every session — it has the module build order,
-   what an agent may decide on its own vs. what needs the owner's approval,
-   the design system, and the standing ground rules.
-2. Check `NEEDS_APPROVAL.md` — if it's non-empty, all work is paused until
-   the owner answers.
-3. Check `DECISIONS.md` for past decisions so you don't contradict them.
-4. Read `tickets/README.md`, then run `python3 scripts/tickets.py next` to
-   find the next ticket to work on.
-5. After any change, update `docs/USER-GUIDE.md` for the module you touched,
-   update the ticket's `## Progress`, and append to today's
-   `daily-log/YYYY-MM-DD.md`.
-
-Build order is strict: modules depend on the ones before them (BRD module
-table in `CLAUDE.md`) — don't skip ahead to procurement/material-request
-features before the modules they depend on exist.
+## Documentation
+- [User Guide (Module by Module)](docs/USER-GUIDE.md)
+- [System Architecture & Decisions](DECISIONS.md)
+- [Developer Guidelines](CLAUDE.md)

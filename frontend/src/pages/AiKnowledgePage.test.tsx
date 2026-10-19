@@ -58,7 +58,7 @@ describe("AiKnowledgePage (M28 Knowledge Management)", () => {
     render(<AiKnowledgePage />);
 
     expect(screen.getByText("AI Knowledge Base & Search")).toBeInTheDocument();
-    expect(screen.getByText("Module M28")).toBeInTheDocument();
+    expect(screen.getByText(/Vectorized repository of drawings/i)).toBeInTheDocument();
     expect(screen.getByText(/Semantic Search & Similarity Test Bench/i)).toBeInTheDocument();
 
     await waitFor(() => {

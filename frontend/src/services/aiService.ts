@@ -150,14 +150,63 @@ export const aiService = {
     );
     return res.result;
   },
+
+  async registerCustomProvider(
+    token: string,
+    payload: CustomProviderPayload
+  ): Promise<{ provider: ProviderMeta; providers: ProviderMeta[] }> {
+    const res = await apiFetch<{ success: boolean; provider: ProviderMeta; providers: ProviderMeta[] }>(
+      "/ai/providers/custom",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  },
+
+  async deleteCustomProvider(token: string, id: string): Promise<ProviderMeta[]> {
+    const res = await apiFetch<{ success: boolean; providers: ProviderMeta[] }>(
+      `/ai/providers/custom/${id}`,
+      token,
+      {
+        method: "DELETE",
+      }
+    );
+    return res.providers;
+  },
+
+  async addModel(token: string, providerId: string, model: string): Promise<ProviderMeta[]> {
+    const res = await apiFetch<{ success: boolean; provider: ProviderMeta; providers: ProviderMeta[] }>(
+      "/ai/providers/models",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ providerId, model }),
+      }
+    );
+    return res.providers;
+  },
 };
 
+export interface CustomProviderPayload {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+  defaultModel: string;
+  supportedModels?: string[];
+}
+
 export interface ProviderMeta {
-  id: "openai" | "gemini" | "anthropic" | "azure" | "local";
+  id: string;
   name: string;
   defaultModel: string;
   supportedModels: string[];
   isConfigured: boolean;
   requiresKey: boolean;
+  isCustom?: boolean;
+  baseUrl?: string;
 }
 
