@@ -38,6 +38,7 @@ import { PeoplePage } from "./pages/PeoplePage";
 import { CommunicationsPage } from "./pages/CommunicationsPage";
 import { LegalPage } from "./pages/LegalPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
+import { PlatformAdminPage } from "./pages/PlatformAdminPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -227,6 +228,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["integrations.api_key.manage", "integrations.webhook.manage", "integrations.connector.manage", "integrations.log.view"]}>
                   <IntegrationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="platform-admin"
+              element={
+                <ProtectedRoute anyPermission={["platform.settings.view", "platform.settings.manage", "platform.feature_flags.manage", "platform.health.view", "platform.maintenance.manage", "platform.support.view", "platform.support.manage"]}>
+                  <PlatformAdminPage />
                 </ProtectedRoute>
               }
             />

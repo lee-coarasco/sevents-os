@@ -152,6 +152,11 @@ import {
   createSupabaseIntegrationsRepository,
   type IntegrationsRepository,
 } from "./modules/integrations/repository.js";
+import { registerPlatformAdminRoutes } from "./modules/platform-admin/routes.js";
+import {
+  createSupabasePlatformAdminRepository,
+  type PlatformAdminRepository,
+} from "./modules/platform-admin/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import type { DashboardRepository } from "./modules/dashboard/repository.js";
@@ -219,6 +224,16 @@ export interface BuildAppOptions {
   getLegalRepository?: () => LegalRepository;
   getDashboardRepository?: () => DashboardRepository;
   getIntegrationsRepository?: () => IntegrationsRepository;
+  getPlatformAdminRepository?: () => PlatformAdminRepository;
+}
+
+let cachedPlatformAdminRepository: PlatformAdminRepository | null = null;
+
+function defaultPlatformAdminRepository(): PlatformAdminRepository {
+  if (!cachedPlatformAdminRepository) {
+    cachedPlatformAdminRepository = createSupabasePlatformAdminRepository(createUserScopedClient);
+  }
+  return cachedPlatformAdminRepository;
 }
 
 let cachedIntegrationsRepository: IntegrationsRepository | null = null;
@@ -691,6 +706,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerIntegrationsRoutes({
     getRepository: options.getIntegrationsRepository ?? defaultIntegrationsRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerPlatformAdminRoutes({
+    getRepository: options.getPlatformAdminRepository ?? defaultPlatformAdminRepository,
     permissionGuard: guard,
   }));
 

@@ -954,6 +954,40 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M36 — Platform Administration & Support
+
+- **Status**: `done` (Phase 8 Platform Completion — ticket #0175)
+- **Database Tables**:
+  - `tenant_settings`: Organization profile name, timezone, default currency, fiscal start month, storage quota GB, session idle timeout, and MFA enforcement flag.
+  - `tenant_feature_flags`: Fine-grained feature flag toggles (`ai_copilot_enabled`, `wps_banking_export`, `advanced_s_curves`, `offline_pwa_sync`, `two_factor_enforcement`).
+  - `system_maintenance_windows`: Scheduled maintenance announcements, severity ratings (info, warning, critical), target timeframes, and active broadcast switch.
+  - `platform_support_tickets`: Helpdesk support inquiries with ticket number, reporter email, category (bug, access, data, performance, general), priority, status, and resolution logs.
+- **Permissions**: `platform.settings.view`, `platform.settings.manage`, `platform.feature_flags.manage`, `platform.health.view`, `platform.maintenance.manage`, `platform.support.view`, `platform.support.manage`.
+- **Backend API (`backend/src/modules/platform-admin/`)**:
+  - `GET /platform-admin/settings`, `PATCH /platform-admin/settings`: Read and update tenant customization and security timeouts.
+  - `GET /platform-admin/feature-flags`, `POST /platform-admin/feature-flags/toggle`: Query feature flags and toggle experimental capabilities.
+  - `GET /platform-admin/health`: System health status probe checking database ping latency, storage quota consumption, and queue worker status.
+  - `GET /platform-admin/maintenance`, `POST /platform-admin/maintenance`, `PATCH /platform-admin/maintenance/:id/toggle`: Schedule and toggle maintenance announcement banners.
+  - `GET /platform-admin/support-tickets`, `POST /platform-admin/support-tickets`, `PATCH /platform-admin/support-tickets/:id/resolve`: Submit, view, and triage support tickets.
+- **Frontend Screen (`frontend/src/pages/PlatformAdminPage.tsx`)**:
+  - Route `/platform-admin` in App.tsx and sidebar navigation link under Platform & System settings.
+  - 5 Operational Tabs:
+    1. **Tenant Profile & Security Config**: Corporate entity name, currency, timezone, session idle timeout, and MFA enforcement.
+    2. **Feature Flags**: Dynamic toggle table with categories and descriptions.
+    3. **System Health & Observability**: Real-time status cards for PostgreSQL database latency, file storage quota, auth service, and background queues.
+    4. **Maintenance Announcements**: Banner broadcaster for scheduled maintenance windows with priority color badges.
+    5. **Support & Helpdesk**: Ticket register with priority pills, "+ New Support Ticket" creation modal, and ticket resolution triage modal.
+
+**How to use it:**
+1. Navigate to `/platform-admin` via the "Platform Administration" sidebar link.
+2. **Tenant Profile Tab**: Update company branding, default currency, timezone, and set security policies (session idle timeout and mandatory MFA).
+3. **Feature Flags Tab**: Toggle experimental modules or enterprise features (e.g. AI Copilot, WPS banking file generator, offline field sync).
+4. **System Health Tab**: Verify system uptime, database latency, and storage quota allocation.
+5. **Maintenance Announcements Tab**: Schedule upcoming maintenance windows to alert all active users with a prominent header banner.
+6. **Support & Helpdesk Tab**: Submit software defects or access requests with category and priority ratings, and track resolution notes.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
