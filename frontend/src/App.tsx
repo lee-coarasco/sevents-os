@@ -35,6 +35,7 @@ import { FinancePage } from "./pages/FinancePage";
 import { BillingPage } from "./pages/BillingPage";
 import { ContractsPage } from "./pages/ContractsPage";
 import { PeoplePage } from "./pages/PeoplePage";
+import { CommunicationsPage } from "./pages/CommunicationsPage";
 import { PermissionsProvider } from "./context/PermissionsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -200,6 +201,14 @@ export function App() {
               element={
                 <ProtectedRoute anyPermission={["people.manpower.manage", "people.manpower.approve", "people.recruitment.manage", "people.competency.manage", "people.appraisal.manage"]}>
                   <PeoplePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="communications"
+              element={
+                <ProtectedRoute anyPermission={["communications.stakeholder.manage", "communications.log.manage", "communications.minutes.manage", "communications.complaint.manage", "communications.complaint.resolve"]}>
+                  <CommunicationsPage />
                 </ProtectedRoute>
               }
             />

@@ -838,6 +838,32 @@ Frontend: `QualityPage`, nav label "Quality & Inspection" under Projects at `/qu
 
 ---
 
+## M26 — Customer / Stakeholder Communications
+
+**Status:** done (ticket 0171)
+
+**What's built:**
+- **Database Schema**: `stakeholders`, `communication_logs`, `meeting_minutes`, and `client_complaints` tables with multi-tenant RLS isolation (`public.current_tenant_id()`).
+- **Permissions**: `communications.stakeholder.manage`, `communications.log.manage`, `communications.minutes.manage`, `communications.complaint.manage`, `communications.complaint.resolve`. Seeded to Platform Admin, Project Engineer Lead, Business Development Executive, and CMO.
+- **Backend Service**:
+  - Stakeholder directory managing clients, supervising consultants, subcontractors, statutory authorities, utility providers, and community liaisons.
+  - Formal communications register tracking contractual correspondence, letters, emails, site instructions (SI), submittals, and notices with response deadlines.
+  - Meeting Minutes (MOM) engine supporting progress meetings, technical clarifications, and site coordination, with extracted action items (owner, due date, status toggle).
+  - Client complaints and escalations log with severity grading (`critical`, `high`, `medium`, `low`), resolution tracking, and corrective action audit logs.
+- **Frontend Screen**: `CommunicationsPage` at `/communications`, nav link "Communications & MOM" in `AppLayout.tsx` under the "Projects" section.
+  - 4 tabs: Stakeholder Directory, Communication Logs & Notices, Meeting Minutes (MOM), and Client Complaints & Escalations.
+  - KPI metric cards: Registered Stakeholders, Notices Requiring Action, Pending MOM Action Items, and Critical Escalations.
+  - Modals: "+ Add Stakeholder", "+ Log Correspondence", "+ Record Minutes (MOM)", "+ Log Client Complaint", and "Resolve Complaint".
+
+**How to use it:**
+1. Navigate to `/communications` via the sidebar under "Projects &rarr; Communications & MOM".
+2. **Stakeholder Directory Tab**: View and search all external project contacts. Filter by organization, role, and priority engagement level. Click "+ Add Stakeholder" to register contacts.
+3. **Communication Logs & Notices Tab**: Track inbound and outbound formal correspondence. Correspondence requiring replies displays response due dates. Click "Mark Sent" or "Close Response" to advance statuses.
+4. **Meeting Minutes (MOM) Tab**: Review structured minutes with attendee lists, meeting agendas, and discussion summaries. Check off action items directly inline as tasks are completed.
+5. **Client Complaints & Escalations Tab**: Triage client issues and severity. For unresolved complaints, click "Resolve" to submit an official corrective action and resolution plan.
+
+---
+
 ## Shared frontend components (not a module — reused across all of them)
 
 These live in `frontend/src/components/` and aren't a screen of their own,
@@ -863,6 +889,6 @@ but every module above uses one or more of them:
 
 ## Not started yet
 
-Everything from M26 onward in CLAUDE.md's build order table (M26 Customer/Stakeholder Communications, M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
+Everything from M27 onward in CLAUDE.md's build order table (M27 Legal, Licences & Regulatory Register, … through M38) has no code. Don't assume
 otherwise just because a module number is skipped above — check
 `tickets/` and this file before relying on a module existing.

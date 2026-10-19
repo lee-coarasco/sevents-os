@@ -136,6 +136,11 @@ import {
   createSupabasePeopleRepository,
   type PeopleRepository,
 } from "./modules/people/repository.js";
+import { registerCommunicationsRoutes } from "./modules/communications/routes.js";
+import {
+  createSupabaseCommunicationsRepository,
+  type CommunicationsRepository,
+} from "./modules/communications/repository.js";
 import { storageRoutes } from "./modules/storage/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
 import { adminUsersRoutes } from "./modules/admin/users/routes.js";
@@ -198,6 +203,16 @@ export interface BuildAppOptions {
   getBillingRepository?: () => BillingRepository;
   getContractsRepository?: () => ContractsRepository;
   getPeopleRepository?: () => PeopleRepository;
+  getCommunicationsRepository?: () => CommunicationsRepository;
+}
+
+let cachedCommunicationsRepository: CommunicationsRepository | null = null;
+
+function defaultCommunicationsRepository(): CommunicationsRepository {
+  if (!cachedCommunicationsRepository) {
+    cachedCommunicationsRepository = createSupabaseCommunicationsRepository(createUserScopedClient);
+  }
+  return cachedCommunicationsRepository;
 }
 
 let cachedBillingRepository: BillingRepository | null = null;
@@ -612,6 +627,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(registerPeopleRoutes({
     getRepository: options.getPeopleRepository ?? defaultPeopleRepository,
+    permissionGuard: guard,
+  }));
+
+  app.register(registerCommunicationsRoutes({
+    getRepository: options.getCommunicationsRepository ?? defaultCommunicationsRepository,
     permissionGuard: guard,
   }));
 
