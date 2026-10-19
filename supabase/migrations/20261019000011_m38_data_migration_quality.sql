@@ -27,19 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_migration_jobs_entity ON public.migration_jobs(en
 -- Enable RLS
 ALTER TABLE public.migration_jobs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view migration jobs for their tenant"
-    ON public.migration_jobs
-    FOR SELECT
-    USING (tenant_id IN (
-        SELECT tenant_id FROM public.memberships WHERE user_id = auth.uid()
-    ));
-
-CREATE POLICY "Admins can manage migration jobs"
-    ON public.migration_jobs
+CREATE POLICY migration_jobs_tenant_isolation ON public.migration_jobs
     FOR ALL
-    USING (tenant_id IN (
-        SELECT tenant_id FROM public.memberships WHERE user_id = auth.uid()
-    ));
+    USING (tenant_id = public.current_tenant_id())
+    WITH CHECK (tenant_id = public.current_tenant_id());
 
 -- Register M38 Permissions
 INSERT INTO public.permissions (id, description) VALUES
