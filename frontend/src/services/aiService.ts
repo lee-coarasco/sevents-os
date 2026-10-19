@@ -115,9 +115,24 @@ export const aiService = {
     });
   },
 
-  async listProviders(token: string): Promise<ProviderMeta[]> {
-    const res = await apiFetch<{ providers: ProviderMeta[] }>("/ai/providers", token);
-    return res.providers;
+  async listProviders(token: string): Promise<{ providers: ProviderMeta[]; activeProvider: string }> {
+    const res = await apiFetch<{ providers: ProviderMeta[]; activeProvider?: string }>("/ai/providers", token);
+    return {
+      providers: res.providers,
+      activeProvider: res.activeProvider || "openai",
+    };
+  },
+
+  async setActiveProvider(token: string, provider: string): Promise<string> {
+    const res = await apiFetch<{ success: boolean; activeProvider: string }>(
+      "/ai/providers/active",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ provider }),
+      }
+    );
+    return res.activeProvider;
   },
 
   async testProvider(

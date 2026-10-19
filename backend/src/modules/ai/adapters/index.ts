@@ -66,7 +66,17 @@ export function listSupportedProviders(): ProviderMeta[] {
   ];
 }
 
+let runtimeDefaultProvider: AiProviderType | null = null;
+
+export function setRuntimeDefaultProvider(provider: AiProviderType): void {
+  runtimeDefaultProvider = provider;
+}
+
 export function resolveDefaultProvider(): AiProviderType {
+  if (runtimeDefaultProvider) {
+    return runtimeDefaultProvider;
+  }
+
   const envChoice = (process.env.AI_DEFAULT_PROVIDER || "").toLowerCase().trim() as AiProviderType;
   if (["openai", "gemini", "anthropic", "azure", "local"].includes(envChoice)) {
     return envChoice;

@@ -1,8 +1,13 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { AiRepository } from "./repository.js";
 import { createAiKnowledgeService } from "./service.js";
-import type { AiChatRequest, AiFeedbackInput, KnowledgeSourceType } from "./types.js";
-import { listSupportedProviders, createAiAdapter, type AiProviderType } from "./adapters/index.js";
+import {
+  listSupportedProviders,
+  createAiAdapter,
+  resolveDefaultProvider,
+  setRuntimeDefaultProvider,
+  type AiProviderType,
+} from "./adapters/index.js";
 
 export interface AiRoutesOptions {
   getRepository: () => AiRepository;
@@ -152,8 +157,30 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
      */
     app.get("/ai/providers", queryGuard, async (_req, reply) => {
       const providers = listSupportedProviders();
-      return reply.send({ providers });
+      const activeProvider = resolveDefaultProvider();
+      return reply.send({ providers, activeProvider });
     });
+
+    /**
+     * POST /ai/providers/active
+     * Dynamically select the system-wide active AI provider
+     */
+    app.post<{ Body: { provider: AiProviderType } }>(
+      "/ai/providers/active",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { provider } = req.body;
+          if (!provider) {
+            return reply.status(400).send({ error: "provider is required" });
+          }
+          setRuntimeDefaultProvider(provider);
+          return reply.send({ success: true, activeProvider: resolveDefaultProvider() });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
 
     /**
      * POST /ai/providers/test

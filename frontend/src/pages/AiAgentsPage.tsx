@@ -23,6 +23,8 @@ export function AiAgentsPage() {
 
   // Providers State
   const [providers, setProviders] = useState<Array<{ id: string; name: string; defaultModel: string; supportedModels: string[]; isConfigured: boolean; requiresKey: boolean }>>([]);
+  const [activeProviderId, setActiveProviderId] = useState<string>("openai");
+  const [switchingProvider, setSwitchingProvider] = useState(false);
   const [providerTestingId, setProviderTestingId] = useState<string | null>(null);
   const [providerTestResults, setProviderTestResults] = useState<Record<string, { ok: boolean; message: string; latencyMs: number }>>({});
 
@@ -57,16 +59,19 @@ export function AiAgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [agentList, toolList, execList, provList] = await Promise.all([
+      const [agentList, toolList, execList, provResult] = await Promise.all([
         agentService.listAgents(session.access_token),
         agentService.listTools(session.access_token),
         agentService.listExecutions(session.access_token),
-        aiService.listProviders(session.access_token).catch(() => []),
+        aiService.listProviders(session.access_token).catch(() => ({ providers: [], activeProvider: "openai" })),
       ]);
       setAgents(agentList);
       setTools(toolList);
       setExecutions(execList);
-      setProviders(provList);
+      setProviders(provResult.providers);
+      if (provResult.activeProvider) {
+        setActiveProviderId(provResult.activeProvider);
+      }
       if (agentList.length > 0 && !selectedAgentId) {
         setSelectedAgentId(agentList[0].id);
       }
@@ -80,6 +85,19 @@ export function AiAgentsPage() {
   useEffect(() => {
     loadData();
   }, [session?.access_token]);
+
+  const handleSelectActiveProvider = async (providerId: string) => {
+    if (!session?.access_token || switchingProvider) return;
+    setSwitchingProvider(true);
+    try {
+      const active = await aiService.setActiveProvider(session.access_token, providerId);
+      setActiveProviderId(active);
+    } catch (err: any) {
+      alert("Failed to switch active provider: " + err.message);
+    } finally {
+      setSwitchingProvider(false);
+    }
+  };
 
   const handleTestProvider = async (providerId: string) => {
     if (!session?.access_token || providerTestingId) return;
@@ -832,8 +850,11 @@ export function AiAgentsPage() {
                     SEVENTS OS supports pluggable LLM &amp; vector embedding providers. Seamlessly switch between cloud AI models or air-gapped local engines.
                   </p>
                 </div>
-                <div className="rounded-xl bg-zinc-100 px-3 py-1.5 text-xs text-zinc-700 font-mono">
-                  Default Provider: <span className="font-bold text-zinc-900">Auto-Detected</span>
+                <div className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-200 px-3.5 py-2 text-xs text-indigo-900">
+                  <span className="text-zinc-500 font-medium">Current Active System Provider:</span>
+                  <span className="font-bold uppercase tracking-wider text-indigo-700 bg-white px-2.5 py-0.5 rounded shadow-xs border border-indigo-100">
+                    {activeProviderId}
+                  </span>
                 </div>
               </div>
 
@@ -886,18 +907,30 @@ export function AiAgentsPage() {
                 ).map((prov) => {
                   const testRes = providerTestResults[prov.id];
                   const isTesting = providerTestingId === prov.id;
+                  const isActive = prov.id === activeProviderId;
 
                   return (
                     <div
                       key={prov.id}
-                      className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs flex flex-col justify-between"
+                      className={`rounded-2xl border bg-white p-5 shadow-xs flex flex-col justify-between transition-all ${
+                        isActive
+                          ? "border-emerald-500 ring-2 ring-emerald-500/20"
+                          : "border-zinc-200/80 hover:border-zinc-300"
+                      }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-bold text-zinc-900 text-base">{prov.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-zinc-900 text-base">{prov.name}</h3>
+                            {isActive && (
+                              <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 border border-emerald-300">
+                                ACTIVE
+                              </span>
+                            )}
+                          </div>
                           {prov.isConfigured ? (
                             <span className="rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                              Configured &amp; Active
+                              Configured
                             </span>
                           ) : prov.requiresKey ? (
                             <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
@@ -950,17 +983,32 @@ export function AiAgentsPage() {
                         )}
                       </div>
 
-                      <div className="border-t border-zinc-100 pt-3 flex items-center justify-between">
+                      <div className="border-t border-zinc-100 pt-3 flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[10px] text-zinc-400 font-mono">
                           Adapter: {prov.id}
                         </span>
-                        <button
-                          onClick={() => handleTestProvider(prov.id)}
-                          disabled={isTesting}
-                          className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                        >
-                          {isTesting ? "Testing..." : "Test Connection"}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleTestProvider(prov.id)}
+                            disabled={isTesting}
+                            className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 transition-colors shadow-2xs"
+                          >
+                            {isTesting ? "Testing..." : "Test"}
+                          </button>
+                          {isActive ? (
+                            <span className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs">
+                              ✓ Active Provider
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSelectActiveProvider(prov.id)}
+                              disabled={switchingProvider}
+                              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors shadow-2xs"
+                            >
+                              {switchingProvider ? "Switching..." : "Select Provider"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1079,10 +1127,28 @@ export function AiAgentsPage() {
                     onChange={(e) => setFormModel(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
                   >
-                    <option value="gpt-4o-mini">GPT-4o Mini</option>
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <optgroup label="OpenAI">
+                      <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost Effective)</option>
+                      <option value="gpt-4o">GPT-4o (High Capability)</option>
+                      <option value="o1-mini">o1-mini (Reasoning)</option>
+                    </optgroup>
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash (Ultra Fast)</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro (Complex Context)</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    </optgroup>
+                    <optgroup label="Anthropic Claude">
+                      <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Architecture & Code)</option>
+                      <option value="claude-3-5-haiku">Claude 3.5 Haiku (High Speed)</option>
+                    </optgroup>
+                    <optgroup label="Azure OpenAI">
+                      <option value="azure-gpt-4o">Azure GPT-4o (Enterprise VNet)</option>
+                      <option value="azure-gpt-4o-mini">Azure GPT-4o Mini</option>
+                    </optgroup>
+                    <optgroup label="Local / Self-Hosted">
+                      <option value="sevents-local-fast">SEVENTS Local Llama-3 (Self-Hosted)</option>
+                      <option value="sevents-mock-deterministic">SEVENTS Local Deterministic Mock</option>
+                    </optgroup>
                   </select>
                 </div>
 
