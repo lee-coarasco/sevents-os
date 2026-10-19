@@ -365,6 +365,13 @@ export function createSupabaseAuthorityRepository(
 
     async listPermissionsForRoles(roleIds) {
       if (roleIds.length === 0) return [];
+      if (roleIds.includes("role.platform_administrator")) {
+        const { data: allPerms } = await serviceClient
+          .from("permissions")
+          .select("id");
+        const ids = (allPerms ?? []).map((p) => p.id as string);
+        return [...new Set(["*", ...ids])];
+      }
       const { data, error } = await serviceClient
         .from("role_permissions")
         .select("permission_id")

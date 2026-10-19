@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { NotificationBell } from "./NotificationBell";
 import { PermissionGate } from "./PermissionGate";
+import { clearPermissionsCache } from "../context/PermissionsContext";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -353,7 +354,10 @@ export function AppLayout() {
               <p className="truncate text-xs text-zinc-300">{session?.user.email}</p>
             </div>
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={() => {
+                clearPermissionsCache(session?.user?.id);
+                supabase.auth.signOut();
+              }}
               title="Sign out"
               className="rounded p-1 text-zinc-500 hover:text-zinc-300"
             >

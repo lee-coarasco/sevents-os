@@ -97,53 +97,48 @@ CREATE POLICY platform_support_tickets_tenant_isolation ON public.platform_suppo
     WITH CHECK (tenant_id = public.current_tenant_id());
 
 -- 5. Seed Permissions for M36
-INSERT INTO public.permissions (key, description, module)
-VALUES
-    ('platform.settings.view', 'View tenant configuration and settings', 'platform-admin'),
-    ('platform.settings.manage', 'Modify tenant settings, quotas, and security policies', 'platform-admin'),
-    ('platform.feature_flags.manage', 'Toggle tenant feature flags and experimental features', 'platform-admin'),
-    ('platform.health.view', 'View system health probes, queue latency, and telemetry', 'platform-admin'),
-    ('platform.maintenance.manage', 'Schedule and broadcast maintenance announcement banners', 'platform-admin'),
-    ('platform.support.view', 'View helpdesk and support tickets', 'platform-admin'),
-    ('platform.support.manage', 'Create and resolve platform support tickets', 'platform-admin')
-ON CONFLICT (key) DO NOTHING;
+insert into public.permissions (id, description) values
+  ('platform.settings.view', 'View tenant configuration and settings'),
+  ('platform.settings.manage', 'Modify tenant settings, quotas, and security policies'),
+  ('platform.feature_flags.manage', 'Toggle tenant feature flags and experimental features'),
+  ('platform.health.view', 'View system health probes, queue latency, and telemetry'),
+  ('platform.maintenance.manage', 'Schedule and broadcast maintenance announcement banners'),
+  ('platform.support.view', 'View helpdesk and support tickets'),
+  ('platform.support.manage', 'Create and resolve platform support tickets')
+on conflict (id) do nothing;
 
 -- Map permissions to roles
-DO $$
-DECLARE
-    r RECORD;
-    admin_roles TEXT[] := ARRAY['role.platform_administrator', 'role.company_administrator', 'role.it_administrator'];
-    support_roles TEXT[] := ARRAY['role.platform_administrator', 'role.it_administrator', 'role.project_director'];
-BEGIN
-    -- Admin roles get full settings, feature flags, health, maintenance
-    FOR r IN SELECT id FROM public.role_definitions WHERE canonical_name = ANY(admin_roles) LOOP
-        UPDATE public.role_definitions
-        SET permissions = array_cat(
-            permissions,
-            ARRAY[
-                'platform.settings.view',
-                'platform.settings.manage',
-                'platform.feature_flags.manage',
-                'platform.health.view',
-                'platform.maintenance.manage',
-                'platform.support.view',
-                'platform.support.manage'
-            ]
-        )
-        WHERE id = r.id;
-    END LOOP;
+insert into public.role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.role_definitions r
+cross join public.permissions p
+where r.id in (
+  'role.platform_administrator',
+  'role.ceo',
+  'role.it_support_engineer'
+)
+  and p.id in (
+    'platform.settings.view',
+    'platform.settings.manage',
+    'platform.feature_flags.manage',
+    'platform.health.view',
+    'platform.maintenance.manage',
+    'platform.support.view',
+    'platform.support.manage'
+  )
+on conflict do nothing;
 
-    -- Standard staff roles can view support and report issues
-    FOR r IN SELECT id FROM public.role_definitions WHERE canonical_name = ANY(support_roles) LOOP
-        UPDATE public.role_definitions
-        SET permissions = array_cat(
-            permissions,
-            ARRAY[
-                'platform.settings.view',
-                'platform.support.view',
-                'platform.support.manage'
-            ]
-        )
-        WHERE id = r.id;
-    END LOOP;
-END $$;
+insert into public.role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.role_definitions r
+cross join public.permissions p
+where r.id in (
+  'role.coo',
+  'role.project_engineer_lead'
+)
+  and p.id in (
+    'platform.settings.view',
+    'platform.support.view',
+    'platform.support.manage'
+  )
+on conflict do nothing;

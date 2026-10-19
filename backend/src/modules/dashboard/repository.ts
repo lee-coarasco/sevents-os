@@ -60,7 +60,7 @@ export function createSupabaseDashboardRepository(
       },
 
       async getExecutiveAnalytics(tenantId: string, projectId?: string): Promise<ExecutiveAnalytics> {
-        let projectsQuery = client.from("projects").select("id, name, code, status, baseline_finish, contract_amount, progress_pct");
+        let projectsQuery = client.from("projects").select("id, name, code, status, baseline_end_date, contract_value, budget_amount");
         if (projectId) {
           projectsQuery = projectsQuery.eq("id", projectId);
         }
@@ -76,13 +76,11 @@ export function createSupabaseDashboardRepository(
         const on_track_projects = active_projects - delayed_projects - at_risk_projects;
 
         const total_contract_value = projects.reduce(
-          (sum: number, p: any) => sum + Number(p.contract_amount || 0),
+          (sum: number, p: any) => sum + Number(p.contract_value || p.budget_amount || 0),
           0
         );
 
-        const average_progress_pct = total_projects > 0
-          ? Math.round(projects.reduce((sum: number, p: any) => sum + Number(p.progress_pct || 0), 0) / total_projects)
-          : 0;
+        const average_progress_pct = 0;
 
         const { count: pendingApprovals } = await client
           .from("approval_requests")
@@ -116,8 +114,8 @@ export function createSupabaseDashboardRepository(
             name: p.name,
             code: p.code || "PRJ",
             status: p.status,
-            progress_pct: Number(p.progress_pct || 0),
-            contract_amount: Number(p.contract_amount || 0),
+            progress_pct: 0,
+            contract_amount: Number(p.contract_value || p.budget_amount || 0),
           })),
         };
       },
@@ -218,12 +216,12 @@ export function createSupabaseDashboardRepository(
       },
 
       async getOperationsAnalytics(tenantId: string, projectId?: string): Promise<OperationsAnalytics> {
-        let reqQ = client.from("manpower_requisitions").select("headcount_required, status");
+        let reqQ = client.from("manpower_requests").select("quantity_required, status");
         let equipQ = client.from("equipment_assets").select("status");
         let ncrQ = client.from("quality_ncrs").select("status");
-        let ptwQ = client.from("permit_to_work").select("status");
+        let ptwQ = client.from("safety_permits_to_work").select("status");
         let incQ = client.from("safety_incidents").select("status");
-        let hazQ = client.from("hazard_observations").select("status");
+        let hazQ = client.from("safety_hazard_observations").select("status");
         let dprQ = client.from("site_daily_reports").select("total_manpower_count, safe_hours_worked");
 
         if (projectId) {
@@ -255,7 +253,7 @@ export function createSupabaseDashboardRepository(
         ]);
 
         const manpower_demanded = (requisitions || []).reduce(
-          (sum: number, r: any) => sum + Number(r.headcount_required || 0),
+          (sum: number, r: any) => sum + Number(r.quantity_required || 0),
           0
         );
 
@@ -365,12 +363,12 @@ export function createSupabaseDashboardRepository(
         if (entity === "projects") {
           const { data, error } = await client
             .from("projects")
-            .select("id, name, code, status, contract_amount, progress_pct, created_at")
+            .select("id, name, code, status, contract_value, created_at")
             .limit(limit);
 
           if (error) throw new Error(error.message);
           const rows = data || [];
-          const totalVal = rows.reduce((s: number, r: any) => s + Number(r.contract_amount || 0), 0);
+          const totalVal = rows.reduce((s: number, r: any) => s + Number(r.contract_value || 0), 0);
 
           return {
             entity: "projects",
@@ -379,8 +377,7 @@ export function createSupabaseDashboardRepository(
               { key: "code", label: "Project Code" },
               { key: "name", label: "Project Name" },
               { key: "status", label: "Status" },
-              { key: "progress_pct", label: "Progress %" },
-              { key: "contract_amount", label: "Contract Sum (AED)" },
+              { key: "contract_value", label: "Contract Sum (AED)" },
               { key: "created_at", label: "Date Created" },
             ],
             rows,
