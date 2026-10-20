@@ -36,6 +36,21 @@ const statusColors: Record<string, string> = {
   closed: "bg-zinc-100 text-zinc-500",
 };
 
+function getFiscalMonthName(month: number | null | undefined): string {
+  switch (month) {
+    case 1:
+      return "01-January (Jan - Dec)";
+    case 4:
+      return "01-April (Apr - Mar)";
+    case 7:
+      return "01-July (Jul - Jun)";
+    case 10:
+      return "01-October (Oct - Sep)";
+    default:
+      return month ? `Month ${month}` : "01-April (Apr - Mar)";
+  }
+}
+
 export function OrgSetupPage() {
   const { session } = useAuth();
   const [companies, setCompanies] = useState<Company[] | null>(null);
@@ -52,6 +67,15 @@ export function OrgSetupPage() {
   const [newCompanyFiscalMonth, setNewCompanyFiscalMonth] = useState("4");
   const [showAdvancedCompany, setShowAdvancedCompany] = useState(false);
   const [creatingCompany, setCreatingCompany] = useState(false);
+
+  // Edit company state
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [editCompanyStatutoryId, setEditCompanyStatutoryId] = useState("");
+  const [editCompanyVat, setEditCompanyVat] = useState("");
+  const [editCompanyCurrency, setEditCompanyCurrency] = useState("INR");
+  const [editCompanyFiscalMonth, setEditCompanyFiscalMonth] = useState("4");
+  const [savingCompany, setSavingCompany] = useState(false);
 
   const [newBranchName, setNewBranchName] = useState("");
   const [newBranchRegion, setNewBranchRegion] = useState("");
@@ -109,6 +133,50 @@ export function OrgSetupPage() {
       setError(err instanceof ApiError ? err.message : "Could not create company");
     } finally {
       setCreatingCompany(false);
+    }
+  }
+
+  function handleStartEditCompany(company: Company) {
+    setEditingCompany(company);
+    setEditCompanyName(company.legal_name || "");
+    setEditCompanyStatutoryId(company.statutory_id || "");
+    setEditCompanyVat(company.vat_registration_number || "");
+    setEditCompanyCurrency(company.reporting_currency || "INR");
+    setEditCompanyFiscalMonth(String(company.fiscal_year_start_month ?? 4));
+  }
+
+  function handleCancelEditCompany() {
+    setEditingCompany(null);
+  }
+
+  async function handleUpdateCompany(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !editingCompany || !editCompanyName.trim()) return;
+    setSavingCompany(true);
+    setError(null);
+    try {
+      const { company } = await apiFetch<{ company: Company }>(
+        `/tenancy/companies/${editingCompany.id}`,
+        session.access_token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            legalName: editCompanyName.trim(),
+            statutory_id: editCompanyStatutoryId.trim() || null,
+            vat_registration_number: editCompanyVat.trim() || null,
+            reporting_currency: editCompanyCurrency.trim() || "INR",
+            fiscal_year_start_month: parseInt(editCompanyFiscalMonth, 10) || 4,
+          }),
+        },
+      );
+      setCompanies((prev) =>
+        (prev ?? []).map((c) => (c.id === company.id ? company : c)),
+      );
+      setEditingCompany(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not update company");
+    } finally {
+      setSavingCompany(false);
     }
   }
 
@@ -187,34 +255,64 @@ export function OrgSetupPage() {
           {companies && companies.length > 0 && (
             <div className="mb-4 space-y-2">
               {companies.map((company) => (
-                <button
+                <div
                   key={company.id}
-                  onClick={() => setSelectedCompanyId(company.id)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition ${
                     company.id === selectedCompanyId
                       ? "border-brand bg-brand-soft text-zinc-900"
                       : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
                   }`}
                 >
-                  <div className="text-left">
-                    <span className="font-semibold block">{company.legal_name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCompanyId(company.id)}
+                    className="flex-1 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold block">{company.legal_name}</span>
+                      {company.id === selectedCompanyId && (
+                        <span className="rounded-full bg-amber-500/15 text-amber-800 text-[10px] font-bold px-2 py-0.5">
+                          Selected
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
                       {company.reporting_currency && (
                         <span className="rounded bg-zinc-100 px-1.5 py-0.2 border border-zinc-200 font-mono">
                           {company.reporting_currency}
                         </span>
                       )}
-                      {company.statutory_id && (
-                        <span className="font-mono text-zinc-400">Reg: {company.statutory_id}</span>
+                      {company.statutory_id ? (
+                        <span className="font-mono text-zinc-600">Reg: {company.statutory_id}</span>
+                      ) : (
+                        <span className="italic text-zinc-400">No CIN registered</span>
+                      )}
+                      {company.vat_registration_number && (
+                        <span className="font-mono text-zinc-400">VAT: {company.vat_registration_number}</span>
                       )}
                     </div>
+                  </button>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <PermissionGate permission="tenancy.company.manage">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEditCompany(company);
+                        }}
+                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 transition"
+                      >
+                        Edit
+                      </button>
+                    </PermissionGate>
+                    {company.id === selectedCompanyId && (
+                      <svg className="h-4 w-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
                   </div>
-                  {company.id === selectedCompanyId && (
-                    <svg className="h-4 w-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -313,6 +411,54 @@ export function OrgSetupPage() {
 
       {selectedCompany && (
         <>
+          {/* Selected Company Master Data */}
+          <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-zinc-100 bg-stone-50/70 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">Company Master Data</span>
+                <h2 className="font-brand text-lg font-bold text-zinc-900">{selectedCompany.legal_name}</h2>
+              </div>
+              <PermissionGate permission="tenancy.company.manage">
+                <button
+                  type="button"
+                  onClick={() => handleStartEditCompany(selectedCompany)}
+                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 hover:border-zinc-300 transition shadow-xs"
+                >
+                  <svg className="h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Company Details
+                </button>
+              </PermissionGate>
+            </div>
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="rounded-xl border border-zinc-100 bg-stone-50/50 p-3">
+                <span className="text-zinc-400 font-medium block">Trade / Registration No. (CIN)</span>
+                <span className="mt-1 font-mono font-semibold text-zinc-900 text-sm block">
+                  {selectedCompany.statutory_id || <span className="font-sans text-xs italic text-zinc-400">Not configured</span>}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-100 bg-stone-50/50 p-3">
+                <span className="text-zinc-400 font-medium block">VAT / Tax ID</span>
+                <span className="mt-1 font-mono font-semibold text-zinc-900 text-sm block">
+                  {selectedCompany.vat_registration_number || <span className="font-sans text-xs italic text-zinc-400">Not configured</span>}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-100 bg-stone-50/50 p-3">
+                <span className="text-zinc-400 font-medium block">Default Currency</span>
+                <span className="mt-1 font-mono font-semibold text-zinc-900 text-sm block">
+                  {selectedCompany.reporting_currency || "INR"}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-100 bg-stone-50/50 p-3">
+                <span className="text-zinc-400 font-medium block">Financial Year Start</span>
+                <span className="mt-1 font-semibold text-zinc-900 text-sm block">
+                  {getFiscalMonthName(selectedCompany.fiscal_year_start_month)}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Branches */}
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
             <div className="border-b border-zinc-100 px-6 py-4">
@@ -424,6 +570,122 @@ export function OrgSetupPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Edit Company Modal */}
+      {editingCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+            <div className="border-b border-zinc-100 bg-stone-50/80 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-brand font-bold text-zinc-900">Edit Company Details</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Update statutory and fiscal settings for this legal entity</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelEditCompany}
+                className="text-zinc-400 hover:text-zinc-600 text-lg leading-none p-1"
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateCompany} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Legal Entity Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editCompanyName}
+                  onChange={(e) => setEditCompanyName(e.target.value)}
+                  placeholder="e.g. Apex Horizon Infrastructure Pvt. Ltd."
+                  className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    Trade Identifier / Registration (CIN)
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyStatutoryId}
+                    onChange={(e) => setEditCompanyStatutoryId(e.target.value)}
+                    placeholder="e.g. CIN-U45200MH2021PTC368921"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs font-mono outline-none focus:border-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    VAT / Tax Registration No.
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyVat}
+                    onChange={(e) => setEditCompanyVat(e.target.value)}
+                    placeholder="e.g. 27AABCU9603R1ZX"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs font-mono outline-none focus:border-brand"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    Default Reporting Currency
+                  </label>
+                  <select
+                    value={editCompanyCurrency}
+                    onChange={(e) => setEditCompanyCurrency(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand"
+                  >
+                    <option value="INR">INR (₹) - Indian Rupee</option>
+                    <option value="USD">USD ($) - US Dollar</option>
+                    <option value="EUR">EUR (€) - Euro</option>
+                    <option value="AED">AED (د.إ) - UAE Dirham</option>
+                    <option value="SAR">SAR (﷼) - Saudi Riyal</option>
+                    <option value="GBP">GBP (£) - British Pound</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    Financial Year Start
+                  </label>
+                  <select
+                    value={editCompanyFiscalMonth}
+                    onChange={(e) => setEditCompanyFiscalMonth(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand"
+                  >
+                    <option value="4">01-April (Apr - Mar)</option>
+                    <option value="1">01-January (Jan - Dec)</option>
+                    <option value="7">01-July (Jul - Jun)</option>
+                    <option value="10">01-October (Oct - Sep)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEditCompany}
+                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCompany || !editCompanyName.trim()}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 transition"
+                >
+                  {savingCompany ? "Saving changes…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

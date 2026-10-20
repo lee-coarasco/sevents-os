@@ -107,6 +107,52 @@ describe("tenancy routes", () => {
     expect(companies).toHaveLength(1);
     expect(companies[0].legal_name).toBe("Tenant A Co");
   });
+
+  it("updates existing company enterprise details when authorized", async () => {
+    const { app } = appWithFakeRepo();
+    const created = await app.inject({
+      method: "POST",
+      url: "/tenancy/companies",
+      headers: { authorization: "Bearer token-a" },
+      payload: { legalName: "Initial Company" },
+    });
+    const companyId = created.json().company.id;
+
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/tenancy/companies/${companyId}`,
+      headers: { authorization: "Bearer token-a" },
+      payload: {
+        legalName: "Apex Horizon Infrastructure Pvt. Ltd.",
+        statutory_id: "CIN-U45200MH2021PTC368921",
+        vat_registration_number: "27AABCU9603R1ZX",
+        reporting_currency: "INR",
+        fiscal_year_start_month: 4,
+      },
+    });
+
+    expect(patchRes.statusCode).toBe(200);
+    const updated = patchRes.json().company;
+    expect(updated.legal_name).toBe("Apex Horizon Infrastructure Pvt. Ltd.");
+    expect(updated.statutory_id).toBe("CIN-U45200MH2021PTC368921");
+    expect(updated.vat_registration_number).toBe("27AABCU9603R1ZX");
+    expect(updated.reporting_currency).toBe("INR");
+    expect(updated.fiscal_year_start_month).toBe(4);
+  });
+
+  it("403s updating a company without tenancy.company.manage", async () => {
+    const { app, authorityRepo } = appWithFakeRepo();
+    authorityRepo.addSession("token-no-permission", "plain-user", "tenant-a");
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/tenancy/companies/some-id",
+      headers: { authorization: "Bearer token-no-permission" },
+      payload: { legalName: "Unauthorized Edit" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
 });
 
 describe("GET /tenancy/branches", () => {

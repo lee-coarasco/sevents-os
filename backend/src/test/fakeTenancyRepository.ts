@@ -54,6 +54,18 @@ export class FakeTenancyRepository implements TenancyRepository {
     return company;
   }
 
+  async updateCompany(accessToken: string, companyId: string, input: Partial<CreateCompanyInput>) {
+    const existing = this.companies.get(companyId);
+    if (!existing) throw new Error("company not found");
+    const updated = {
+      ...existing,
+      ...input,
+      legal_name: input.legal_name ?? existing.legal_name,
+    };
+    this.companies.set(companyId, updated);
+    return updated;
+  }
+
   async listCompanies(accessToken: string) {
     const tenant_id = this.tenantOf(accessToken);
     return [...this.companies.values()].filter((c) => c.tenant_id === tenant_id);

@@ -37,6 +37,7 @@ export interface RegisterFileObjectInput {
  */
 export interface TenancyRepository {
   createCompany(accessToken: string, input: CreateCompanyInput): Promise<Company>;
+  updateCompany(accessToken: string, companyId: string, input: Partial<CreateCompanyInput>): Promise<Company>;
   listCompanies(accessToken: string): Promise<Company[]>;
   getCompany(accessToken: string, companyId: string): Promise<Company | null>;
   createBranch(accessToken: string, input: CreateBranchInput): Promise<Branch>;
@@ -64,6 +65,18 @@ export function createSupabaseTenancyRepository(
         .select("*")
         .single();
       if (error || !data) throw new Error(`createCompany: ${error?.message ?? "no row returned"}`);
+      return data as Company;
+    },
+
+    async updateCompany(accessToken, companyId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("companies")
+        .update(input)
+        .eq("id", companyId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`updateCompany: ${error?.message ?? "no row returned"}`);
       return data as Company;
     },
 

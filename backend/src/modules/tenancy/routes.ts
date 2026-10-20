@@ -1,5 +1,5 @@
 import type { FastifyInstance, preHandlerHookHandler } from "fastify";
-import type { TenancyRepository } from "./repository.js";
+import type { TenancyRepository, CreateCompanyInput } from "./repository.js";
 
 export interface TenancyRouteOptions {
   getRepository: () => TenancyRepository;
@@ -37,6 +37,22 @@ export async function tenancyRoutes(app: FastifyInstance, options: TenancyRouteO
         ...rest,
       });
       reply.code(201);
+      return { company };
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: Partial<CreateCompanyInput & { legalName?: string }> }>(
+    "/tenancy/companies/:id",
+    { preHandler: options.requirePermission("tenancy.company.manage") },
+    async (request, reply) => {
+      const { id } = request.params;
+      const body = (request.body ?? {}) as any;
+      const { legalName, ...rest } = body;
+      const token = bearerToken(request.headers.authorization) as string;
+      const updateData: any = { ...rest };
+      if (legalName !== undefined) updateData.legal_name = legalName;
+
+      const company = await options.getRepository().updateCompany(token, id, updateData);
       return { company };
     },
   );
