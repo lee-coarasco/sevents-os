@@ -171,26 +171,41 @@ In an enterprise rollout, modules must be configured and tested in their depende
 
 ---
 
-### Step 5: Work-Item Catalogue & Disposition
+### Step 5: Work-Item Catalogue & Disposition (Business Processes & Scope Matrix)
 * **Navigation:** `Catalogue` > `Work Items` (`/catalogue`)
+* **Purpose & Distinction:**
+  > [!NOTE]
+  > **Work-Item Catalogue vs. Inventory Stores:**
+  > - **Work-Item Catalogue (`/catalogue`)**: Defines the organization-wide master list of standard activities, engineering tasks, compliance obligations, and how the system executes them (its **disposition**: workflow automation, standard form, document record, or manual policy).
+  > - **Inventory Stores (`/inventory`)**: Handled later in Phase 5 to track physical stock items, purchase quantities, warehouse bays, and Goods Receipt Notes (GRN).
 
-#### Real Test Catalogue Items to Add:
-1. **Ready Mix Concrete M30 Grade**
-   - Code: `CONC-M30-RMC` | UOM: `M3` | Standard Rate: `₹4,200 / M3`
-   - Category: `Civil & Structural Works`
-   - Specification: 28-day characteristic compressive strength 30 N/mm², 120mm slump.
-2. **TMT Reinforcement Steel Fe500D (20mm-25mm)**
-   - Code: `STEEL-FE500-25` | UOM: `MT` | Standard Rate: `₹64,500 / MT`
-   - Category: `Metals & Reinforcement`
-   - Specification: IS 1786:2008 high-ductility seismic resistance certified.
-3. **Centrifugal Water Chiller 500 TR**
-   - Code: `MEP-CHILL-500TR` | UOM: `NOS` | Standard Rate: `₹48,00,000 / NOS`
-   - Category: `HVAC Plant & Machinery`
-   - Specification: AHRI certified, COP 6.2 at ARI conditions, R-134a eco-refrigerant.
-4. **Unitized Double Glazed Curtain Wall**
-   - Code: `FAC-DGU-CURTAIN` | UOM: `SQFT` | Standard Rate: `₹950 / SQFT`
-   - Category: `Façade & External Envelope`
-   - Specification: Low-E tempered outer glass, 16mm argon gap, acoustic STC 42 rating.
+#### Real Work-Item Catalogue Entries & Dispositions to Configure:
+1. **Work Item: Structural Concreting & Pour Clearance**
+   - Item Code / Key: `WI-OPS-CONC-POUR`
+   - Department: `Civil Engineering & Operations`
+   - Description: *Inspection and pour approval protocol prior to placing ready-mix concrete on suspended slabs or foundations.*
+   - **Disposition:** `workflow_automation` (routed to the Workflow Engine / Inspection Approval graph)
+   - Phase Target: `Phase 1 (Active Site Mobilization)`
+   - Status: `Published`
+2. **Work Item: Major Procurement Approval (PO > ₹10 Lakhs)**
+   - Item Code / Key: `WI-PROC-HIGH-VALUE-PO`
+   - Department: `Procurement & Supply Chain`
+   - Description: *Two-tier commercial sign-off for critical material orders exceeding ten lakh rupees.*
+   - **Disposition:** `workflow_automation` (linked to `wf.po_approval` in Step 6)
+   - Phase Target: `Phase 1 (Immediate)`
+   - Status: `Published`
+3. **Work Item: Site Quality Non-Conformance Closure (NCR)**
+   - Item Code / Key: `WI-QA-NCR-DISPOSITION`
+   - Department: `Quality Assurance & HSE`
+   - Description: *Root cause analysis, corrective action verification, and engineering sign-off for site defects.*
+   - **Disposition:** `standard_form` (handled by Quality Inspection & NCR module)
+   - Status: `Published`
+4. **Work Item: Weekly Critical Path Delay Assessment**
+   - Item Code / Key: `WI-AI-SCHEDULE-ANALYSIS`
+   - Department: `Project Controls & Planning`
+   - Description: *Automated lookahead variance calculation and liquidated damage exposure assessment.*
+   - **Disposition:** `ai_agent_task` (delegated to the Project Delay Analyst Agent)
+   - Status: `Published`
 
 ---
 
@@ -356,7 +371,13 @@ We will configure the **High-Value Purchase Order Approval Workflow** (`WF-PO-AP
 ### Step 13: Stores, Inventory & Goods Receipt Notes (GRN)
 * **Navigation:** `Supply Chain` > `Inventory & Stores` (`/inventory`)
 
-#### Receive Delivery at Site:
+#### Step 13.1: Configure Inventory Material Master (Physical Stock Items)
+Before receiving site shipments, ensure the material master has the physical commodities configured:
+1. **Ready Mix Concrete M30 Grade**: Code `INV-CONC-M30` | Category: `Bulk Materials` | UOM: `M3` | Min Safety Stock: `50 M3`
+2. **TMT Reinforcement Steel Fe500D (25mm)**: Code `INV-STEEL-25MM` | Category: `Structural Steel` | UOM: `MT` | Min Safety Stock: `20 MT` | Storage Bay: `Central Yard - Bay A`
+3. **Centrifugal Water Chiller 500 TR**: Code `INV-MEP-CHILL` | Category: `HVAC Equipment` | UOM: `NOS` | Storage Bay: `Plant Room Staging`
+
+#### Step 13.2: Receive Delivery at Site (Goods Receipt Note):
 * **Click:** `+ Create Goods Receipt Note (GRN)`
 * **GRN Number:** `GRN-MTP-0012`
 * **Against PO:** `PO-2026-0045` (Tata Steel)
