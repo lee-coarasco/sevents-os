@@ -8,6 +8,7 @@ import { useUsers } from "../hooks/useUsers";
 import { PermissionGate } from "../components/PermissionGate";
 import { StatusBadge } from "../components/StatusBadge";
 import { FileAttachment, AttachmentLink, type AttachmentResult } from "../components/FileAttachment";
+import { aiService, type KnowledgeSourceType } from "../services/aiService";
 
 interface DocumentRecord {
   id: string;
@@ -66,6 +67,47 @@ export function DocumentDetailPage() {
   const [reviewerId, setReviewerId] = useState("");
 
   const [definitionByRevision, setDefinitionByRevision] = useState<Record<string, string>>({});
+  const [indexingRevisionId, setIndexingRevisionId] = useState<string | null>(null);
+  const [indexedSuccessId, setIndexedSuccessId] = useState<string | null>(null);
+
+  async function handleIndexWithAi(rev: Revision) {
+    if (!session || !document) return;
+    setIndexingRevisionId(rev.id);
+    setActionError(null);
+    try {
+      const typeMapping: Record<string, KnowledgeSourceType> = {
+        drawing: "drawing",
+        specification: "specification",
+        contract: "contract",
+        rfi: "rfi",
+        submittal: "submittal",
+        dpr: "dpr",
+        policy: "policy",
+      };
+      const sourceType = typeMapping[document.document_type.toLowerCase()] || "specification";
+
+      await aiService.ingestDocument(session.access_token, {
+        projectId: document.project_id || undefined,
+        sourceType,
+        sourceId: document.document_number || `DOC-${document.id.slice(0, 8)}`,
+        title: `${document.title} (Rev ${rev.revision_code})`,
+        version: rev.revision_code,
+        content: `[Controlled Document Record]\nTitle: ${document.title}\nDocument Number: ${document.document_number || "N/A"}\nDiscipline: ${document.discipline || "General"}\nRevision: ${rev.revision_code}\nStatus: ${rev.status}\nStorage Reference: ${rev.storage_reference || "No attached file"}\nTags: ${document.tags?.join(", ") || "None"}`,
+        metadata: {
+          documentId: document.id,
+          revisionId: rev.id,
+          storageReference: rev.storage_reference,
+        },
+      });
+
+      setIndexedSuccessId(rev.id);
+      setTimeout(() => setIndexedSuccessId(null), 3000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to index with AI");
+    } finally {
+      setIndexingRevisionId(null);
+    }
+  }
 
   function loadRevisions() {
     if (!session || !id) return;
@@ -281,8 +323,27 @@ export function DocumentDetailPage() {
                             Reviewer: {reviewerLabel(rev.reviewer_id)} · Created{" "}
                             {new Date(rev.created_at).toLocaleDateString()}
                           </p>
+                          {rev.storage_reference && (
+                            <p className="mt-1 text-xs text-brand font-medium">
+                              📎 File: <span className="font-mono">{rev.storage_reference.split("-").slice(2).join("-") || rev.storage_reference}</span>
+                            </p>
+                          )}
                         </div>
-                        <StatusBadge status={rev.status} />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleIndexWithAi(rev)}
+                            disabled={indexingRevisionId === rev.id || indexedSuccessId === rev.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 shadow-sm hover:bg-stone-50 disabled:opacity-50"
+                            title="Index this revision into the AI Vector Knowledge Base for semantic search and AI copilot grounded queries"
+                          >
+                            <svg className="h-3.5 w-3.5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            {indexedSuccessId === rev.id ? "Indexed in AI ✓" : indexingRevisionId === rev.id ? "Vectorizing..." : "Index with AI"}
+                          </button>
+                          <StatusBadge status={rev.status} />
+                        </div>
                       </div>
 
                       {rev.status === "under_review" && (

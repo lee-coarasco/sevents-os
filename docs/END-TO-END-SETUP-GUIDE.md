@@ -343,6 +343,10 @@ We will configure the **High-Value Purchase Order Approval Workflow** (`WF-PO-AP
 
 * **Verification:** Check the interactive Gantt chart and verify milestone dates calculate properly.
 
+> [!TIP]
+> **One-Click AI Grounding from Document Register:**
+> In the Document Detail view (`/documents/:id`), each revision now has an **`Index with AI`** button. Clicking this instantly indexes the approved drawing/spec metadata and storage reference into the AI Knowledge Base without manual copy-pasting.
+
 ---
 
 ## Phase 5: Supply Chain, Stores & Subcontractors
@@ -566,7 +570,9 @@ Before receiving site shipments, ensure the material master has the physical com
 
 #### Upload & Ground Project Specifications:
 1. Click `+ Ingest Knowledge Document`
-2. **Document Title:** `The Metro Tech Park - Technical Specification Manual v2.1`
+2. **Direct File Upload (New):** You can click `Browse file...` in the modal and choose any local specification file (.txt, .md, .csv, .json, or text-based spec). The system auto-extracts the text, sets the title, and assigns an ID.
+3. Or manually fill:
+   - **Document Title:** `The Metro Tech Park - Technical Specification Manual v2.1`
 3. **Category:** `Engineering & Structural Specifications`
 4. **Project Tag:** `The Metro Tech Park - Tower C` (`PRJ-MTP-TC`)
 5. **Content / Summary:**

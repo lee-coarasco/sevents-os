@@ -34,6 +34,44 @@ export function AiKnowledgePage() {
   const [content, setContent] = useState("");
   const [ingesting, setIngesting] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFileName(file.name);
+    setReadingFile(true);
+
+    try {
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      if (!title) {
+        setTitle(baseName.replace(/[-_]/g, " "));
+      }
+      if (!sourceId) {
+        setSourceId(`DOC-${Date.now().toString().slice(-6)}`);
+      }
+
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (ext === "txt" || ext === "md" || ext === "json" || ext === "csv") {
+        const text = await file.text();
+        setContent(text);
+      } else {
+        const text = await file.text();
+        const cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").trim();
+        if (cleaned.length > 50) {
+          setContent(cleaned);
+        } else {
+          setContent(`[File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]\n\nUploaded technical file reference. Please paste or review document clauses below.`);
+        }
+      }
+    } catch (err: any) {
+      alert("Could not read file: " + err.message);
+    } finally {
+      setReadingFile(false);
+    }
+  };
 
   const fetchDocuments = async () => {
     if (!session?.access_token) return;
@@ -403,6 +441,32 @@ export function AiKnowledgePage() {
                   Document successfully vectorized and indexed!
                 </div>
               )}
+
+              {/* File Upload Option */}
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-stone-50/50 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-semibold text-zinc-800">Direct File Ingestion</span>
+                    <p className="text-[11px] text-zinc-400">
+                      Upload a document (.txt, .md, .csv, .json, specifications) to auto-extract text and pre-fill fields
+                    </p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50">
+                    <input
+                      type="file"
+                      accept=".txt,.md,.json,.csv,.xml,.spec,.doc,.pdf"
+                      onChange={handleFileUpload}
+                      className="sr-only"
+                    />
+                    {readingFile ? "Reading file..." : "Browse file..."}
+                  </label>
+                </div>
+                {selectedFileName && (
+                  <div className="mt-2 text-xs font-medium text-emerald-600 flex items-center gap-1.5">
+                    <span>✓ Loaded: {selectedFileName}</span>
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
