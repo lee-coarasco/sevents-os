@@ -302,6 +302,7 @@ export interface WorkflowRepository {
    */
   createInstance(accessToken: string, input: CreateInstanceInput): Promise<WorkflowInstance>;
   getInstance(accessToken: string, id: string): Promise<WorkflowInstance | null>;
+  listInstances(accessToken: string, filter?: { definitionId?: string; versionId?: string; status?: string }): Promise<WorkflowInstance[]>;
   updateInstance(accessToken: string, id: string, input: UpdateInstanceInput): Promise<WorkflowInstance>;
 
   createStepInstance(accessToken: string, input: CreateStepInstanceInput): Promise<WorkflowStepInstance>;
@@ -806,6 +807,17 @@ export function createSupabaseWorkflowRepository(
       const { data, error } = await client.from("workflow_instances").select("*").eq("id", id).maybeSingle();
       if (error) throw new Error(`getInstance: ${error.message}`);
       return (data as WorkflowInstance | null) ?? null;
+    },
+
+    async listInstances(accessToken, filter) {
+      const client = userScopedClientFactory(accessToken);
+      let query = client.from("workflow_instances").select("*").order("started_at", { ascending: false });
+      if (filter?.definitionId) query = query.eq("workflow_definition_id", filter.definitionId);
+      if (filter?.versionId) query = query.eq("workflow_version_id", filter.versionId);
+      if (filter?.status) query = query.eq("status", filter.status);
+      const { data, error } = await query;
+      if (error) throw new Error(`listInstances: ${error.message}`);
+      return (data as WorkflowInstance[]) ?? [];
     },
 
     async updateInstance(accessToken, id, input) {

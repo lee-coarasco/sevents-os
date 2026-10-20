@@ -38,6 +38,7 @@ import type {
   TaskQueueEntry,
   WorkflowCondition,
   WorkflowDefinition,
+  WorkflowEvent,
   WorkflowInstance,
   WorkflowMigration,
   WorkflowMigrationInstanceResult,
@@ -1117,14 +1118,23 @@ export async function cancelInstance(
   return updated;
 }
 
+export async function listWorkflowInstances(
+  repository: WorkflowRepository,
+  accessToken: string,
+  filter?: { definitionId?: string; versionId?: string; status?: string },
+): Promise<WorkflowInstance[]> {
+  return repository.listInstances(accessToken, filter);
+}
+
 export async function getWorkflowInstance(
   repository: WorkflowRepository,
   accessToken: string,
   instanceId: string,
-): Promise<{ instance: WorkflowInstance; stepInstances: WorkflowStepInstance[] }> {
+): Promise<{ instance: WorkflowInstance; stepInstances: WorkflowStepInstance[]; events: WorkflowEvent[] }> {
   const instance = await requireInstance(repository, accessToken, instanceId);
   const stepInstances = await repository.listStepInstances(accessToken, instanceId);
-  return { instance, stepInstances };
+  const events = await repository.listEvents(accessToken, instanceId);
+  return { instance, stepInstances, events };
 }
 
 // ---------------------------------------------------------------------------

@@ -416,6 +416,17 @@ export class FakeWorkflowRepository implements WorkflowRepository {
     return this.instancesById.get(id) ?? null;
   }
 
+  async listInstances(_accessToken: string, filter?: { definitionId?: string; versionId?: string; status?: string }): Promise<WorkflowInstance[]> {
+    return [...this.instancesById.values()]
+      .filter((i) => {
+        if (filter?.definitionId && i.workflow_definition_id !== filter.definitionId) return false;
+        if (filter?.versionId && i.workflow_version_id !== filter.versionId) return false;
+        if (filter?.status && i.status !== filter.status) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  }
+
   async updateInstance(_accessToken: string, id: string, input: UpdateInstanceInput): Promise<WorkflowInstance> {
     const existing = this.instancesById.get(id);
     if (!existing) throw new Error(`updateInstance: ${id} not found`);

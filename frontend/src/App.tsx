@@ -27,6 +27,7 @@ import { WorkflowDefinitionsPage } from "./pages/WorkflowDefinitionsPage";
 import { WorkflowDefinitionDetailPage } from "./pages/WorkflowDefinitionDetailPage";
 import { WorkflowVersionDetailPage } from "./pages/WorkflowVersionDetailPage";
 import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
+import { WorkflowInstancesPage } from "./pages/WorkflowInstancesPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { ProcurementPage } from "./pages/ProcurementPage";
 import { InventoryPage } from "./pages/InventoryPage";
@@ -360,6 +361,14 @@ export function App() {
             />
             <Route path="catalogue/guide" element={<CatalogueGuidePage />} />
             <Route path="config-studio/guide" element={<WorkflowGuidePage />} />
+            <Route
+              path="workflow/instances"
+              element={
+                <ProtectedRoute anyPermission={["workflow.instance.manage", "workflow.definition.manage"]}>
+                  <WorkflowInstancesPage />
+                </ProtectedRoute>
+              }
+            />
           </Route>
         </Routes>
       </BrowserRouter>

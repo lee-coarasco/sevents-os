@@ -164,6 +164,14 @@ export function AppLayout() {
             </svg>
             Approvals
           </NavLink>
+          <PermissionGate anyPermission={["workflow.instance.manage", "workflow.definition.manage"]}>
+            <NavLink to="/workflow/instances" className={navLinkClass}>
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+              Workflow Runs
+            </NavLink>
+          </PermissionGate>
 
           <PermissionGate
             anyPermission={[

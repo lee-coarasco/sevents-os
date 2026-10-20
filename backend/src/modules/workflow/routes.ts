@@ -69,6 +69,7 @@ import {
   getVersionGraph,
   getWorkflowDefinition,
   getWorkflowInstance,
+  listWorkflowInstances,
   getWorkflowMigration,
   listEscalationRungs,
   listMigrationInstanceResults,
@@ -627,6 +628,20 @@ export async function workflowRoutes(app: FastifyInstance, options: WorkflowRout
           request.body.context ?? {},
         );
         return result;
+      } catch (error) {
+        return handleServiceError(error, reply);
+      }
+    },
+  );
+
+  app.get<{ Querystring: { definitionId?: string; versionId?: string; status?: string } }>(
+    "/workflow/instances",
+    { preHandler: options.requirePermission("workflow.instance.manage") },
+    async (request, reply) => {
+      const token = bearerToken(request.headers.authorization) as string;
+      try {
+        const instances = await listWorkflowInstances(options.getRepository(), token, request.query);
+        return { instances };
       } catch (error) {
         return handleServiceError(error, reply);
       }
