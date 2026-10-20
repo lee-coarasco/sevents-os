@@ -2,7 +2,9 @@
 
 **SEVENTS OS** is a modern, modular, cloud-native Construction Enterprise Operating System built specifically for general contractors, engineering firms, and infrastructure developers. It unifies project management, commercial governance, field operations, procurement, quality/safety compliance, and autonomous AI copilots into a single platform.
 
-Detailed documentation and step-by-step instructions for all features are available in the [Comprehensive User Guide](docs/USER-GUIDE.md).
+Detailed documentation, setup guides, and walkthroughs are available:
+- [Comprehensive User Guide](docs/USER-GUIDE.md) - Full reference for all business functions and screens.
+- [Real-World Master Setup & End-to-End Testing Guide](docs/END-TO-END-SETUP-GUIDE.md) - Complete end-to-end testing scenario with exact real-world data points, workflows, AI agents, and verification checklists.
 
 ---
 
