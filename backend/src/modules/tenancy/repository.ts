@@ -15,6 +15,15 @@ export interface CreateCompanyInput {
 export interface CreateBranchInput {
   company_id: string;
   name: string;
+  code?: string | null;
+  address?: string | null;
+  operating_region?: string | null;
+}
+
+export interface UpdateBranchInput {
+  name?: string;
+  code?: string | null;
+  address?: string | null;
   operating_region?: string | null;
 }
 
@@ -41,6 +50,7 @@ export interface TenancyRepository {
   listCompanies(accessToken: string): Promise<Company[]>;
   getCompany(accessToken: string, companyId: string): Promise<Company | null>;
   createBranch(accessToken: string, input: CreateBranchInput): Promise<Branch>;
+  updateBranch(accessToken: string, branchId: string, input: UpdateBranchInput): Promise<Branch>;
   listBranches(accessToken: string, companyId: string): Promise<Branch[]>;
   registerFileObject(accessToken: string, input: RegisterFileObjectInput): Promise<FileObjectMeta>;
 }
@@ -102,6 +112,18 @@ export function createSupabaseTenancyRepository(
       const client = userScopedClientFactory(accessToken);
       const { data, error } = await client.from("branches").insert(input).select("*").single();
       if (error || !data) throw new Error(`createBranch: ${error?.message ?? "no row returned"}`);
+      return data as Branch;
+    },
+
+    async updateBranch(accessToken, branchId, input) {
+      const client = userScopedClientFactory(accessToken);
+      const { data, error } = await client
+        .from("branches")
+        .update(input)
+        .eq("id", branchId)
+        .select("*")
+        .single();
+      if (error || !data) throw new Error(`updateBranch: ${error?.message ?? "no row returned"}`);
       return data as Branch;
     },
 

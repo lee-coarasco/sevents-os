@@ -63,11 +63,11 @@ export async function tenancyRoutes(app: FastifyInstance, options: TenancyRouteO
     return { companies };
   });
 
-  app.post<{ Body: { companyId: string; name: string; operatingRegion?: string } }>(
+  app.post<{ Body: { companyId: string; name: string; code?: string; address?: string; operatingRegion?: string } }>(
     "/tenancy/branches",
     { preHandler: options.requirePermission("tenancy.branch.manage") },
     async (request, reply) => {
-      const { companyId, name, operatingRegion } = request.body ?? ({} as never);
+      const { companyId, name, code, address, operatingRegion } = request.body ?? ({} as never);
       if (!companyId || !name) {
         reply.code(400);
         return { error: "companyId and name are required" };
@@ -76,9 +76,33 @@ export async function tenancyRoutes(app: FastifyInstance, options: TenancyRouteO
       const branch = await options.getRepository().createBranch(token, {
         company_id: companyId,
         name,
+        code: code ?? null,
+        address: address ?? null,
         operating_region: operatingRegion ?? null,
       });
       reply.code(201);
+      return { branch };
+    },
+  );
+
+  app.patch<{
+    Params: { id: string };
+    Body: { name?: string; code?: string; address?: string; operatingRegion?: string; operating_region?: string };
+  }>(
+    "/tenancy/branches/:id",
+    { preHandler: options.requirePermission("tenancy.branch.manage") },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { name, code, address, operatingRegion, operating_region } = (request.body ?? {}) as any;
+      const token = bearerToken(request.headers.authorization) as string;
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (code !== undefined) updateData.code = code;
+      if (address !== undefined) updateData.address = address;
+      if (operatingRegion !== undefined) updateData.operating_region = operatingRegion;
+      else if (operating_region !== undefined) updateData.operating_region = operating_region;
+
+      const branch = await options.getRepository().updateBranch(token, id, updateData);
       return { branch };
     },
   );

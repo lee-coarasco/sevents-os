@@ -85,10 +85,27 @@ export class FakeTenancyRepository implements TenancyRepository {
       tenant_id,
       company_id: input.company_id,
       name: input.name,
+      code: input.code ?? null,
+      address: input.address ?? null,
       operating_region: input.operating_region ?? null,
     };
     this.branches.set(branch.id, branch);
     return branch;
+  }
+
+  async updateBranch(accessToken: string, branchId: string, input: Partial<CreateBranchInput>) {
+    const existing = this.branches.get(branchId);
+    if (!existing) throw new Error("branch not found");
+    const updated: Branch = {
+      ...existing,
+      ...input,
+      name: input.name ?? existing.name,
+      code: input.code !== undefined ? input.code : existing.code,
+      address: input.address !== undefined ? input.address : existing.address,
+      operating_region: input.operating_region !== undefined ? input.operating_region : existing.operating_region,
+    };
+    this.branches.set(branchId, updated);
+    return updated;
   }
 
   async listBranches(accessToken: string, companyId: string) {

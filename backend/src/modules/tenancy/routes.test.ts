@@ -194,4 +194,35 @@ describe("GET /tenancy/branches", () => {
     expect(branches).toHaveLength(1);
     expect(branches[0].name).toBe("Dubai Branch");
   });
+
+  it("creates and updates branch with code and address", async () => {
+    const { app } = appWithFakeRepo();
+    const created = await app.inject({
+      method: "POST",
+      url: "/tenancy/branches",
+      headers: { authorization: "Bearer token-a" },
+      payload: {
+        companyId: "company-1",
+        name: "Mumbai Corporate Office",
+        code: "BR-MUM-HQ",
+        address: "Level 12, Horizon Towers, BKC, Mumbai",
+        operatingRegion: "West Zone",
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const branch = created.json().branch;
+    expect(branch.code).toBe("BR-MUM-HQ");
+    expect(branch.address).toBe("Level 12, Horizon Towers, BKC, Mumbai");
+
+    const patched = await app.inject({
+      method: "PATCH",
+      url: `/tenancy/branches/${branch.id}`,
+      headers: { authorization: "Bearer token-a" },
+      payload: {
+        address: "Level 14, Horizon Towers, BKC, Mumbai 400051",
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().branch.address).toBe("Level 14, Horizon Towers, BKC, Mumbai 400051");
+  });
 });

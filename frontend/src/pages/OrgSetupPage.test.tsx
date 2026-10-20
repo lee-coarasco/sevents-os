@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { OrgSetupPage } from "./OrgSetupPage";
 
 const apiFetch = vi.fn();
@@ -49,7 +50,11 @@ describe("OrgSetupPage", () => {
   });
 
   it("lists companies and selecting one reveals branch/project sections", async () => {
-    render(<OrgSetupPage />);
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
 
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
     expect(screen.queryByRole("heading", { name: "Branches" })).not.toBeInTheDocument();
@@ -62,7 +67,11 @@ describe("OrgSetupPage", () => {
   });
 
   it("hides the create-company form when the user lacks tenancy.company.manage", async () => {
-    render(<OrgSetupPage />);
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("Acme Construction")).toBeInTheDocument());
     expect(screen.getByText("You don't have permission to create companies.")).toBeInTheDocument();
   });
@@ -87,7 +96,11 @@ describe("OrgSetupPage", () => {
       return Promise.resolve({});
     });
 
-    render(<OrgSetupPage />);
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
     await userEvent.click(await screen.findByText("Acme Construction"));
     await userEvent.type(screen.getByPlaceholderText("Branch name"), "Dubai HQ");
     await userEvent.click(screen.getByRole("button", { name: /add branch/i }));
@@ -135,7 +148,11 @@ describe("OrgSetupPage", () => {
       return Promise.resolve({});
     });
 
-    render(<OrgSetupPage />);
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
     await userEvent.click(await screen.findByText("Acme Construction"));
 
     // Click "Edit Company Details"
@@ -160,5 +177,118 @@ describe("OrgSetupPage", () => {
     expect((await screen.findAllByText("Apex Horizon Infrastructure Pvt. Ltd.")).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("CIN-U45200MH2021PTC368921")).toBeInTheDocument();
     expect(screen.getByText("27AABCU9603R1ZX")).toBeInTheDocument();
+  });
+
+  it("links projects directly to their project detail page", async () => {
+    apiFetch.mockImplementation((path: string) => {
+      if (path === "/tenancy/companies") {
+        return Promise.resolve({ companies: [{ id: "c1", legal_name: "Acme Construction" }] });
+      }
+      if (path === "/projects") {
+        return Promise.resolve({
+          projects: [
+            {
+              id: "proj-101",
+              company_id: "c1",
+              name: "Highway Expansion",
+              code: "PRJ-HW-01",
+              status: "active",
+              client_name: "Govt Authority",
+              location: "Mumbai",
+            },
+          ],
+        });
+      }
+      if (path.startsWith("/tenancy/branches?companyId=")) {
+        return Promise.resolve({ branches: [] });
+      }
+      if (path === "/authority/effective-permissions") {
+        return Promise.resolve({ permissions: ["tenancy.company.manage"] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByText("Acme Construction"));
+
+    const projectLink = await screen.findByRole("link", { name: /highway expansion/i });
+    expect(projectLink).toHaveAttribute("href", "/projects/proj-101");
+  });
+
+  it("edits and updates branch details including code and address", async () => {
+    apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
+      if (path === "/tenancy/companies") {
+        return Promise.resolve({ companies: [{ id: "c1", legal_name: "Acme Construction" }] });
+      }
+      if (path === "/projects") {
+        return Promise.resolve({ projects: [] });
+      }
+      if (path.startsWith("/tenancy/branches?companyId=")) {
+        return Promise.resolve({
+          branches: [
+            {
+              id: "b1",
+              company_id: "c1",
+              name: "Old Branch",
+              code: "BR-OLD",
+              address: "Old Address",
+              operating_region: "North",
+            },
+          ],
+        });
+      }
+      if (path === "/authority/effective-permissions") {
+        return Promise.resolve({ permissions: ["tenancy.branch.manage"] });
+      }
+      if (path === "/tenancy/branches/b1" && init?.method === "PATCH") {
+        return Promise.resolve({
+          branch: {
+            id: "b1",
+            company_id: "c1",
+            name: "Mumbai Corporate Office",
+            code: "BR-MUM-HQ",
+            address: "Level 12, Horizon Towers, BKC, Mumbai 400051",
+            operating_region: "West Zone",
+          },
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(
+      <MemoryRouter>
+        <OrgSetupPage />
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByText("Acme Construction"));
+
+    // Click "Edit Branch"
+    const editBtn = await screen.findByRole("button", { name: /edit branch/i });
+    await userEvent.click(editBtn);
+
+    // Edit modal appears
+    expect(screen.getByRole("heading", { name: "Edit Branch / Office" })).toBeInTheDocument();
+    const nameInput = screen.getByDisplayValue("Old Branch");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Mumbai Corporate Office");
+
+    const codeInput = screen.getByDisplayValue("BR-OLD");
+    await userEvent.clear(codeInput);
+    await userEvent.type(codeInput, "BR-MUM-HQ");
+
+    const addrInput = screen.getByDisplayValue("Old Address");
+    await userEvent.clear(addrInput);
+    await userEvent.type(addrInput, "Level 12, Horizon Towers, BKC, Mumbai 400051");
+
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    // Verify updated branch values appear
+    expect(await screen.findByText("Mumbai Corporate Office")).toBeInTheDocument();
+    expect(screen.getByText("BR-MUM-HQ")).toBeInTheDocument();
+    expect(screen.getByText("Level 12, Horizon Towers, BKC, Mumbai 400051")).toBeInTheDocument();
   });
 });

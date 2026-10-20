@@ -25,6 +25,24 @@ const DEFAULT_FLAGS = [
 export function createSupabasePlatformAdminRepository(
   getUserScopedClient: (token: string) => SupabaseClient
 ): PlatformAdminRepository {
+  async function resolveTenant(client: SupabaseClient): Promise<string> {
+    const { data: tenantId, error: rpcErr } = await client.rpc("current_tenant_id");
+    if (!rpcErr && tenantId) return tenantId as string;
+
+    const { data: userData } = await client.auth.getUser();
+    if (userData?.user) {
+      const { data: appUser } = await client
+        .from("app_users")
+        .select("tenant_id")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      if (appUser?.tenant_id) return appUser.tenant_id;
+      if (userData.user.app_metadata?.tenant_id) return userData.user.app_metadata.tenant_id;
+      if (userData.user.user_metadata?.tenant_id) return userData.user.user_metadata.tenant_id;
+    }
+    throw new Error("Unable to resolve tenant context for caller");
+  }
+
   return {
     async getTenantSettings(accessToken: string): Promise<TenantSettings> {
       const client = getUserScopedClient(accessToken);
@@ -57,10 +75,12 @@ export function createSupabasePlatformAdminRepository(
 
     async updateTenantSettings(accessToken: string, input: UpdateTenantSettingsInput): Promise<TenantSettings> {
       const client = getUserScopedClient(accessToken);
+      const tenantId = await resolveTenant(client);
       const { data, error } = await client
         .from("tenant_settings")
         .upsert(
           {
+            tenant_id: tenantId,
             ...input,
             updated_at: new Date().toISOString(),
           },
@@ -108,12 +128,14 @@ export function createSupabasePlatformAdminRepository(
       updatedBy?: string
     ): Promise<TenantFeatureFlag> {
       const client = getUserScopedClient(accessToken);
+      const tenantId = await resolveTenant(client);
       const flagMeta = DEFAULT_FLAGS.find((d) => d.flag_key === flagKey);
 
       const { data, error } = await client
         .from("tenant_feature_flags")
         .upsert(
           {
+            tenant_id: tenantId,
             flag_key: flagKey,
             name: flagMeta?.name || flagKey,
             category: flagMeta?.category || "general",
@@ -148,9 +170,11 @@ export function createSupabasePlatformAdminRepository(
       createdBy?: string
     ): Promise<SystemMaintenanceWindow> {
       const client = getUserScopedClient(accessToken);
+      const tenantId = await resolveTenant(client);
       const { data, error } = await client
         .from("system_maintenance_windows")
         .insert({
+          tenant_id: tenantId,
           title: input.title,
           message: input.message,
           severity: input.severity || "info",
@@ -196,11 +220,13 @@ export function createSupabasePlatformAdminRepository(
       reportedBy: string
     ): Promise<PlatformSupportTicket> {
       const client = getUserScopedClient(accessToken);
+      const tenantId = await resolveTenant(client);
       const ticketNumber = `SUP-${Date.now().toString().slice(-6)}`;
 
       const { data, error } = await client
         .from("platform_support_tickets")
         .insert({
+          tenant_id: tenantId,
           ticket_number: ticketNumber,
           title: input.title,
           description: input.description,

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { PermissionGate } from "../components/PermissionGate";
@@ -16,6 +17,8 @@ interface Branch {
   id: string;
   company_id: string;
   name: string;
+  code?: string | null;
+  address?: string | null;
   operating_region: string | null;
 }
 
@@ -78,8 +81,18 @@ export function OrgSetupPage() {
   const [savingCompany, setSavingCompany] = useState(false);
 
   const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchCode, setNewBranchCode] = useState("");
+  const [newBranchAddress, setNewBranchAddress] = useState("");
   const [newBranchRegion, setNewBranchRegion] = useState("");
   const [creatingBranch, setCreatingBranch] = useState(false);
+
+  // Edit branch state
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [editBranchName, setEditBranchName] = useState("");
+  const [editBranchCode, setEditBranchCode] = useState("");
+  const [editBranchAddress, setEditBranchAddress] = useState("");
+  const [editBranchRegion, setEditBranchRegion] = useState("");
+  const [savingBranch, setSavingBranch] = useState(false);
 
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectCode, setNewProjectCode] = useState("");
@@ -180,6 +193,48 @@ export function OrgSetupPage() {
     }
   }
 
+  function handleStartEditBranch(branch: Branch) {
+    setEditingBranch(branch);
+    setEditBranchName(branch.name || "");
+    setEditBranchCode(branch.code || "");
+    setEditBranchAddress(branch.address || "");
+    setEditBranchRegion(branch.operating_region || "");
+  }
+
+  function handleCancelEditBranch() {
+    setEditingBranch(null);
+  }
+
+  async function handleUpdateBranch(event: FormEvent) {
+    event.preventDefault();
+    if (!session || !editingBranch || !editBranchName.trim()) return;
+    setSavingBranch(true);
+    setError(null);
+    try {
+      const { branch } = await apiFetch<{ branch: Branch }>(
+        `/tenancy/branches/${editingBranch.id}`,
+        session.access_token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: editBranchName.trim(),
+            code: editBranchCode.trim() || null,
+            address: editBranchAddress.trim() || null,
+            operatingRegion: editBranchRegion.trim() || null,
+          }),
+        },
+      );
+      setBranches((prev) =>
+        (prev ?? []).map((b) => (b.id === branch.id ? branch : b)),
+      );
+      setEditingBranch(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not update branch");
+    } finally {
+      setSavingBranch(false);
+    }
+  }
+
   async function handleCreateBranch(event: FormEvent) {
     event.preventDefault();
     if (!session || !selectedCompanyId || !newBranchName.trim()) return;
@@ -191,11 +246,15 @@ export function OrgSetupPage() {
         body: JSON.stringify({
           companyId: selectedCompanyId,
           name: newBranchName.trim(),
+          code: newBranchCode.trim() || undefined,
+          address: newBranchAddress.trim() || undefined,
           operatingRegion: newBranchRegion.trim() || undefined,
         }),
       });
       setBranches((prev) => [...(prev ?? []), branch]);
       setNewBranchName("");
+      setNewBranchCode("");
+      setNewBranchAddress("");
       setNewBranchRegion("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create branch");
@@ -461,53 +520,111 @@ export function OrgSetupPage() {
 
           {/* Branches */}
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
-            <div className="border-b border-zinc-100 px-6 py-4">
-              <h2 className="font-brand text-base font-semibold text-zinc-900">
-                Branches
-              </h2>
-              <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+            <div className="border-b border-zinc-100 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-brand text-base font-semibold text-zinc-900">
+                  Branches
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+              </div>
             </div>
             <div className="p-6">
               {branches === null && <p className="mb-3 text-sm text-zinc-400">Loading…</p>}
               {branches?.length === 0 && (
-                <p className="mb-4 text-sm text-zinc-400">No branches yet.</p>
+                <p className="mb-4 text-sm text-zinc-400">No branches registered yet for this legal entity.</p>
               )}
               {branches && branches.length > 0 && (
-                <div className="mb-4 space-y-2">
+                <div className="mb-6 space-y-3">
                   {branches.map((branch) => (
-                    <div key={branch.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
-                      <span className="font-medium text-zinc-800">{branch.name}</span>
-                      {branch.operating_region && (
-                        <span className="text-xs text-zinc-400">{branch.operating_region}</span>
-                      )}
+                    <div
+                      key={branch.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-stone-50/60 p-4 transition hover:bg-stone-50"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-zinc-900 text-sm">{branch.name}</span>
+                          {branch.code && (
+                            <span className="font-mono text-xs rounded bg-zinc-200/70 px-2 py-0.5 text-zinc-700 font-medium">
+                              {branch.code}
+                            </span>
+                          )}
+                          {branch.operating_region && (
+                            <span className="text-[11px] rounded bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.2">
+                              {branch.operating_region}
+                            </span>
+                          )}
+                        </div>
+                        {branch.address && (
+                          <p className="text-xs text-zinc-600 flex items-start gap-1">
+                            <svg className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {branch.address}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <PermissionGate permission="tenancy.branch.manage">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditBranch(branch)}
+                            className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 transition shadow-xs"
+                          >
+                            Edit Branch
+                          </button>
+                        </PermissionGate>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+
               <PermissionGate
                 permission="tenancy.branch.manage"
                 fallback={<p className="text-xs text-zinc-400">You don't have permission to create branches.</p>}
               >
-                <form onSubmit={handleCreateBranch} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <input
-                    value={newBranchName}
-                    onChange={(e) => setNewBranchName(e.target.value)}
-                    placeholder="Branch name"
-                    className="sm:col-span-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  />
-                  <input
-                    value={newBranchRegion}
-                    onChange={(e) => setNewBranchRegion(e.target.value)}
-                    placeholder="Region / Code / Address (e.g. BR-MUM-HQ - BKC)"
-                    className="sm:col-span-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  />
-                  <button
-                    type="submit"
-                    disabled={creatingBranch || !newBranchName.trim()}
-                    className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
-                  >
-                    {creatingBranch ? "Adding…" : "Add branch"}
-                  </button>
+                <form onSubmit={handleCreateBranch} className="space-y-3 rounded-xl border border-zinc-200 bg-stone-50/50 p-4">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Add New Branch / Office
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      value={newBranchName}
+                      onChange={(e) => setNewBranchName(e.target.value)}
+                      placeholder="Branch name"
+                      className="sm:col-span-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    />
+                    <input
+                      value={newBranchCode}
+                      onChange={(e) => setNewBranchCode(e.target.value)}
+                      placeholder="Code (e.g. BR-MUM-HQ)"
+                      className="sm:col-span-1 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm font-mono outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      value={newBranchAddress}
+                      onChange={(e) => setNewBranchAddress(e.target.value)}
+                      placeholder="Address (e.g. Level 12, Horizon Towers, BKC, Mumbai 400051)"
+                      className="sm:col-span-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    />
+                    <div className="flex gap-2 sm:col-span-1">
+                      <input
+                        value={newBranchRegion}
+                        onChange={(e) => setNewBranchRegion(e.target.value)}
+                        placeholder="Region / Area (optional)"
+                        className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                      />
+                      <button
+                        type="submit"
+                        disabled={creatingBranch || !newBranchName.trim()}
+                        className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50 shrink-0"
+                      >
+                        {creatingBranch ? "Adding…" : "Add branch"}
+                      </button>
+                    </div>
+                  </div>
                 </form>
               </PermissionGate>
             </div>
@@ -515,29 +632,53 @@ export function OrgSetupPage() {
 
           {/* Projects */}
           <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
-            <div className="border-b border-zinc-100 px-6 py-4">
-              <h2 className="font-brand text-base font-semibold text-zinc-900">Projects</h2>
-              <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+            <div className="border-b border-zinc-100 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-brand text-base font-semibold text-zinc-900">Projects</h2>
+                <p className="mt-0.5 text-xs text-zinc-400">{selectedCompany.legal_name}</p>
+              </div>
+              <Link
+                to="/projects"
+                className="text-xs font-semibold text-brand-dim hover:underline flex items-center gap-1"
+              >
+                All Projects Table →
+              </Link>
             </div>
             <div className="p-6">
               {projects === null && <p className="text-sm text-zinc-400">Loading…</p>}
               {projects && projectsForSelected.length === 0 && (
-                <p className="mb-4 text-sm text-zinc-400">No projects yet.</p>
+                <p className="mb-4 text-sm text-zinc-400">No projects yet for this entity.</p>
               )}
               {projectsForSelected.length > 0 && (
-                <div className="mb-4 space-y-2">
+                <div className="mb-6 space-y-2">
                   {projectsForSelected.map((project) => (
-                    <div key={project.id} className="flex items-center justify-between rounded-xl border border-zinc-100 bg-stone-50 px-4 py-3 text-sm">
+                    <Link
+                      key={project.id}
+                      to={`/projects/${project.id}`}
+                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-stone-50/60 p-4 text-sm transition hover:border-brand hover:bg-brand-soft/20 group cursor-pointer"
+                    >
                       <div>
-                        <span className="font-medium text-zinc-800">{project.name}</span>
-                        {project.code && (
-                          <span className="ml-2 font-mono text-xs text-zinc-400">({project.code})</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-zinc-900 group-hover:text-brand-dim">{project.name}</span>
+                          {project.code && (
+                            <span className="font-mono text-xs rounded bg-zinc-200/60 px-1.5 py-0.5 text-zinc-600 font-medium">
+                              {project.code}
+                            </span>
+                          )}
+                        </div>
+                        {project.location && (
+                          <p className="mt-0.5 text-xs text-zinc-500">{project.location}</p>
                         )}
                       </div>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] ?? "bg-zinc-100 text-zinc-600"}`}>
-                        {project.status}
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[project.status] ?? "bg-zinc-100 text-zinc-600"}`}>
+                          {project.status}
+                        </span>
+                        <span className="text-xs font-semibold text-brand-dim flex items-center gap-1 group-hover:translate-x-0.5 transition">
+                          Open Project →
+                        </span>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -681,6 +822,100 @@ export function OrgSetupPage() {
                   className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 transition"
                 >
                   {savingCompany ? "Saving changes…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Branch Modal */}
+      {editingBranch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+            <div className="border-b border-zinc-100 bg-stone-50/80 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-brand font-bold text-zinc-900">Edit Branch / Office</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Update location, code, and physical address</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelEditBranch}
+                className="text-zinc-400 hover:text-zinc-600 text-lg leading-none p-1"
+                aria-label="Close branch edit dialog"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateBranch} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Branch Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editBranchName}
+                  onChange={(e) => setEditBranchName(e.target.value)}
+                  placeholder="e.g. Mumbai Corporate Office"
+                  className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    Branch Code
+                  </label>
+                  <input
+                    type="text"
+                    value={editBranchCode}
+                    onChange={(e) => setEditBranchCode(e.target.value)}
+                    placeholder="e.g. BR-MUM-HQ"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs font-mono outline-none focus:border-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                    Operating Region
+                  </label>
+                  <input
+                    type="text"
+                    value={editBranchRegion}
+                    onChange={(e) => setEditBranchRegion(e.target.value)}
+                    placeholder="e.g. West Zone / BKC"
+                    className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs outline-none focus:border-brand"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  Physical / Operating Address
+                </label>
+                <textarea
+                  rows={2}
+                  value={editBranchAddress}
+                  onChange={(e) => setEditBranchAddress(e.target.value)}
+                  placeholder="Level 12, Horizon Towers, Bandra-Kurla Complex (BKC), Mumbai 400051"
+                  className="w-full rounded-lg border border-zinc-200 px-3.5 py-2 text-xs outline-none focus:border-brand"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEditBranch}
+                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBranch || !editBranchName.trim()}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 transition"
+                >
+                  {savingBranch ? "Saving changes…" : "Save changes"}
                 </button>
               </div>
             </form>
