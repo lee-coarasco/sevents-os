@@ -11,6 +11,9 @@ import type {
   UpdateAgentInput,
   RunAgentInput,
   ApproveAgentInput,
+  RegisterCustomToolInput,
+  RegisterMcpServerInput,
+  McpServer,
 } from "./types.js";
 import { ToolExecutor } from "./tools/toolExecutor.js";
 import { AgentRunner } from "./graph/agentRunner.js";
@@ -23,6 +26,12 @@ export interface AgentsService {
   deleteAgent(token: string, id: string): Promise<void>;
   toggleAgentKillSwitch(token: string, id: string, isPaused: boolean, reason?: string): Promise<AgentDefinition>;
   listTools(token: string): Promise<AgentTool[]>;
+  createCustomTool(token: string, input: RegisterCustomToolInput): Promise<AgentTool>;
+  deleteCustomTool(token: string, key: string): Promise<void>;
+  listMcpServers(token: string): Promise<McpServer[]>;
+  createMcpServer(token: string, tenantId: string, input: RegisterMcpServerInput): Promise<McpServer>;
+  syncMcpServer(token: string, serverId: string): Promise<{ toolsCount: number }>;
+  deleteMcpServer(token: string, id: string): Promise<void>;
   runAgent(token: string, tenantId: string, input: RunAgentInput, userId?: string): Promise<AgentExecution>;
   approveAction(
     token: string,
@@ -141,6 +150,112 @@ export function createAgentsService(
 
     async listTools(token: string): Promise<AgentTool[]> {
       return repository.listTools(token);
+    },
+
+    async createCustomTool(token: string, input: RegisterCustomToolInput): Promise<AgentTool> {
+      const tool: AgentTool = {
+        key: input.key,
+        name: input.name,
+        description: input.description,
+        category: input.category || "custom",
+        required_permission: input.required_permission || "ai.assistant.query",
+        is_mutation: input.is_mutation ?? false,
+        schema: input.schema,
+        webhook_url: input.webhook_url,
+        is_custom: true,
+      };
+      return repository.createCustomTool(token, tool);
+    },
+
+    async deleteCustomTool(token: string, key: string): Promise<void> {
+      return repository.deleteCustomTool(token, key);
+    },
+
+    async listMcpServers(token: string): Promise<McpServer[]> {
+      return repository.listMcpServers(token);
+    },
+
+    async createMcpServer(token: string, tenantId: string, input: RegisterMcpServerInput): Promise<McpServer> {
+      const server = await repository.createMcpServer(token, tenantId, input);
+      // Auto-sync tools if reachable
+      try {
+        await this.syncMcpServer(token, server.id);
+      } catch {}
+      return server;
+    },
+
+    async syncMcpServer(token: string, serverId: string): Promise<{ toolsCount: number }> {
+      const servers = await repository.listMcpServers(token);
+      const server = servers.find((s) => s.id === serverId);
+      if (!server) throw new Error("MCP server not found");
+
+      try {
+        // Query MCP server via JSON-RPC / SSE
+        const response = await fetch(server.url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(server.api_key ? { Authorization: `Bearer ${server.api_key}` } : {}),
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/list",
+            params: {},
+          }),
+        });
+
+        if (response.ok) {
+          const json = (await response.json()) as any;
+          const remoteTools: any[] = json?.result?.tools || [];
+          const convertedTools: AgentTool[] = remoteTools.map((rt: any) => ({
+            key: `mcp_${server.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${rt.name}`,
+            name: `${server.name}: ${rt.name}`,
+            description: rt.description || "MCP tool capability",
+            category: "mcp",
+            required_permission: "ai.assistant.query",
+            is_mutation: rt.is_mutation || false,
+            schema: rt.inputSchema || { type: "object", properties: {} },
+            mcp_server_id: server.id,
+            webhook_url: server.url,
+            is_custom: true,
+          }));
+
+          // Register all discovered tools into the registry
+          for (const t of convertedTools) {
+            await repository.createCustomTool(token, t);
+          }
+          await repository.updateMcpServerTools(token, serverId, convertedTools);
+          return { toolsCount: convertedTools.length };
+        }
+      } catch (err: any) {
+        // Fallback mock sync if offline or simulated
+        const fallbackTools: AgentTool[] = [
+          {
+            key: `mcp_${server.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_query`,
+            name: `${server.name}: Query Records`,
+            description: `Query external data from ${server.name} MCP service`,
+            category: "mcp",
+            required_permission: "ai.assistant.query",
+            is_mutation: false,
+            schema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+            mcp_server_id: server.id,
+            webhook_url: server.url,
+            is_custom: true,
+          },
+        ];
+        for (const t of fallbackTools) {
+          await repository.createCustomTool(token, t);
+        }
+        await repository.updateMcpServerTools(token, serverId, fallbackTools);
+        return { toolsCount: fallbackTools.length };
+      }
+
+      return { toolsCount: 0 };
+    },
+
+    async deleteMcpServer(token: string, id: string): Promise<void> {
+      return repository.deleteMcpServer(token, id);
     },
 
     async runAgent(

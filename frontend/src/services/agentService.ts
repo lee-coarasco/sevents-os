@@ -44,7 +44,44 @@ export interface AgentTool {
   required_permission: string;
   is_mutation: boolean;
   schema: Record<string, unknown>;
+  mcp_server_id?: string | null;
+  webhook_url?: string | null;
+  is_custom?: boolean;
   created_at?: string;
+}
+
+export interface McpServer {
+  id: string;
+  tenant_id: string;
+  name: string;
+  url: string;
+  transport: "http" | "sse";
+  api_key?: string | null;
+  description?: string | null;
+  is_active: boolean;
+  cached_tools: AgentTool[];
+  last_synced_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterCustomToolPayload {
+  key: string;
+  name: string;
+  description: string;
+  category?: string;
+  requiredPermission?: string;
+  isMutation?: boolean;
+  schema: Record<string, unknown>;
+  webhookUrl?: string;
+}
+
+export interface RegisterMcpServerPayload {
+  name: string;
+  url: string;
+  transport?: "http" | "sse";
+  apiKey?: string;
+  description?: string;
 }
 
 export interface PendingAction {
@@ -244,6 +281,45 @@ export const agentService = {
   async listTools(token: string): Promise<AgentTool[]> {
     const res = await apiFetch<{ tools: AgentTool[] }>("/agents/tools", token);
     return res.tools;
+  },
+
+  async createCustomTool(token: string, payload: RegisterCustomToolPayload): Promise<AgentTool> {
+    const res = await apiFetch<{ tool: AgentTool }>("/agents/tools/custom", token, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return res.tool;
+  },
+
+  async deleteCustomTool(token: string, key: string): Promise<void> {
+    await apiFetch<{ success: boolean }>(`/agents/tools/custom/${encodeURIComponent(key)}`, token, {
+      method: "DELETE",
+    });
+  },
+
+  async listMcpServers(token: string): Promise<McpServer[]> {
+    const res = await apiFetch<{ servers: McpServer[] }>("/agents/mcp-servers", token);
+    return res.servers;
+  },
+
+  async createMcpServer(token: string, payload: RegisterMcpServerPayload): Promise<McpServer> {
+    const res = await apiFetch<{ server: McpServer }>("/agents/mcp-servers", token, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return res.server;
+  },
+
+  async syncMcpServer(token: string, id: string): Promise<{ toolsCount: number }> {
+    return apiFetch<{ success: boolean; toolsCount: number }>(`/agents/mcp-servers/${id}/sync`, token, {
+      method: "POST",
+    });
+  },
+
+  async deleteMcpServer(token: string, id: string): Promise<void> {
+    await apiFetch<{ success: boolean }>(`/agents/mcp-servers/${id}`, token, {
+      method: "DELETE",
+    });
   },
 
   async runAgent(

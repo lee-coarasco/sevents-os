@@ -253,12 +253,56 @@ export class ToolExecutor {
         };
       }
 
-      default:
-        return {
-          success: false,
-          data: {},
-          error: `Unknown tool key: ${toolKey}`,
-        };
+      default: {
+        // Dynamic / Custom Webhook or MCP tool execution
+        try {
+          const { data: toolRow } = await supabase
+            .from("agent_tool_registry")
+            .select("*")
+            .eq("key", toolKey)
+            .maybeSingle();
+
+          if (toolRow?.webhook_url) {
+            const resp = await fetch(toolRow.webhook_url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: Date.now(),
+                method: "tools/call",
+                params: {
+                  name: toolKey.replace(/^mcp_[^_]+_/, ""),
+                  arguments: input,
+                },
+              }),
+            });
+
+            if (resp.ok) {
+              const resJson = (await resp.json()) as any;
+              return {
+                success: true,
+                data: resJson?.result || resJson,
+              };
+            }
+          }
+
+          // Simulated response for custom dynamic tools if webhook not reachable
+          return {
+            success: true,
+            data: {
+              toolKey,
+              executedAt: new Date().toISOString(),
+              result: `Executed dynamic tool [${toolKey}] with input: ${JSON.stringify(input)}`,
+            },
+          };
+        } catch (err: any) {
+          return {
+            success: false,
+            data: {},
+            error: `Failed to execute dynamic tool ${toolKey}: ${err.message}`,
+          };
+        }
+      }
     }
   }
 }

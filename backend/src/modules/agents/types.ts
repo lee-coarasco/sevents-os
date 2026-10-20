@@ -42,7 +42,44 @@ export interface AgentTool {
   required_permission: string;
   is_mutation: boolean;
   schema: Record<string, unknown>;
+  mcp_server_id?: string | null;
+  webhook_url?: string | null;
+  is_custom?: boolean;
   created_at?: string;
+}
+
+export interface McpServer {
+  id: string;
+  tenant_id: string;
+  name: string;
+  url: string;
+  transport: "http" | "sse";
+  api_key?: string | null;
+  description?: string | null;
+  is_active: boolean;
+  cached_tools: AgentTool[];
+  last_synced_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterCustomToolInput {
+  key: string;
+  name: string;
+  description: string;
+  category?: string;
+  required_permission?: string;
+  is_mutation?: boolean;
+  schema: Record<string, unknown>;
+  webhook_url?: string;
+}
+
+export interface RegisterMcpServerInput {
+  name: string;
+  url: string;
+  transport?: "http" | "sse";
+  apiKey?: string;
+  description?: string;
 }
 
 export interface PendingAction {

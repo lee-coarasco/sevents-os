@@ -64,6 +64,149 @@ export function registerAgentsRoutes(options: AgentsRoutesOptions): FastifyPlugi
     });
 
     /**
+     * POST /agents/tools/custom
+     * Register a new dynamic custom tool
+     */
+    app.post<{
+      Body: {
+        key: string;
+        name: string;
+        description: string;
+        category?: string;
+        requiredPermission?: string;
+        isMutation?: boolean;
+        schema: Record<string, unknown>;
+        webhookUrl?: string;
+      };
+    }>("/agents/tools/custom", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      const { key, name, description, category, requiredPermission, isMutation, schema, webhookUrl } = req.body;
+      if (!key || !name || !description) {
+        return reply.status(400).send({ error: "key, name, and description are required" });
+      }
+
+      try {
+        const tool = await service.createCustomTool(token, {
+          key: key.trim(),
+          name: name.trim(),
+          description: description.trim(),
+          category: category || "custom",
+          required_permission: requiredPermission || "ai.assistant.query",
+          is_mutation: isMutation ?? false,
+          schema: schema || { type: "object", properties: {} },
+          webhook_url: webhookUrl,
+        });
+        return reply.status(201).send({ tool });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * DELETE /agents/tools/custom/:key
+     * Remove a custom tool
+     */
+    app.delete<{ Params: { key: string } }>("/agents/tools/custom/:key", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      try {
+        await service.deleteCustomTool(token, req.params.key);
+        return reply.send({ success: true });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * GET /agents/mcp-servers
+     * List registered MCP servers
+     */
+    app.get("/agents/mcp-servers", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      try {
+        const servers = await service.listMcpServers(token);
+        return reply.send({ servers });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * POST /agents/mcp-servers
+     * Connect a new Model Context Protocol (MCP) server
+     */
+    app.post<{
+      Body: {
+        name: string;
+        url: string;
+        transport?: "http" | "sse";
+        apiKey?: string;
+        description?: string;
+      };
+    }>("/agents/mcp-servers", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      const user = (req as any).user;
+      const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
+
+      const { name, url, transport, apiKey, description } = req.body;
+      if (!name || !url) {
+        return reply.status(400).send({ error: "name and url are required" });
+      }
+
+      try {
+        const server = await service.createMcpServer(token, tenantId, {
+          name: name.trim(),
+          url: url.trim(),
+          transport,
+          apiKey,
+          description,
+        });
+        return reply.status(201).send({ server });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * POST /agents/mcp-servers/:id/sync
+     * Discover and sync tools from an MCP server
+     */
+    app.post<{ Params: { id: string } }>("/agents/mcp-servers/:id/sync", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      try {
+        const result = await service.syncMcpServer(token, req.params.id);
+        return reply.send({ success: true, ...result });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
+     * DELETE /agents/mcp-servers/:id
+     * Disconnect an MCP server
+     */
+    app.delete<{ Params: { id: string } }>("/agents/mcp-servers/:id", manageGuard, async (req, reply) => {
+      const token = bearerToken(req.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Missing authorization token" });
+
+      try {
+        await service.deleteMcpServer(token, req.params.id);
+        return reply.send({ success: true });
+      } catch (err: any) {
+        return reply.status(500).send({ error: err.message });
+      }
+    });
+
+    /**
      * POST /agents
      * Create a new agent studio profile
      */

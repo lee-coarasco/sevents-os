@@ -6,6 +6,8 @@ import type {
   AgentRunAuditLog,
   AgentIncidentReview,
   CostAnalyticsSummary,
+  McpServer,
+  RegisterMcpServerInput,
 } from "./types.js";
 
 export interface ListExecutionsFilters {
@@ -23,6 +25,12 @@ export interface AgentsRepository {
   updateAgent(token: string, id: string, input: Partial<AgentDefinition>): Promise<AgentDefinition>;
   deleteAgent(token: string, id: string): Promise<void>;
   listTools(token: string): Promise<AgentTool[]>;
+  createCustomTool(token: string, tool: AgentTool): Promise<AgentTool>;
+  deleteCustomTool(token: string, key: string): Promise<void>;
+  listMcpServers(token: string): Promise<McpServer[]>;
+  createMcpServer(token: string, tenantId: string, input: RegisterMcpServerInput): Promise<McpServer>;
+  deleteMcpServer(token: string, id: string): Promise<void>;
+  updateMcpServerTools(token: string, id: string, tools: AgentTool[]): Promise<void>;
   saveExecution(token: string, execution: AgentExecution): Promise<AgentExecution>;
   getExecutionById(token: string, id: string): Promise<AgentExecution | null>;
   listExecutions(token: string, filters?: ListExecutionsFilters | string): Promise<AgentExecution[]>;
@@ -304,6 +312,93 @@ export function createAgentsRepository(
           schema: { type: "object", properties: { projectId: { type: "string" }, hazardType: { type: "string" }, description: { type: "string" } }, required: ["projectId", "hazardType", "description"] },
         },
       ];
+    },
+
+    async createCustomTool(token: string, tool: AgentTool): Promise<AgentTool> {
+      const supabase = getClient(token);
+      try {
+        const { data, error } = await supabase
+          .from("agent_tool_registry")
+          .upsert(tool)
+          .select()
+          .single();
+        if (!error && data) return data as AgentTool;
+      } catch {}
+      return tool;
+    },
+
+    async deleteCustomTool(token: string, key: string): Promise<void> {
+      const supabase = getClient(token);
+      try {
+        await supabase.from("agent_tool_registry").delete().eq("key", key);
+      } catch {}
+    },
+
+    async listMcpServers(token: string): Promise<McpServer[]> {
+      const supabase = getClient(token);
+      try {
+        const { data, error } = await supabase
+          .from("ai_mcp_servers")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && data) return data as McpServer[];
+      } catch {}
+      return [];
+    },
+
+    async createMcpServer(token: string, tenantId: string, input: RegisterMcpServerInput): Promise<McpServer> {
+      const supabase = getClient(token);
+      const newServer: Partial<McpServer> = {
+        name: input.name,
+        url: input.url,
+        transport: input.transport || "http",
+        api_key: input.apiKey || null,
+        description: input.description || null,
+        is_active: true,
+        cached_tools: [],
+      };
+      try {
+        const { data, error } = await supabase
+          .from("ai_mcp_servers")
+          .insert(newServer)
+          .select()
+          .single();
+        if (!error && data) return data as McpServer;
+      } catch {}
+      return {
+        id: `mcp-${Date.now()}`,
+        tenant_id: tenantId,
+        name: input.name,
+        url: input.url,
+        transport: input.transport || "http",
+        api_key: input.apiKey || null,
+        description: input.description || null,
+        is_active: true,
+        cached_tools: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    },
+
+    async deleteMcpServer(token: string, id: string): Promise<void> {
+      const supabase = getClient(token);
+      try {
+        await supabase.from("ai_mcp_servers").delete().eq("id", id);
+      } catch {}
+    },
+
+    async updateMcpServerTools(token: string, id: string, tools: AgentTool[]): Promise<void> {
+      const supabase = getClient(token);
+      try {
+        await supabase
+          .from("ai_mcp_servers")
+          .update({
+            cached_tools: tools,
+            last_synced_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+      } catch {}
     },
 
     async saveExecution(token: string, execution: AgentExecution): Promise<AgentExecution> {

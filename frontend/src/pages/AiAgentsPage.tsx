@@ -7,6 +7,7 @@ import {
   type AgentTool,
   type AgentExecution,
   type HitlPolicy,
+  type McpServer,
 } from "../services/agentService";
 import { aiService, type ProviderMeta } from "../services/aiService";
 
@@ -69,17 +70,39 @@ export function AiAgentsPage() {
   // Audit Detail Modal
   const [selectedAuditExec, setSelectedAuditExec] = useState<AgentExecution | null>(null);
 
+  // MCP Servers State
+  const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+  const [showAddMcpModal, setShowAddMcpModal] = useState(false);
+  const [mcpName, setMcpName] = useState("");
+  const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpApiKey, setMcpApiKey] = useState("");
+  const [mcpDesc, setMcpDesc] = useState("");
+  const [savingMcp, setSavingMcp] = useState(false);
+  const [syncingMcpId, setSyncingMcpId] = useState<string | null>(null);
+
+  // Custom Tool Modal
+  const [showAddCustomToolModal, setShowAddCustomToolModal] = useState(false);
+  const [toolKey, setToolKey] = useState("");
+  const [toolName, setToolName] = useState("");
+  const [toolDesc, setToolDesc] = useState("");
+  const [toolCategory, setToolCategory] = useState("custom");
+  const [toolWebhook, setToolWebhook] = useState("");
+  const [toolIsMutation, setToolIsMutation] = useState(false);
+  const [savingCustomTool, setSavingCustomTool] = useState(false);
+
   const loadData = async () => {
     if (!session?.access_token) return;
     setLoading(true);
     setError(null);
     try {
-      const [agentList, toolList, execList, provResult] = await Promise.all([
+      const [agentList, toolList, execList, provResult, mcpList] = await Promise.all([
         agentService.listAgents(session.access_token),
         agentService.listTools(session.access_token),
         agentService.listExecutions(session.access_token),
         aiService.listProviders(session.access_token).catch(() => ({ providers: [], activeProvider: "openai" })),
+        agentService.listMcpServers(session.access_token).catch(() => []),
       ]);
+      setMcpServers(mcpList);
       setAgents(agentList);
       setTools(toolList);
       setExecutions(execList);
@@ -127,6 +150,99 @@ export function AiAgentsPage() {
       }));
     } finally {
       setProviderTestingId(null);
+    }
+  };
+
+  const handleSaveCustomTool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.access_token || !toolKey.trim() || !toolName.trim()) return;
+    setSavingCustomTool(true);
+    try {
+      await agentService.createCustomTool(session.access_token, {
+        key: toolKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+        name: toolName.trim(),
+        description: toolDesc.trim(),
+        category: toolCategory,
+        isMutation: toolIsMutation,
+        webhookUrl: toolWebhook.trim() || undefined,
+        schema: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Query or instruction for this tool" },
+            data: { type: "object", description: "Arbitrary payload" },
+          },
+        },
+      });
+      setShowAddCustomToolModal(false);
+      setToolKey("");
+      setToolName("");
+      setToolDesc("");
+      setToolWebhook("");
+      loadData();
+    } catch (err: any) {
+      alert("Failed to register custom tool: " + err.message);
+    } finally {
+      setSavingCustomTool(false);
+    }
+  };
+
+  const handleSaveMcpServer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.access_token || !mcpName.trim() || !mcpUrl.trim()) return;
+    setSavingMcp(true);
+    try {
+      await agentService.createMcpServer(session.access_token, {
+        name: mcpName.trim(),
+        url: mcpUrl.trim(),
+        apiKey: mcpApiKey.trim() || undefined,
+        description: mcpDesc.trim() || undefined,
+      });
+      setShowAddMcpModal(false);
+      setMcpName("");
+      setMcpUrl("");
+      setMcpApiKey("");
+      setMcpDesc("");
+      loadData();
+    } catch (err: any) {
+      alert("Failed to connect MCP server: " + err.message);
+    } finally {
+      setSavingMcp(false);
+    }
+  };
+
+  const handleSyncMcp = async (id: string) => {
+    if (!session?.access_token) return;
+    setSyncingMcpId(id);
+    try {
+      const res = await agentService.syncMcpServer(session.access_token, id);
+      alert(`Synced ${res.toolsCount} tools from MCP server!`);
+      loadData();
+    } catch (err: any) {
+      alert("Sync failed: " + err.message);
+    } finally {
+      setSyncingMcpId(null);
+    }
+  };
+
+  const handleDeleteMcp = async (id: string, name: string) => {
+    if (!session?.access_token) return;
+    if (!confirm(`Disconnect MCP Server "${name}" and remove its registered tools?`)) return;
+    try {
+      await agentService.deleteMcpServer(session.access_token, id);
+      loadData();
+    } catch (err: any) {
+      alert("Delete failed: " + err.message);
+    }
+  };
+
+  const handleDeleteTool = async (key: string, name: string) => {
+    if (!session?.access_token) return;
+    if (!confirm(`Delete tool "${name}" (${key})?`)) return;
+    try {
+      await agentService.deleteCustomTool(session.access_token, key);
+      loadData();
+    } catch (err: any) {
+      alert("Delete tool failed: " + err.message);
     }
   };
 
@@ -789,10 +905,84 @@ export function AiAgentsPage() {
             </div>
           )}
 
-          {/* TAB 3: TOOL REGISTRY EXPLORER */}
+          {/* TAB 3: TOOL REGISTRY & MCP SERVERS */}
           {activeTab === "tools" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {tools.map((t) => (
+            <div className="space-y-6">
+              {/* Top Controls Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-zinc-200/80 shadow-xs">
+                <div>
+                  <h3 className="font-bold text-zinc-900 text-sm">Model Context Protocol (MCP) &amp; Tool Capabilities</h3>
+                  <p className="text-xs text-zinc-500">
+                    Connect internal microservices or external systems (Revit BIM, Primavera P6, ERP) via standard MCP servers or webhooks
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomToolModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-xs hover:bg-zinc-50"
+                  >
+                    + Register Custom Tool
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMcpModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800"
+                  >
+                    + Connect MCP Server
+                  </button>
+                </div>
+              </div>
+
+              {/* Connected MCP Servers Section */}
+              {mcpServers.length > 0 && (
+                <div className="rounded-2xl border border-zinc-200/80 bg-stone-50/60 p-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 mb-3 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Active MCP Server Connections ({mcpServers.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {mcpServers.map((srv) => (
+                      <div key={srv.id} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-xs text-zinc-900">{srv.name}</span>
+                            <span className="rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 border border-emerald-200">
+                              {srv.transport.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[11px] text-zinc-400 truncate mb-1">{srv.url}</p>
+                          {srv.description && <p className="text-xs text-zinc-500 mb-2">{srv.description}</p>}
+                          <p className="text-[11px] text-zinc-400">
+                            Discovered Tools: <span className="font-semibold text-zinc-700">{srv.cached_tools?.length || 0}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t border-zinc-100">
+                          <button
+                            type="button"
+                            onClick={() => handleSyncMcp(srv.id)}
+                            disabled={syncingMcpId === srv.id}
+                            className="text-xs font-semibold text-brand hover:underline disabled:opacity-50"
+                          >
+                            {syncingMcpId === srv.id ? "Syncing..." : "Sync Tools ⟳"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMcp(srv.id, srv.name)}
+                            className="text-xs font-medium text-rose-600 hover:underline ml-2"
+                          >
+                            Disconnect
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tools List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {tools.map((t) => (
                 <div
                   key={t.key}
                   className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs flex flex-col justify-between"
@@ -802,15 +992,27 @@ export function AiAgentsPage() {
                       <span className="rounded bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
                         {t.category}
                       </span>
-                      {t.is_mutation ? (
-                        <span className="rounded bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                          State-Modifying (Requires HITL)
-                        </span>
-                      ) : (
-                        <span className="rounded bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                          Read-Only (Auto-Allowed)
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {t.is_mutation ? (
+                          <span className="rounded bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                            State-Modifying (Requires HITL)
+                          </span>
+                        ) : (
+                          <span className="rounded bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                            Read-Only (Auto-Allowed)
+                          </span>
+                        )}
+                        {t.is_custom && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTool(t.key, t.name)}
+                            className="text-zinc-400 hover:text-rose-600 text-xs px-1"
+                            title="Delete custom tool"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="font-bold text-zinc-900 text-sm">{t.name}</h3>
@@ -835,6 +1037,7 @@ export function AiAgentsPage() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
 
@@ -1349,6 +1552,181 @@ export function AiAgentsPage() {
                   className="rounded-lg bg-zinc-900 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
                 >
                   {savingAgent ? "Saving..." : editingAgent ? "Save Changes" : "Create Agent"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONNECT MCP SERVER MODAL */}
+      {showAddMcpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-zinc-900 text-sm">Connect Model Context Protocol (MCP) Server</h3>
+                <p className="text-xs text-zinc-400">Expose external tools to your AI agents automatically</p>
+              </div>
+              <button onClick={() => setShowAddMcpModal(false)} className="text-zinc-400 hover:text-zinc-700 text-sm font-bold">✕</button>
+            </div>
+            <form onSubmit={handleSaveMcpServer} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Server Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={mcpName}
+                  onChange={(e) => setMcpName(e.target.value)}
+                  placeholder="e.g. Autodesk BIM 360 MCP, Primavera Engine, SAP ERP"
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Server Endpoint URL *</label>
+                <input
+                  type="url"
+                  required
+                  value={mcpUrl}
+                  onChange={(e) => setMcpUrl(e.target.value)}
+                  placeholder="e.g. http://localhost:8080/mcp or https://mcp.company.internal/tools"
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Bearer API Key / Token (Optional)</label>
+                <input
+                  type="password"
+                  value={mcpApiKey}
+                  onChange={(e) => setMcpApiKey(e.target.value)}
+                  placeholder="Optional auth token"
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={mcpDesc}
+                  onChange={(e) => setMcpDesc(e.target.value)}
+                  placeholder="Brief note on what capabilities this server provides..."
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowAddMcpModal(false)}
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMcp}
+                  className="rounded-lg bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {savingMcp ? "Connecting & Discovering..." : "Connect & Discover Tools"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REGISTER CUSTOM TOOL MODAL */}
+      {showAddCustomToolModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-zinc-900 text-sm">Register Custom Tool / Webhook</h3>
+                <p className="text-xs text-zinc-400">Give AI agents a new action capability with an HTTP webhook</p>
+              </div>
+              <button onClick={() => setShowAddCustomToolModal(false)} className="text-zinc-400 hover:text-zinc-700 text-sm font-bold">✕</button>
+            </div>
+            <form onSubmit={handleSaveCustomTool} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Tool Unique Key *</label>
+                  <input
+                    type="text"
+                    required
+                    value={toolKey}
+                    onChange={(e) => setToolKey(e.target.value)}
+                    placeholder="e.g. query_external_erp"
+                    className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={toolCategory}
+                    onChange={(e) => setToolCategory(e.target.value)}
+                    placeholder="e.g. finance, bim, legal"
+                    className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Human-Readable Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={toolName}
+                  onChange={(e) => setToolName(e.target.value)}
+                  placeholder="e.g. Query SAP Supplier Ledger"
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Description (Instructs the LLM when to use this) *</label>
+                <textarea
+                  required
+                  rows={2}
+                  value={toolDesc}
+                  onChange={(e) => setToolDesc(e.target.value)}
+                  placeholder="Explain clearly what this tool queries or executes so the AI picks it at the right time..."
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">Webhook Dispatch URL (Optional)</label>
+                <input
+                  type="url"
+                  value={toolWebhook}
+                  onChange={(e) => setToolWebhook(e.target.value)}
+                  placeholder="https://api.internal.com/ai/tools/handler"
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none font-mono"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="toolIsMutation"
+                  checked={toolIsMutation}
+                  onChange={(e) => setToolIsMutation(e.target.checked)}
+                  className="h-4 w-4 rounded text-brand focus:ring-brand"
+                />
+                <label htmlFor="toolIsMutation" className="text-xs text-zinc-700 font-medium">
+                  State-Modifying Action (Requires Human Review approval before execution)
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomToolModal(false)}
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCustomTool}
+                  className="rounded-lg bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {savingCustomTool ? "Registering..." : "Save Tool"}
                 </button>
               </div>
             </form>
