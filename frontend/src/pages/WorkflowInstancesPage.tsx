@@ -24,7 +24,8 @@ export interface WorkflowStepInstance {
   node_id: string;
   status: string;
   assigned_to: string | null;
-  created_at: string;
+  created_at?: string;
+  started_at?: string;
   completed_at: string | null;
 }
 
@@ -491,7 +492,7 @@ export function WorkflowInstancesPage() {
                                 Step Node ID: {step.node_id}
                               </span>
                               <span className="text-[11px] text-zinc-400 font-mono">
-                                Step Instance: {step.id.slice(0, 8)}… • Created: {new Date(step.created_at).toLocaleTimeString()}
+                                Step Instance: {step.id.slice(0, 8)}… • Created: {new Date(step.started_at || step.created_at || '').toLocaleTimeString()}
                               </span>
                             </div>
                           </div>
