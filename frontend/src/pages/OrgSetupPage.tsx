@@ -6,6 +6,10 @@ import { PermissionGate } from "../components/PermissionGate";
 interface Company {
   id: string;
   legal_name: string;
+  statutory_id?: string | null;
+  vat_registration_number?: string | null;
+  reporting_currency?: string | null;
+  fiscal_year_start_month?: number | null;
 }
 
 interface Branch {
@@ -42,9 +46,15 @@ export function OrgSetupPage() {
   const [branches, setBranches] = useState<Branch[] | null>(null);
 
   const [newCompanyName, setNewCompanyName] = useState("");
+  const [newCompanyStatutoryId, setNewCompanyStatutoryId] = useState("");
+  const [newCompanyVat, setNewCompanyVat] = useState("");
+  const [newCompanyCurrency, setNewCompanyCurrency] = useState("INR");
+  const [newCompanyFiscalMonth, setNewCompanyFiscalMonth] = useState("4");
+  const [showAdvancedCompany, setShowAdvancedCompany] = useState(false);
   const [creatingCompany, setCreatingCompany] = useState(false);
 
   const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchRegion, setNewBranchRegion] = useState("");
   const [creatingBranch, setCreatingBranch] = useState(false);
 
   const [newProjectName, setNewProjectName] = useState("");
@@ -82,10 +92,19 @@ export function OrgSetupPage() {
     try {
       const { company } = await apiFetch<{ company: Company }>("/tenancy/companies", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ legalName: newCompanyName.trim() }),
+        body: JSON.stringify({
+          legalName: newCompanyName.trim(),
+          statutory_id: newCompanyStatutoryId.trim() || undefined,
+          vat_registration_number: newCompanyVat.trim() || undefined,
+          reporting_currency: newCompanyCurrency.trim() || "INR",
+          fiscal_year_start_month: parseInt(newCompanyFiscalMonth, 10) || 4,
+        }),
       });
       setCompanies((prev) => [...(prev ?? []), company]);
       setNewCompanyName("");
+      setNewCompanyStatutoryId("");
+      setNewCompanyVat("");
+      setShowAdvancedCompany(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create company");
     } finally {
@@ -101,10 +120,15 @@ export function OrgSetupPage() {
     try {
       const { branch } = await apiFetch<{ branch: Branch }>("/tenancy/branches", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ companyId: selectedCompanyId, name: newBranchName.trim() }),
+        body: JSON.stringify({
+          companyId: selectedCompanyId,
+          name: newBranchName.trim(),
+          operatingRegion: newBranchRegion.trim() || undefined,
+        }),
       });
       setBranches((prev) => [...(prev ?? []), branch]);
       setNewBranchName("");
+      setNewBranchRegion("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create branch");
     } finally {
@@ -172,9 +196,21 @@ export function OrgSetupPage() {
                       : "border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50"
                   }`}
                 >
-                  <span>{company.legal_name}</span>
+                  <div className="text-left">
+                    <span className="font-semibold block">{company.legal_name}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
+                      {company.reporting_currency && (
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.2 border border-zinc-200 font-mono">
+                          {company.reporting_currency}
+                        </span>
+                      )}
+                      {company.statutory_id && (
+                        <span className="font-mono text-zinc-400">Reg: {company.statutory_id}</span>
+                      )}
+                    </div>
+                  </div>
                   {company.id === selectedCompanyId && (
-                    <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="h-4 w-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -186,20 +222,90 @@ export function OrgSetupPage() {
             permission="tenancy.company.manage"
             fallback={<p className="text-xs text-zinc-400">You don't have permission to create companies.</p>}
           >
-            <form onSubmit={handleCreateCompany} className="flex gap-2">
-              <input
-                value={newCompanyName}
-                onChange={(e) => setNewCompanyName(e.target.value)}
-                placeholder="Legal name"
-                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-              />
-              <button
-                type="submit"
-                disabled={creatingCompany || !newCompanyName.trim()}
-                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50"
-              >
-                {creatingCompany ? "Adding…" : "Add company"}
-              </button>
+            <form onSubmit={handleCreateCompany} className="space-y-3 rounded-xl border border-zinc-200 bg-stone-50/50 p-4">
+              <div className="flex gap-2">
+                <input
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  placeholder="Legal Entity Name (e.g. Apex Horizon Infrastructure Pvt. Ltd.)"
+                  className="flex-1 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedCompany(!showAdvancedCompany)}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
+                >
+                  {showAdvancedCompany ? "Simple View ▲" : "+ Enterprise Details ▼"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingCompany || !newCompanyName.trim()}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-brand-dim disabled:opacity-50 shrink-0"
+                >
+                  {creatingCompany ? "Adding…" : "Add company"}
+                </button>
+              </div>
+
+              {showAdvancedCompany && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-zinc-200">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                      Trade / Registration No. (CIN)
+                    </label>
+                    <input
+                      type="text"
+                      value={newCompanyStatutoryId}
+                      onChange={(e) => setNewCompanyStatutoryId(e.target.value)}
+                      placeholder="e.g. CIN-U45200MH2021PTC368921"
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-mono outline-none focus:border-brand"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                      VAT / Tax ID
+                    </label>
+                    <input
+                      type="text"
+                      value={newCompanyVat}
+                      onChange={(e) => setNewCompanyVat(e.target.value)}
+                      placeholder="e.g. 27AABCU9603R1ZX"
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-mono outline-none focus:border-brand"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                      Default Currency
+                    </label>
+                    <select
+                      value={newCompanyCurrency}
+                      onChange={(e) => setNewCompanyCurrency(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-brand"
+                    >
+                      <option value="INR">INR (₹) - Indian Rupee</option>
+                      <option value="USD">USD ($) - US Dollar</option>
+                      <option value="EUR">EUR (€) - Euro</option>
+                      <option value="AED">AED (د.إ) - UAE Dirham</option>
+                      <option value="SAR">SAR (﷼) - Saudi Riyal</option>
+                      <option value="GBP">GBP (£) - British Pound</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                      Fiscal Year Start
+                    </label>
+                    <select
+                      value={newCompanyFiscalMonth}
+                      onChange={(e) => setNewCompanyFiscalMonth(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-brand"
+                    >
+                      <option value="4">April (01-April)</option>
+                      <option value="1">January (01-January)</option>
+                      <option value="7">July (01-July)</option>
+                      <option value="10">October (01-October)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </form>
           </PermissionGate>
         </div>
@@ -236,12 +342,18 @@ export function OrgSetupPage() {
                 permission="tenancy.branch.manage"
                 fallback={<p className="text-xs text-zinc-400">You don't have permission to create branches.</p>}
               >
-                <form onSubmit={handleCreateBranch} className="flex gap-2">
+                <form onSubmit={handleCreateBranch} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
                     value={newBranchName}
                     onChange={(e) => setNewBranchName(e.target.value)}
                     placeholder="Branch name"
-                    className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    className="sm:col-span-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  />
+                  <input
+                    value={newBranchRegion}
+                    onChange={(e) => setNewBranchRegion(e.target.value)}
+                    placeholder="Region / Code / Address (e.g. BR-MUM-HQ - BKC)"
+                    className="sm:col-span-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                   />
                   <button
                     type="submit"
