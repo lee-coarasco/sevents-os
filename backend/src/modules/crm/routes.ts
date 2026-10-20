@@ -18,6 +18,7 @@ import {
   createOpportunity,
   createSiteVisit,
   createTenderSubmission,
+  getClient,
   getOpportunity,
   getPipelineForecast,
   listClientCommunications,
@@ -82,6 +83,20 @@ export async function crmRoutes(app: FastifyInstance, options: CrmRouteOptions) 
     const token = bearerToken(request.headers.authorization) as string;
     const clients = await searchClients(options.getRepository(), token, request.query.search);
     return { clients };
+  });
+
+  app.get<{ Params: { id: string } }>("/crm/clients/:id", guard, async (request, reply) => {
+    const token = bearerToken(request.headers.authorization) as string;
+    try {
+      const client = await getClient(options.getRepository(), token, request.params.id);
+      return { client };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        reply.code(404);
+        return { error: error.message };
+      }
+      throw error;
+    }
   });
 
   app.patch<{

@@ -401,7 +401,11 @@ export function CrmPage() {
                 <tbody>
                   {clients.map((c) => (
                     <tr key={c.id} className="border-b border-zinc-50 last:border-0 hover:bg-stone-50">
-                      <td className="px-6 py-4 font-medium text-zinc-800">{c.name}</td>
+                      <td className="px-6 py-4 font-medium text-zinc-800">
+                        <Link to={`/crm/clients/${c.id}`} className="hover:text-amber-600 hover:underline">
+                          {c.name}
+                        </Link>
+                      </td>
                       <td className="px-6 py-4 text-zinc-600">{c.trade_license_number ?? "—"}</td>
                       <td className="px-6 py-4 text-zinc-600">{c.registration_country ?? "—"}</td>
                       <td className="px-6 py-4 text-right">

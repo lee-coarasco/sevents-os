@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { EmployeesPage } from "./EmployeesPage";
 
 const apiFetch = vi.fn();
@@ -54,7 +55,7 @@ describe("EmployeesPage", () => {
   });
 
   it("lists employees for the selected company with their department and status", async () => {
-    render(<EmployeesPage />);
+    render(<MemoryRouter><EmployeesPage /></MemoryRouter>);
 
     expect(await screen.findByText("Amir")).toBeInTheDocument();
     expect(screen.getByText("EMP-1")).toBeInTheDocument();
@@ -82,7 +83,7 @@ describe("EmployeesPage", () => {
       return Promise.resolve({});
     });
 
-    render(<EmployeesPage />);
+    render(<MemoryRouter><EmployeesPage /></MemoryRouter>);
     expect(await screen.findByText("No employees yet.")).toBeInTheDocument();
     expect(screen.getByText("You don't have permission to add employees.")).toBeInTheDocument();
   });
@@ -112,7 +113,7 @@ describe("EmployeesPage", () => {
       return Promise.resolve({});
     });
 
-    render(<EmployeesPage />);
+    render(<MemoryRouter><EmployeesPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("No employees yet.")).toBeInTheDocument());
 
     await userEvent.type(screen.getByPlaceholderText("Employee code"), "EMP-2");
@@ -151,7 +152,7 @@ describe("EmployeesPage", () => {
       return Promise.resolve({});
     });
 
-    render(<EmployeesPage />);
+    render(<MemoryRouter><EmployeesPage /></MemoryRouter>);
     await userEvent.click(await screen.findByText("—"));
 
     const search = screen.getByPlaceholderText("Search by name or email…");

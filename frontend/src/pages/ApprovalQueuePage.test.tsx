@@ -37,7 +37,7 @@ const DETAIL = {
 
 function mockDefaultResponses() {
   apiFetch.mockImplementation((path: string) => {
-    if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
+    if (path === "/tasks/waiting-approval" || path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
     if (path === "/approvals/a1") return Promise.resolve({ detail: DETAIL });
     if (path === "/admin/users") {
       return Promise.resolve({
@@ -140,7 +140,7 @@ describe("ApprovalQueuePage", () => {
 
   it("shows comments and decisions in the ActivityThread, and posts a new comment", async () => {
     apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
-      if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
+      if (path === "/tasks/waiting-approval" || path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
       if (path === "/authority/effective-permissions") return Promise.resolve({ permissions: ["workflow.instance.act"] });
       if (path === "/approvals/a1") {
         return Promise.resolve({

@@ -58,6 +58,30 @@ export interface PurchaseRequisitionItem {
 export type PoStatus = "draft" | "issued" | "partially_delivered" | "delivered" | "closed" | "cancelled";
 export type PoItemDeliveryStatus = "pending" | "partial" | "delivered";
 
+export interface Rfq {
+  id: string;
+  project_id: string;
+  requisition_id?: string | null;
+  rfq_number: string;
+  title: string;
+  issue_date: string;
+  due_date: string;
+  scope_summary?: string | null;
+  status?: string;
+  created_at?: string;
+}
+
+export interface GoodsReceivedNoteSummary {
+  id: string;
+  project_id: string;
+  grn_number: string;
+  supplier_delivery_note: string | null;
+  carrier_name: string | null;
+  vehicle_number: string | null;
+  status: "draft" | "inspected" | "accepted" | "rejected";
+  received_at?: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   project_id: string;
@@ -100,13 +124,25 @@ export function ProcurementPage() {
   const { session } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<"pr" | "po" | "avl">("pr");
+  const [activeTab, setActiveTab] = useState<"pr" | "rfq" | "po" | "grn" | "avl">("pr");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [rfqs, setRfqs] = useState<Rfq[]>([]);
+  const [grns, setGrns] = useState<GoodsReceivedNoteSummary[]>([]);
+  const [showRfqModal, setShowRfqModal] = useState(false);
+  const [newRfq, setNewRfq] = useState({
+    rfqNumber: `RFQ-${Date.now().toString().slice(-5)}`,
+    title: "",
+    issueDate: new Date().toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    scopeSummary: "",
+    requisitionId: "",
+  });
+
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -202,6 +238,8 @@ export function ProcurementPage() {
     if (!session?.access_token || !selectedProjectId) return;
     loadRequisitions(selectedProjectId);
     loadOrders(selectedProjectId);
+    loadRfqs(selectedProjectId);
+    loadGrns(selectedProjectId);
   }, [session?.access_token, selectedProjectId]);
 
   async function loadProjects() {
@@ -221,7 +259,58 @@ export function ProcurementPage() {
     }
   }
 
-  async function loadVendors() {
+    async function loadRfqs(projId: string) {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiFetch<{ rfqs: Rfq[] }>(`/projects/${projId}/procurement/rfqs`, session.access_token);
+      setRfqs(data.rfqs || []);
+    } catch (err) {
+      console.error("Failed to load RFQs", err);
+    }
+  }
+
+  async function loadGrns(projId: string) {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiFetch<{ grns: GoodsReceivedNoteSummary[] }>(`/projects/${projId}/inventory/grns`, session.access_token);
+      setGrns(data.grns || []);
+    } catch (err) {
+      console.error("Failed to load GRNs", err);
+    }
+  }
+
+  async function handleCreateRfq(e: FormEvent) {
+    e.preventDefault();
+    if (!session?.access_token || !selectedProjectId) return;
+    try {
+      await apiFetch(`/projects/${selectedProjectId}/procurement/rfqs`, session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          rfqNumber: newRfq.rfqNumber,
+          title: newRfq.title,
+          issueDate: newRfq.issueDate,
+          dueDate: newRfq.dueDate,
+          scopeSummary: newRfq.scopeSummary || null,
+          requisitionId: newRfq.requisitionId || null,
+        }),
+      });
+      setShowRfqModal(false);
+      notify(`RFQ ${newRfq.rfqNumber} issued successfully.`);
+      setNewRfq({
+        rfqNumber: `RFQ-${Date.now().toString().slice(-5)}`,
+        title: "",
+        issueDate: new Date().toISOString().slice(0, 10),
+        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+        scopeSummary: "",
+        requisitionId: "",
+      });
+      loadRfqs(selectedProjectId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to create RFQ");
+    }
+  }
+
+async function loadVendors() {
     if (!session?.access_token) return;
     try {
       const data = await apiFetch<Vendor[]>("/procurement/vendors", session.access_token);
@@ -587,6 +676,19 @@ export function ProcurementPage() {
             </span>
           </button>
           <button
+            onClick={() => setActiveTab("rfq")}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "rfq"
+                ? "border-brand text-zinc-900 font-bold"
+                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700"
+            }`}
+          >
+            Requests for Quotation (RFQ)
+            <span className="ml-2 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
+              {rfqs.length}
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab("po")}
             className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === "po"
@@ -597,6 +699,19 @@ export function ProcurementPage() {
             Purchase Orders (PO)
             <span className="ml-2 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
               {purchaseOrders.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("grn")}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "grn"
+                ? "border-brand text-zinc-900 font-bold"
+                : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700"
+            }`}
+          >
+            Goods Received (GRN)
+            <span className="ml-2 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
+              {grns.length}
             </span>
           </button>
           <button
@@ -732,7 +847,70 @@ export function ProcurementPage() {
         </div>
       )}
 
+      {/* TAB: REQUESTS FOR QUOTATION (RFQ) */}
+      {activeTab === "rfq" && (
+        <div className="mt-6 space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-zinc-900 font-display">Tender &amp; Supplier Quotations</h2>
+              <p className="text-xs text-zinc-400">Issue RFQs to vetted vendors, compare rates and attach commercial bids.</p>
+            </div>
+            <PermissionGate permission="procurement.po.manage">
+              <button
+                onClick={() => setShowRfqModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-2 text-sm font-semibold text-white shadow hover:bg-zinc-800"
+              >
+                + Create RFQ
+              </button>
+            </PermissionGate>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-zinc-200 text-left text-sm">
+              <thead className="bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
+                <tr>
+                  <th className="px-6 py-3">RFQ Number</th>
+                  <th className="px-6 py-3">Title &amp; Scope</th>
+                  <th className="px-6 py-3">Issue Date</th>
+                  <th className="px-6 py-3">Due Date</th>
+                  <th className="px-6 py-3">Requisition</th>
+                  <th className="px-6 py-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {rfqs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-xs text-zinc-400">
+                      No RFQs issued for this project yet. Click &quot;+ Create RFQ&quot; to begin supplier bidding.
+                    </td>
+                  </tr>
+                ) : (
+                  rfqs.map((rfq) => (
+                    <tr key={rfq.id} className="hover:bg-zinc-50/50">
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-zinc-900">{rfq.rfq_number}</td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-zinc-800">{rfq.title}</p>
+                        {rfq.scope_summary && <p className="text-xs text-zinc-400">{rfq.scope_summary}</p>}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-zinc-600">{rfq.issue_date}</td>
+                      <td className="px-6 py-4 text-xs text-zinc-600">{rfq.due_date}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-zinc-500">{rfq.requisition_id ?? "Direct"}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 capitalize">
+                          {rfq.status ?? "open"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* TAB 2: PURCHASE ORDERS (PO) */}
+
       {activeTab === "po" && (
         <div className="mt-6 space-y-6">
           {/* PO Stats */}
@@ -848,7 +1026,71 @@ export function ProcurementPage() {
         </div>
       )}
 
+      {/* TAB: GOODS RECEIVED NOTES (GRN) */}
+      {activeTab === "grn" && (
+        <div className="mt-6 space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-zinc-900 font-display">Material Receiving &amp; Inspection (GRN)</h2>
+              <p className="text-xs text-zinc-400">Warehouse delivery gate receipts, quality inspections, and stock inward records.</p>
+            </div>
+            <a
+              href="/inventory"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
+            >
+              Open Inventory &amp; Warehouse Manager &rarr;
+            </a>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-zinc-200 text-left text-sm">
+              <thead className="bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
+                <tr>
+                  <th className="px-6 py-3">GRN Number</th>
+                  <th className="px-6 py-3">Supplier Delivery Note</th>
+                  <th className="px-6 py-3">Carrier / Vehicle</th>
+                  <th className="px-6 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {grns.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-xs text-zinc-400">
+                      No Goods Received Notes logged for this project yet.
+                    </td>
+                  </tr>
+                ) : (
+                  grns.map((grn) => (
+                    <tr key={grn.id} className="hover:bg-zinc-50/50">
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-zinc-900">{grn.grn_number}</td>
+                      <td className="px-6 py-4 text-xs text-zinc-600">{grn.supplier_delivery_note ?? "—"}</td>
+                      <td className="px-6 py-4 text-xs text-zinc-600">
+                        {grn.carrier_name ?? "—"} {grn.vehicle_number ? `(${grn.vehicle_number})` : ""}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                            grn.status === "accepted"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : grn.status === "rejected"
+                              ? "bg-rose-50 text-rose-700"
+                              : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {grn.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* TAB 3: APPROVED VENDOR LIST (AVL) */}
+
       {activeTab === "avl" && (
         <div className="mt-6 space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1476,7 +1718,103 @@ export function ProcurementPage() {
         </div>
       )}
 
+      {/* --- CREATE RFQ MODAL --- */}
+      {showRfqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-zinc-900 font-syne">Create Request for Quotation (RFQ)</h3>
+            <p className="text-xs text-zinc-500 mt-1">Issue a tender package to solicit competitive pricing from vendors.</p>
+            <form onSubmit={handleCreateRfq} className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-zinc-700">RFQ Number</label>
+                <input
+                  type="text"
+                  required
+                  value={newRfq.rfqNumber}
+                  onChange={(e) => setNewRfq({ ...newRfq, rfqNumber: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-700">Title / Package Description</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Structural Steel Supply & Delivery"
+                  value={newRfq.title}
+                  onChange={(e) => setNewRfq({ ...newRfq, title: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-zinc-700">Issue Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={newRfq.issueDate}
+                    onChange={(e) => setNewRfq({ ...newRfq, issueDate: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-zinc-700">Bid Due Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={newRfq.dueDate}
+                    onChange={(e) => setNewRfq({ ...newRfq, dueDate: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-700">Link to Purchase Requisition (optional)</label>
+                <select
+                  value={newRfq.requisitionId}
+                  onChange={(e) => setNewRfq({ ...newRfq, requisitionId: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                >
+                  <option value="">None (Independent RFQ)</option>
+                  {requisitions.map((pr) => (
+                    <option key={pr.id} value={pr.id}>
+                      {pr.pr_number} — {pr.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-700">Scope Summary &amp; Specifications</label>
+                <textarea
+                  rows={3}
+                  placeholder="Details of materials, delivery terms, and test certificate requirements…"
+                  value={newRfq.scopeSummary}
+                  onChange={(e) => setNewRfq({ ...newRfq, scopeSummary: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRfqModal(false)}
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-xs font-medium text-zinc-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-zinc-800"
+                >
+                  Issue RFQ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* --- CREATE PO MODAL --- */}
+
       {showPoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">

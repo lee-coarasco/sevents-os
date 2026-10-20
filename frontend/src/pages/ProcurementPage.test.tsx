@@ -130,6 +130,9 @@ describe("ProcurementPage", () => {
       if (path.includes("/procurement/requisitions")) return REQUISITIONS;
       if (path.includes("/procurement/orders/po-1")) return PO_DETAIL;
       if (path.includes("/procurement/orders")) return ORDERS;
+      if (path.includes("/procurement/rfqs")) return { rfqs: [{ id: "rfq-1", rfq_number: "RFQ-501", title: "Glass Facade Panels", issue_date: "2026-10-19", due_date: "2026-10-26", status: "open" }] };
+      if (path.includes("/inventory/grns")) return { grns: [{ id: "grn-1", grn_number: "GRN-201", supplier_delivery_note: "DN-8871", carrier_name: "DHL", vehicle_number: "DXB-9988", status: "inspected" }] };
+
       if (path === "/authority/effective-permissions") {
         return {
           roles: ["platform_administrator"],
@@ -204,5 +207,29 @@ describe("ProcurementPage", () => {
     expect(await screen.findByText("Al Futtaim Building Materials")).toBeInTheDocument();
     expect(screen.getByText("+ Register New Vendor")).toBeInTheDocument();
     expect(screen.getByText("TL-88412")).toBeInTheDocument();
+  });
+
+  it("switches to RFQ tab and displays quotation packages", async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    const rfqTab = await screen.findByRole("button", { name: /requests for quotation/i });
+    await user.click(rfqTab);
+
+    expect(await screen.findByText("RFQ-501")).toBeInTheDocument();
+    expect(screen.getByText("Glass Facade Panels")).toBeInTheDocument();
+    expect(screen.getByText("+ Create RFQ")).toBeInTheDocument();
+  });
+
+  it("switches to GRN tab and displays goods received notes", async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    const grnTab = await screen.findByRole("button", { name: /goods received/i });
+    await user.click(grnTab);
+
+    expect(await screen.findByText("GRN-201")).toBeInTheDocument();
+    expect(screen.getByText("DN-8871")).toBeInTheDocument();
+    expect(screen.getByText("inspected")).toBeInTheDocument();
   });
 });

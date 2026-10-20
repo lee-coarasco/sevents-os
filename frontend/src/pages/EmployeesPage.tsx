@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch, ApiError } from "../lib/api";
 import { useUsers } from "../hooks/useUsers";
@@ -225,7 +226,11 @@ export function EmployeesPage() {
               <tbody>
                 {employees.map((employee) => (
                   <tr key={employee.id} className="border-t border-zinc-100">
-                    <td className="py-3 font-medium text-zinc-800">{employee.full_name}</td>
+                    <td className="py-3 font-medium text-zinc-800">
+                      <Link to={`/employees/${employee.id}`} className="hover:text-amber-600 hover:underline">
+                        {employee.full_name}
+                      </Link>
+                    </td>
                     <td className="py-3 font-mono text-xs text-zinc-500">{employee.employee_code}</td>
                     <td className="py-3 text-zinc-600">{departmentName(employee.department_id)}</td>
                     <td className="py-3">

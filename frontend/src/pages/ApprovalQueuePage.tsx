@@ -72,8 +72,9 @@ export function ApprovalQueuePage() {
 
   function load() {
     if (!session) return;
-    apiFetch<{ items: TaskQueueEntry[] }>("/tasks/my-work", session.access_token)
-      .then((data) => setApprovals(data.items.filter((t) => t.nodeType === "request_approval")))
+    apiFetch<{ items: TaskQueueEntry[] }>("/tasks/waiting-approval", session.access_token)
+      .catch(() => apiFetch<{ items: TaskQueueEntry[] }>("/tasks/my-work", session.access_token))
+      .then((data) => setApprovals((data?.items ?? []).filter((t) => t.nodeType === "request_approval")))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }
 

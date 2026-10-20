@@ -171,4 +171,26 @@ describe("TaskInboxPage", () => {
       ),
     );
   });
+
+  it("switches between sub-tabs to fetch team, overdue, and completed queues", async () => {
+    apiFetch.mockImplementation((path: string) => {
+      if (path === "/tasks/my-work") return Promise.resolve({ items: TASKS });
+      if (path === "/tasks/team-work") return Promise.resolve({ items: [{ ...TASKS[0], nodeKey: "Team Task" }] });
+      if (path === "/tasks/overdue") return Promise.resolve({ items: [{ ...TASKS[1], nodeKey: "Overdue Task" }] });
+      if (path === "/tasks/completed") return Promise.resolve({ items: [{ ...TASKS[3], nodeKey: "Completed Task" }] });
+      return Promise.resolve({});
+    });
+
+    render(<TaskInboxPage />);
+    expect(await screen.findByText("Review drawing")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Team" }));
+    expect(await screen.findByText("Team Task")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Overdue" }));
+    expect(await screen.findByText("Overdue Task")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Completed" }));
+    expect(await screen.findByText("Completed Task")).toBeInTheDocument();
+  });
 });

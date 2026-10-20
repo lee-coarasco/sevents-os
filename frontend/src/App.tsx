@@ -6,11 +6,13 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { OrgSetupPage } from "./pages/OrgSetupPage";
 import { DepartmentsRolesPage } from "./pages/DepartmentsRolesPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
+import { EmployeeDetailPage } from "./pages/EmployeeDetailPage";
 import { TaskInboxPage } from "./pages/TaskInboxPage";
 import { ApprovalQueuePage } from "./pages/ApprovalQueuePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { CrmPage } from "./pages/CrmPage";
+import { CrmClientDetailPage } from "./pages/CrmClientDetailPage";
 import { OpportunityDetailPage } from "./pages/OpportunityDetailPage";
 import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
@@ -99,7 +101,16 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="employees/:id"
+              element={
+                <ProtectedRoute permission="employee.directory.manage">
+                  <EmployeeDetailPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="my-work" element={<TaskInboxPage />} />
+            <Route path="tasks" element={<Navigate to="/my-work" replace />} />
             <Route path="approvals" element={<ApprovalQueuePage />} />
             <Route
               path="projects"
@@ -134,6 +145,7 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="crm/clients/:id" element={<CrmClientDetailPage />} />
             <Route path="crm/opportunities/:id" element={<OpportunityDetailPage />} />
             <Route path="tendering/tender-submissions/:id" element={<TenderSubmissionDetailPage />} />
             <Route

@@ -477,7 +477,7 @@ export function DashboardPage() {
           <div className="rounded-xl border border-zinc-200 bg-white shadow-sm p-6">
             <h2 className="text-sm font-bold text-zinc-900 font-display mb-4">Operations Command Center Access</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-medium">
-              <Link to="/tasks" className="p-3 rounded-lg border border-zinc-100 hover:border-amber-300 hover:bg-amber-50/30 flex items-center justify-between">
+              <Link to="/my-work" className="p-3 rounded-lg border border-zinc-100 hover:border-amber-300 hover:bg-amber-50/30 flex items-center justify-between">
                 <span>Task Queues</span>
                 <span className="text-zinc-400">&rarr;</span>
               </Link>

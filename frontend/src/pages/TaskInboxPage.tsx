@@ -71,9 +71,20 @@ function slaCountdown(dueAt: string, now: number): { label: string; className: s
   return { label: `Due in ${formatDuration(diffMs)}`, className: "bg-emerald-50 text-emerald-700" };
 }
 
+type TabKey = "my-work" | "team-work" | "overdue" | "completed";
+
+const TABS: { key: TabKey; label: string; endpoint: string; description: string }[] = [
+  { key: "my-work", label: "My Tasks", endpoint: "/tasks/my-work", description: "Tasks assigned to you, across every workflow" },
+  { key: "team-work", label: "Team", endpoint: "/tasks/team-work", description: "All active team tasks across your organization" },
+  { key: "overdue", label: "Overdue", endpoint: "/tasks/overdue", description: "Tasks past their SLA deadline needing immediate attention" },
+  { key: "completed", label: "Completed", endpoint: "/tasks/completed", description: "Recently completed workflow tasks" },
+];
+
 export function TaskInboxPage() {
   const { session } = useAuth();
   const { has } = usePermissions();
+
+  const [activeTab, setActiveTab] = useState<TabKey>("my-work");
 
   const [tasks, setTasks] = useState<TaskQueueEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,12 +99,17 @@ export function TaskInboxPage() {
 
   function load() {
     if (!session) return;
-    apiFetch<{ items: TaskQueueEntry[] }>("/tasks/my-work", session.access_token)
-      .then((data) => setTasks(data.items))
+    setError(null);
+    const tabObj = TABS.find((t) => t.key === activeTab) ?? TABS[0];
+    apiFetch<{ items: TaskQueueEntry[] }>(tabObj.endpoint, session.access_token)
+      .then((data) => setTasks(data.items ?? []))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }
 
-  useEffect(load, [session]);
+  useEffect(() => {
+    setSelectedTaskId(null);
+    load();
+  }, [session, activeTab]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60_000);
@@ -222,13 +238,36 @@ export function TaskInboxPage() {
     <div className="flex gap-6">
       <div className="flex-1 space-y-8">
         <div>
-          <h1 className="font-brand text-2xl font-bold text-zinc-900">My Work</h1>
-          <p className="mt-1 text-sm text-zinc-400">Tasks assigned to you, across every workflow</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="font-brand text-2xl font-bold text-zinc-900">My Work</h1>
+              <p className="mt-1 text-sm text-zinc-400">{TABS.find((t) => t.key === activeTab)?.description}</p>
+            </div>
+            <div className="flex items-center gap-1.5 p-1 bg-zinc-100 rounded-xl border border-zinc-200/80">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                    activeTab === tab.key
+                      ? "bg-white text-zinc-900 shadow-sm"
+                      : "text-zinc-600 hover:text-zinc-900 hover:bg-white/50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {tasks === null && <p className="text-sm text-zinc-400">Loading…</p>}
-        {tasks?.length === 0 && <p className="text-sm text-zinc-400">No tasks assigned to you right now.</p>}
+        {tasks?.length === 0 && (
+          <p className="text-sm text-zinc-400">
+            {activeTab === "my-work" ? "No tasks assigned to you right now." : "No tasks found in this queue."}
+          </p>
+        )}
 
         {tasks && tasks.length > 0 && (
           <div className="space-y-6">

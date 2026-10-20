@@ -47,6 +47,12 @@ export async function createClient(repo: CrmRepository, accessToken: string, inp
 }
 
 /** FR-CRM-002: surfaces likely duplicates by name for a human to resolve — never auto-merges. */
+export async function getClient(repo: CrmRepository, accessToken: string, clientId: string): Promise<Client> {
+  const client = await repo.getClient(accessToken, clientId);
+  if (!client) throw new NotFoundError("client not found");
+  return client;
+}
+
 export async function searchClients(repo: CrmRepository, accessToken: string, search?: string): Promise<Client[]> {
   return repo.searchClients(accessToken, search);
 }
