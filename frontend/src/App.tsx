@@ -14,6 +14,7 @@ import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { CrmPage } from "./pages/CrmPage";
 import { CrmClientDetailPage } from "./pages/CrmClientDetailPage";
 import { OpportunityDetailPage } from "./pages/OpportunityDetailPage";
+import { TenderingPage } from "./pages/TenderingPage";
 import { TenderSubmissionDetailPage } from "./pages/TenderSubmissionDetailPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
@@ -147,6 +148,14 @@ export function App() {
             />
             <Route path="crm/clients/:id" element={<CrmClientDetailPage />} />
             <Route path="crm/opportunities/:id" element={<OpportunityDetailPage />} />
+            <Route
+              path="tendering"
+              element={
+                <ProtectedRoute anyPermission={["tendering.document.manage", "crm.lead.manage"]}>
+                  <TenderingPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="tendering/tender-submissions/:id" element={<TenderSubmissionDetailPage />} />
             <Route
               path="documents"
