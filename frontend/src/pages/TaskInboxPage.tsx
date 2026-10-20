@@ -86,7 +86,8 @@ export function TaskInboxPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("my-work");
 
-  const [tasks, setTasks] = useState<TaskQueueEntry[] | null>(null);
+  const [tasksByTab, setTasksByTab] = useState<Partial<Record<TabKey, TaskQueueEntry[]>>>({});
+  const tasks = tasksByTab[activeTab] ?? null;
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
@@ -97,12 +98,12 @@ export function TaskInboxPage() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  function load() {
+  function load(forceRefresh = false) {
     if (!session) return;
     setError(null);
     const tabObj = TABS.find((t) => t.key === activeTab) ?? TABS[0];
-    apiFetch<{ items: TaskQueueEntry[] }>(tabObj.endpoint, session.access_token)
-      .then((data) => setTasks(data.items ?? []))
+    apiFetch<{ items: TaskQueueEntry[] }>(tabObj.endpoint, session.access_token, forceRefresh ? { cache: "reload" } : {})
+      .then((data) => setTasksByTab((prev) => ({ ...prev, [activeTab]: data.items ?? [] })))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }
 

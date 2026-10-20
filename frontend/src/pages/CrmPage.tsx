@@ -112,6 +112,7 @@ export function CrmPage() {
 
   useEffect(() => {
     if (!session || tab !== "clients") return;
+    if (clients !== null && !clientSearch.trim()) return;
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, tab, clientSearch]);
@@ -126,6 +127,7 @@ export function CrmPage() {
 
   useEffect(() => {
     if (!session || tab !== "contacts") return;
+    if (contacts !== null && !contactSearch.trim()) return;
     loadContacts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, tab, contactSearch]);
@@ -138,7 +140,10 @@ export function CrmPage() {
   }
 
   useEffect(() => {
-    if (tab === "pipeline") loadOpportunities();
+    if (tab === "pipeline") {
+      if (opportunities !== null) return;
+      loadOpportunities();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, tab]);
 

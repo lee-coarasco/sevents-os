@@ -117,7 +117,15 @@ export function DashboardPage() {
   // Load active tab data
   const loadTabData = async () => {
     if (!session?.access_token) return;
-    setLoading(true);
+    const hasData =
+      (currentTab === "executive" && executive !== null) ||
+      (currentTab === "financial" && financial !== null) ||
+      (currentTab === "operations" && operations !== null) ||
+      (currentTab === "reports" && reports.length > 0);
+
+    if (!hasData) {
+      setLoading(true);
+    }
     setError(null);
 
     const query = selectedProjectId ? `?projectId=${encodeURIComponent(selectedProjectId)}` : "";
@@ -325,7 +333,7 @@ export function DashboardPage() {
       )}
 
       {/* Loading state indicator */}
-      {loading && (
+      {loading && !((currentTab === "executive" && executive) || (currentTab === "financial" && financial) || (currentTab === "operations" && operations) || (currentTab === "reports" && reports.length > 0)) && (
         <div className="py-8 text-center text-xs text-zinc-400 font-medium">
           Loading live operational metrics...
         </div>
@@ -334,7 +342,7 @@ export function DashboardPage() {
       {/* ========================================================================= */}
       {/* TAB 1: EXECUTIVE COMMAND CENTER */}
       {/* ========================================================================= */}
-      {!loading && currentTab === "executive" && executive && (
+      {currentTab === "executive" && executive && (
         <div className="space-y-6">
           {/* Key Metric Tiles */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -517,7 +525,7 @@ export function DashboardPage() {
       {/* ========================================================================= */}
       {/* TAB 2: FINANCIAL & COMMERCIAL */}
       {/* ========================================================================= */}
-      {!loading && currentTab === "financial" && financial && (
+      {currentTab === "financial" && financial && (
         <div className="space-y-6">
           {/* Financial Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -635,7 +643,7 @@ export function DashboardPage() {
       {/* ========================================================================= */}
       {/* TAB 3: OPERATIONS, FLEET & QHSE */}
       {/* ========================================================================= */}
-      {!loading && currentTab === "operations" && operations && (
+      {currentTab === "operations" && operations && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -734,7 +742,7 @@ export function DashboardPage() {
       {/* ========================================================================= */}
       {/* TAB 4: CUSTOM REPORTS & EXPORT */}
       {/* ========================================================================= */}
-      {!loading && currentTab === "reports" && (
+      {currentTab === "reports" && (
         <div className="space-y-6">
           {/* Action Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
