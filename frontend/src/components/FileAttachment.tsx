@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { supabase } from "../lib/supabase";
 
 export interface AttachmentResult {
   url: string;
@@ -34,22 +35,115 @@ export function FileAttachment({ onUploaded, accept, label = "Attach file" }: Fi
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      let uploadedResult: AttachmentResult | null = null;
 
-      // Must NOT set Content-Type here — browser sets it automatically with the multipart boundary.
-      const response = await fetch(`${API_BASE}/storage/upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      });
+      // Strategy 1: Pre-signed upload URL from backend -> direct upload to Supabase Storage CDN.
+      // This completely bypasses Vercel 4.5MB serverless body limit and avoids 413 Content Too Large.
+      try {
+        const signedRes = await fetch(`${API_BASE}/storage/signed-upload-url`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ originalName: file.name, mimeType: file.type }),
+        });
 
-      const json = await response.json();
-      if (!response.ok) {
-        throw new Error((json as { error?: string }).error ?? `Upload failed: ${response.status}`);
+        if (signedRes.ok) {
+          const signedData = (await signedRes.json()) as {
+            signedUrl: string;
+            token: string;
+            path: string;
+            storagePath: string;
+            publicUrl: string;
+          };
+
+          const { error: uploadError } = await supabase.storage
+            .from("attachments")
+            .uploadToSignedUrl(signedData.storagePath, signedData.token, file, {
+              contentType: file.type || "application/octet-stream",
+            });
+
+          if (!uploadError) {
+            uploadedResult = {
+              url: signedData.publicUrl,
+              path: signedData.storagePath,
+              size: file.size,
+              mimeType: file.type || "application/octet-stream",
+              originalName: file.name,
+            };
+          } else {
+            // Direct PUT fallback on signedUrl
+            const putRes = await fetch(signedData.signedUrl, {
+              method: "PUT",
+              headers: { "Content-Type": file.type || "application/octet-stream" },
+              body: file,
+            });
+            if (putRes.ok) {
+              uploadedResult = {
+                url: signedData.publicUrl,
+                path: signedData.storagePath,
+                size: file.size,
+                mimeType: file.type || "application/octet-stream",
+                originalName: file.name,
+              };
+            }
+          }
+        }
+      } catch (signedErr) {
+        console.warn("Signed upload URL attempt failed, trying direct Supabase upload", signedErr);
       }
 
-      onUploaded(json as AttachmentResult);
+      // Strategy 2: Direct Supabase client upload
+      if (!uploadedResult) {
+        try {
+          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizedName}`;
+
+          const { data, error: directError } = await supabase.storage
+            .from("attachments")
+            .upload(storagePath, file, {
+              contentType: file.type || "application/octet-stream",
+              upsert: false,
+            });
+
+          if (!directError && data) {
+            const { data: publicData } = supabase.storage.from("attachments").getPublicUrl(data.path);
+            uploadedResult = {
+              url: publicData.publicUrl,
+              path: data.path,
+              size: file.size,
+              mimeType: file.type || "application/octet-stream",
+              originalName: file.name,
+            };
+          }
+        } catch (directErr) {
+          console.warn("Direct Supabase storage upload failed, falling back to server endpoint", directErr);
+        }
+      }
+
+      // Strategy 3: Server proxy fallback
+      if (!uploadedResult) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch(`${API_BASE}/storage/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        });
+
+        const json = await response.json();
+        if (!response.ok) {
+          throw new Error((json as { error?: string }).error ?? `Upload failed: ${response.status}`);
+        }
+
+        uploadedResult = json as AttachmentResult;
+      }
+
+      if (uploadedResult) {
+        onUploaded(uploadedResult);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

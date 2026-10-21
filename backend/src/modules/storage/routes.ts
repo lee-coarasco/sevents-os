@@ -22,8 +22,36 @@ export async function storageRoutes(app: FastifyInstance, options: StorageRouteO
     }
   });
 
+  // POST /storage/signed-upload-url — generates a signed upload URL to allow direct uploads from client, bypassing Vercel request body limits
+  app.post("/storage/signed-upload-url", async (request, reply) => {
+    const body = (request.body as { originalName?: string; mimeType?: string }) || {};
+    const originalName = body.originalName || "upload";
+    const sanitizedName = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizedName}`;
+
+    const client = options.getServiceClient();
+    const { data, error } = await client.storage
+      .from(BUCKET)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data) {
+      reply.code(500);
+      return { error: `Failed to create signed upload URL: ${error?.message ?? "unknown"}` };
+    }
+
+    const { data: publicData } = client.storage.from(BUCKET).getPublicUrl(storagePath);
+
+    return {
+      signedUrl: data.signedUrl,
+      token: data.token,
+      path: data.path,
+      storagePath,
+      publicUrl: publicData.publicUrl,
+    };
+  });
+
   // POST /storage/upload — accepts multipart, stores to Supabase Storage
-  app.post("/storage/upload", { config: { rawBody: false } }, async (request, reply) => {
+  app.post("/storage/upload", { bodyLimit: 50 * 1024 * 1024, config: { rawBody: false } }, async (request, reply) => {
     const contentType = request.headers["content-type"] ?? "";
     if (!contentType.includes("multipart/form-data")) {
       reply.code(400);

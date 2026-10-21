@@ -563,7 +563,7 @@ function defaultSafetyRepository(): SafetyRepository {
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
   const getAuthorityRepository = options.getAuthorityRepository ?? defaultAuthorityRepository;
   const guard = (permissionKey: string) => requirePermission(getAuthorityRepository, permissionKey);
 
