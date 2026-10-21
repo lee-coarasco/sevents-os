@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingTableError } from "../../lib/supabase.js";
 import type {
   ClaimStatus,
   CreateAttendanceLogInput,
@@ -107,7 +108,10 @@ export function createSupabaseSubcontractorRepository(
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []).map((row: any) => ({
         ...row,
         vendor_name: row.vendors?.name || undefined,
@@ -154,7 +158,10 @@ export function createSupabaseSubcontractorRepository(
         .eq("work_order_id", workOrderId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as WorkOrderMilestone[];
     },
 
@@ -206,7 +213,10 @@ export function createSupabaseSubcontractorRepository(
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []).map((row: any) => ({
         ...row,
         work_order_title: row.subcontractor_work_orders?.title || undefined,
@@ -246,7 +256,10 @@ export function createSupabaseSubcontractorRepository(
         .eq("work_order_id", workOrderId)
         .order("measurement_date", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []).map((row: any) => ({
         ...row,
         work_order_title: row.subcontractor_work_orders?.title || undefined,
@@ -317,7 +330,10 @@ export function createSupabaseSubcontractorRepository(
         .eq("project_id", projectId)
         .order("submitted_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []).map((row: any) => ({
         ...row,
         work_order_title: row.subcontractor_work_orders?.title || undefined,

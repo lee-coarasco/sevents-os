@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingTableError } from "../../lib/supabase.js";
 import type {
   AuthorizePermitInput,
   CloseIncidentInput,
@@ -95,7 +96,10 @@ export function createSupabaseSafetyRepository(
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
-      if (error) throw new Error(`Failed to list PTWs: ${error.message}`);
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw new Error(`Failed to list PTWs: ${error.message}`);
+      }
       return (data || []) as SafetyPermitToWork[];
     },
 
@@ -176,7 +180,10 @@ export function createSupabaseSafetyRepository(
         .eq("project_id", projectId)
         .order("incident_date", { ascending: false });
 
-      if (error) throw new Error(`Failed to list incidents: ${error.message}`);
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw new Error(`Failed to list incidents: ${error.message}`);
+      }
       return (data || []) as SafetyIncident[];
     },
 
@@ -274,7 +281,10 @@ export function createSupabaseSafetyRepository(
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
-      if (error) throw new Error(`Failed to list hazards: ${error.message}`);
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw new Error(`Failed to list hazards: ${error.message}`);
+      }
       return (data || []) as SafetyHazardObservation[];
     },
 
@@ -331,7 +341,10 @@ export function createSupabaseSafetyRepository(
         .eq("project_id", projectId)
         .order("talk_date", { ascending: false });
 
-      if (error) throw new Error(`Failed to list toolbox talks: ${error.message}`);
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw new Error(`Failed to list toolbox talks: ${error.message}`);
+      }
       return (data || []) as SafetyToolboxTalk[];
     },
   };

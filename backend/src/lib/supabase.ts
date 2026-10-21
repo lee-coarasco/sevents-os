@@ -37,3 +37,18 @@ export function createAnonClient(): SupabaseClient {
     realtime: { transport: wsTransport },
   });
 }
+
+/**
+ * Checks if a Supabase PostgREST error is due to a missing/unmigrated table or stale schema cache.
+ */
+export function isMissingTableError(error: any): boolean {
+  if (!error) return false;
+  const msg = String(error.message || "").toLowerCase();
+  return (
+    error.code === "PGRST204" ||
+    error.code === "42P01" ||
+    msg.includes("schema cache") ||
+    msg.includes("does not exist") ||
+    msg.includes("relation")
+  );
+}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingTableError } from "../../lib/supabase.js";
 import type {
   CostCode,
   CostCodeCategory,
@@ -99,7 +100,10 @@ export function createSupabaseFinanceRepository(
         query = query.eq("category", category);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as CostCode[];
     },
 
@@ -128,7 +132,10 @@ export function createSupabaseFinanceRepository(
         .select("*")
         .eq("project_id", projectId)
         .order("version_number", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as ProjectBudget[];
     },
 
@@ -199,7 +206,10 @@ export function createSupabaseFinanceRepository(
         .from("project_budget_lines")
         .select("*, cost_code:cost_codes(*)")
         .eq("budget_id", budgetId);
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []).map((row: any) => ({
         ...row,
         estimate_at_completion: Number(row.actual_amount) + Number(row.estimate_to_complete),
@@ -247,7 +257,10 @@ export function createSupabaseFinanceRepository(
         .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as BudgetRevision[];
     },
 
@@ -300,7 +313,10 @@ export function createSupabaseFinanceRepository(
         query = query.eq("project_id", projectId);
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as ExpenseClaim[];
     },
 
@@ -355,7 +371,10 @@ export function createSupabaseFinanceRepository(
         .from("financial_periods")
         .select("*")
         .order("start_date", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
       return (data || []) as FinancialPeriod[];
     },
 
