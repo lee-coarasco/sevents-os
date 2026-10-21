@@ -24,6 +24,20 @@ function bearerToken(authHeader: string | undefined): string | null {
   return authHeader.slice(7);
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function extractTenantId(req: any): string | null {
+  if (req.authTenantId && UUID_REGEX.test(req.authTenantId)) {
+    return req.authTenantId;
+  }
+  const user = req.user;
+  const metaTenant = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
+  if (metaTenant && UUID_REGEX.test(metaTenant)) {
+    return metaTenant;
+  }
+  return null;
+}
+
 export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
   return async (app: FastifyInstance) => {
     const service = createAiKnowledgeService(options.getRepository());
@@ -41,7 +55,7 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
       if (!token) return reply.status(401).send({ error: "Missing authorization token" });
 
       const user = (req as any).user;
-      const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
+      const tenantId = extractTenantId(req) || "default-tenant";
 
       try {
         const { message, projectId, history } = req.body;
@@ -81,7 +95,7 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
       if (!token) return reply.status(401).send({ error: "Missing authorization token" });
 
       const user = (req as any).user;
-      const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
+      const tenantId = extractTenantId(req) || "default-tenant";
 
       try {
         const { projectId, sourceType, sourceId, title, version, content, metadata } = req.body;
@@ -146,7 +160,7 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
       if (!token) return reply.status(401).send({ error: "Missing authorization token" });
 
       const user = (req as any).user;
-      const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id || "default-tenant";
+      const tenantId = extractTenantId(req) || "default-tenant";
 
       try {
         await service.submitFeedback(token, tenantId, req.body, user?.id);

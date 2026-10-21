@@ -57,6 +57,12 @@ export function ProjectsPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [clientName, setClientName] = useState("");
+  const [location, setLocation] = useState("");
+  const [contractReference, setContractReference] = useState("");
+  const [contractValue, setContractValue] = useState("");
+  const [contractCurrency, setContractCurrency] = useState("USD");
+  const [budgetAmount, setBudgetAmount] = useState("");
+  const [budgetCurrency, setBudgetCurrency] = useState("USD");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [projectManagerId, setProjectManagerId] = useState("");
@@ -95,6 +101,12 @@ export function ProjectsPage() {
           name: name.trim(),
           code: code.trim() || undefined,
           clientName: clientName.trim() || undefined,
+          location: location.trim() || undefined,
+          contractReference: contractReference.trim() || undefined,
+          contractValue: contractValue.trim() ? Number(contractValue) : undefined,
+          contractCurrency: contractValue.trim() ? (contractCurrency.trim() || undefined) : undefined,
+          budgetAmount: budgetAmount.trim() ? Number(budgetAmount) : undefined,
+          budgetCurrency: budgetAmount.trim() ? (budgetCurrency.trim() || undefined) : undefined,
           baselineStartDate: startDate || undefined,
           baselineEndDate: endDate || undefined,
           projectManagerId: projectManagerId || undefined,
@@ -103,6 +115,10 @@ export function ProjectsPage() {
       setName("");
       setCode("");
       setClientName("");
+      setLocation("");
+      setContractReference("");
+      setContractValue("");
+      setBudgetAmount("");
       setStartDate("");
       setEndDate("");
       setProjectManagerId("");
@@ -176,6 +192,66 @@ export function ProjectsPage() {
               placeholder="Project code"
               className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Location (e.g. Dubai, UAE)"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <input
+              value={contractReference}
+              onChange={(e) => setContractReference(e.target.value)}
+              placeholder="Contract ref (e.g. CNT-2026-001)"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+            <div className="flex gap-1.5">
+              <input
+                type="number"
+                step="any"
+                value={contractValue}
+                onChange={(e) => setContractValue(e.target.value)}
+                placeholder="Contract value"
+                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <select
+                aria-label="Contract currency"
+                value={contractCurrency}
+                onChange={(e) => setContractCurrency(e.target.value)}
+                className="w-24 rounded-lg border border-zinc-200 px-2 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="USD">USD</option>
+                <option value="AED">AED</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="INR">INR</option>
+                <option value="SAR">SAR</option>
+                <option value="QAR">QAR</option>
+              </select>
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                type="number"
+                step="any"
+                value={budgetAmount}
+                onChange={(e) => setBudgetAmount(e.target.value)}
+                placeholder="Budget amount"
+                className="flex-1 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <select
+                aria-label="Budget currency"
+                value={budgetCurrency}
+                onChange={(e) => setBudgetCurrency(e.target.value)}
+                className="w-24 rounded-lg border border-zinc-200 px-2 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="USD">USD</option>
+                <option value="AED">AED</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="INR">INR</option>
+                <option value="SAR">SAR</option>
+                <option value="QAR">QAR</option>
+              </select>
+            </div>
             <UserPicker value={projectManagerId} onChange={setProjectManagerId} placeholder="Project manager…" />
             <label className="flex flex-col gap-1 text-xs text-zinc-400">
               Start date

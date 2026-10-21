@@ -46,19 +46,41 @@ export interface AiRepository {
   deleteDocument(token: string, id: string): Promise<void>;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveValidTenantId(client: SupabaseClient, candidate?: string | null): Promise<string> {
+  if (candidate && UUID_REGEX.test(candidate)) {
+    return candidate;
+  }
+  try {
+    const { data: rpcTenant } = await client.rpc("current_tenant_id");
+    if (rpcTenant && UUID_REGEX.test(rpcTenant)) {
+      return rpcTenant;
+    }
+  } catch {}
+  try {
+    const { data: firstTenant } = await client.from("tenants").select("id").limit(1).maybeSingle();
+    if (firstTenant?.id && UUID_REGEX.test(firstTenant.id)) {
+      return firstTenant.id;
+    }
+  } catch {}
+  return "00000000-0000-0000-0000-000000000000";
+}
+
 export function createSupabaseAiRepository(
   getUserScopedClient: (token: string) => SupabaseClient
 ): AiRepository {
   return {
     async ingestDocument(token, doc, chunks) {
       const client = getUserScopedClient(token);
+      const safeTenantId = await resolveValidTenantId(client, doc.tenant_id);
 
       // Upsert document
       const { data: savedDoc, error: docErr } = await client
         .from("knowledge_documents")
         .upsert(
           {
-            tenant_id: doc.tenant_id,
+            tenant_id: safeTenantId,
             project_id: doc.project_id || null,
             source_type: doc.source_type,
             source_id: doc.source_id,
@@ -85,7 +107,7 @@ export function createSupabaseAiRepository(
       if (chunks.length > 0) {
         const rows = chunks.map((c, idx) => ({
           document_id: savedDoc.id,
-          tenant_id: doc.tenant_id,
+          tenant_id: safeTenantId,
           chunk_index: idx,
           chunk_text: c.text,
           embedding: c.embedding,
@@ -112,7 +134,7 @@ export function createSupabaseAiRepository(
           match_threshold: threshold,
           match_count: count,
           filter_project_id: projectId || null,
-          filter_tenant_id: tenantId || null,
+          filter_tenant_id: tenantId && UUID_REGEX.test(tenantId) ? tenantId : null,
         });
 
         if (!error && data && data.length > 0) {
@@ -143,8 +165,9 @@ export function createSupabaseAiRepository(
 
     async recordFeedback(token, feedback, userId, tenantId) {
       const client = getUserScopedClient(token);
+      const safeTenantId = await resolveValidTenantId(client, tenantId);
       const { error } = await client.from("ai_query_feedback").insert({
-        tenant_id: tenantId,
+        tenant_id: safeTenantId,
         user_id: userId || null,
         query_text: feedback.queryText,
         answer_text: feedback.answerText,

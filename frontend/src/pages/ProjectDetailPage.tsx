@@ -142,6 +142,11 @@ export function ProjectDetailPage() {
   const [editClientName, setEditClientName] = useState("");
   const [isCustomClient, setIsCustomClient] = useState(false);
   const [editLocation, setEditLocation] = useState("");
+  const [editContractReference, setEditContractReference] = useState("");
+  const [editContractValue, setEditContractValue] = useState("");
+  const [editContractCurrency, setEditContractCurrency] = useState("USD");
+  const [editBudgetAmount, setEditBudgetAmount] = useState("");
+  const [editBudgetCurrency, setEditBudgetCurrency] = useState("USD");
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editManagerId, setEditManagerId] = useState("");
@@ -208,6 +213,11 @@ export function ProjectDetailPage() {
     setEditClientName(project.client_name ?? "");
     setIsCustomClient(false);
     setEditLocation(project.location ?? "");
+    setEditContractReference(project.contract_reference ?? "");
+    setEditContractValue(project.contract_value != null ? String(project.contract_value) : "");
+    setEditContractCurrency(project.contract_currency ?? "USD");
+    setEditBudgetAmount(project.budget_amount != null ? String(project.budget_amount) : "");
+    setEditBudgetCurrency(project.budget_currency ?? "USD");
     setEditStart(project.baseline_start_date ?? "");
     setEditEnd(project.baseline_end_date ?? "");
     setEditManagerId(project.project_manager_id ?? "");
@@ -229,6 +239,11 @@ export function ProjectDetailPage() {
           status: editStatus,
           clientName: editClientName.trim() || null,
           location: editLocation.trim() || null,
+          contractReference: editContractReference.trim() || null,
+          contractValue: editContractValue.trim() ? Number(editContractValue) : null,
+          contractCurrency: editContractValue.trim() ? (editContractCurrency.trim() || null) : null,
+          budgetAmount: editBudgetAmount.trim() ? Number(editBudgetAmount) : null,
+          budgetCurrency: editBudgetAmount.trim() ? (editBudgetCurrency.trim() || null) : null,
           baselineStartDate: editStart || null,
           baselineEndDate: editEnd || null,
           projectManagerId: editManagerId || null,
@@ -517,6 +532,60 @@ export function ProjectDetailPage() {
                   )}
                   <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className={inputClass} />
                   <UserPicker value={editManagerId} onChange={setEditManagerId} placeholder="Project manager…" />
+                  <input
+                    value={editContractReference}
+                    onChange={(e) => setEditContractReference(e.target.value)}
+                    placeholder="Contract ref (e.g. CNT-2026-001)"
+                    className={inputClass}
+                  />
+                  <div className="flex gap-1.5">
+                    <input
+                      type="number"
+                      step="any"
+                      value={editContractValue}
+                      onChange={(e) => setEditContractValue(e.target.value)}
+                      placeholder="Contract value"
+                      className={`flex-1 ${inputClass}`}
+                    />
+                    <select
+                      aria-label="Contract currency"
+                      value={editContractCurrency}
+                      onChange={(e) => setEditContractCurrency(e.target.value)}
+                      className={`w-24 ${inputClass}`}
+                    >
+                      <option value="USD">USD</option>
+                      <option value="AED">AED</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="INR">INR</option>
+                      <option value="SAR">SAR</option>
+                      <option value="QAR">QAR</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="number"
+                      step="any"
+                      value={editBudgetAmount}
+                      onChange={(e) => setEditBudgetAmount(e.target.value)}
+                      placeholder="Budget amount"
+                      className={`flex-1 ${inputClass}`}
+                    />
+                    <select
+                      aria-label="Budget currency"
+                      value={editBudgetCurrency}
+                      onChange={(e) => setEditBudgetCurrency(e.target.value)}
+                      className={`w-24 ${inputClass}`}
+                    >
+                      <option value="USD">USD</option>
+                      <option value="AED">AED</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="INR">INR</option>
+                      <option value="SAR">SAR</option>
+                      <option value="QAR">QAR</option>
+                    </select>
+                  </div>
                   <label className="flex flex-col gap-1 text-xs text-zinc-400">
                     Start date
                     <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputClass} />
