@@ -142,7 +142,7 @@ export function DocumentDetailPage() {
         method: "POST",
         body: JSON.stringify({
           revisionCode: revisionCode.trim(),
-          storageReference: revisionAttachment?.path ?? undefined,
+          storageReference: revisionAttachment?.url || revisionAttachment?.path || undefined,
           reviewerId: reviewerId || undefined,
         }),
       });
@@ -153,6 +153,27 @@ export function DocumentDetailPage() {
       loadRevisions();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not add the revision");
+    }
+  }
+
+  async function handleOpenFile(storageRef: string) {
+    if (storageRef.startsWith("http://") || storageRef.startsWith("https://")) {
+      window.open(storageRef, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (!session) return;
+    try {
+      const res = await apiFetch<{ signedUrl: string }>(
+        `/storage/signed-url/${storageRef}`,
+        session.access_token,
+      );
+      if (res?.signedUrl) {
+        window.open(res.signedUrl, "_blank", "noopener,noreferrer");
+      } else {
+        window.open(storageRef, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      window.open(storageRef, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -325,9 +346,22 @@ export function DocumentDetailPage() {
                             {new Date(rev.created_at).toLocaleDateString()}
                           </p>
                           {rev.storage_reference && (
-                            <p className="mt-1 text-xs text-brand font-medium">
-                              📎 File: <span className="font-mono">{rev.storage_reference.split("-").slice(2).join("-") || rev.storage_reference}</span>
-                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs text-zinc-500 font-mono">
+                                📎 {rev.storage_reference.split("/").pop()?.split("-").slice(2).join("-") || rev.storage_reference.split("/").pop()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenFile(rev.storage_reference!)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                                title="Open / Download attached document"
+                              >
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                View / Download
+                              </button>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
