@@ -7,6 +7,7 @@ import { UserPicker } from "../components/UserPicker";
 import { useUsers } from "../hooks/useUsers";
 import { PermissionGate } from "../components/PermissionGate";
 import { StatusBadge } from "../components/StatusBadge";
+import { WorkflowPicker } from "../components/WorkflowPicker";
 import { FileAttachment, AttachmentLink, type AttachmentResult } from "../components/FileAttachment";
 import { aiService, type KnowledgeSourceType } from "../services/aiService";
 
@@ -358,20 +359,14 @@ export function DocumentDetailPage() {
                               </button>
                             ) : (
                               <>
-                                <select
+                                <WorkflowPicker
+                                  contextKey="document_release"
+                                  definitions={definitions}
                                   value={definitionByRevision[rev.id] ?? ""}
-                                  onChange={(e) =>
-                                    setDefinitionByRevision((prev) => ({ ...prev, [rev.id]: e.target.value }))
+                                  onChange={(id) =>
+                                    setDefinitionByRevision((prev) => ({ ...prev, [rev.id]: id }))
                                   }
-                                  className={`max-w-xs ${inputClass}`}
-                                >
-                                  <option value="">Select approval workflow…</option>
-                                  {definitions?.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                      {d.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                />
                                 <button
                                   onClick={() => handleSubmitForRelease(rev.id)}
                                   disabled={!definitionByRevision[rev.id]}

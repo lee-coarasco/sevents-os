@@ -4,9 +4,11 @@ import { apiFetch } from "../lib/api";
 
 export type EntityPickerType = "project" | "client" | "document" | "cost-code" | "document-type" | "currency" | "uom";
 
-interface EntityOption {
+export interface EntityOption {
   id: string;
   label: string;
+  code?: string;
+  raw?: Record<string, unknown>;
 }
 
 interface TypeConfig {
@@ -76,7 +78,14 @@ function useEntityOptions(type: EntityPickerType, search: string) {
       apiFetch<Record<string, Record<string, unknown>[]>>(path, session.access_token)
         .then((data) => {
           const rows = data[config.listKey] ?? [];
-          setOptions(rows.map((row) => ({ id: row.id as string, label: config.label(row) })));
+          setOptions(
+            rows.map((row) => ({
+              id: row.id as string,
+              label: config.label(row),
+              code: (row.code as string) ?? undefined,
+              raw: row,
+            }))
+          );
         })
         .catch(() => setOptions([]));
     }, config.serverSearch ? 300 : 0);
@@ -87,10 +96,10 @@ function useEntityOptions(type: EntityPickerType, search: string) {
   return options;
 }
 
-interface EntityPickerProps {
+export interface EntityPickerProps {
   type: EntityPickerType;
   value: string;
-  onChange: (id: string) => void;
+  onChange: (id: string, option?: EntityOption) => void;
   placeholder?: string;
   className?: string;
 }
@@ -102,7 +111,7 @@ export function EntityPicker({ type, value, onChange, placeholder, className }: 
   const options = useEntityOptions(type, query);
   const loading = options === null;
 
-  const selected = options?.find((o) => o.id === value) ?? null;
+  const selected = options?.find((o) => o.id === value || (o.code && o.code === value)) ?? null;
 
   const matches = useMemo(() => {
     if (!options) return [];
@@ -138,7 +147,7 @@ export function EntityPicker({ type, value, onChange, placeholder, className }: 
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onChange(o.id);
+                  onChange(o.id, o);
                   setQuery("");
                   setOpen(false);
                 }}

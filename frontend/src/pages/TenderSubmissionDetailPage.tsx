@@ -8,7 +8,8 @@ import { ActivityThread, type ActivityComment, type ActivityDecision } from "../
 import { FileAttachment, AttachmentLink, type AttachmentResult } from "../components/FileAttachment";
 import { CurrencyInput } from "../components/CurrencyInput";
 import { CurrencyDisplay } from "../components/CurrencyDisplay";
-import { EntityPicker } from "../components/EntityPicker";
+import { EntityPicker, type EntityOption } from "../components/EntityPicker";
+import { WorkflowPicker } from "../components/WorkflowPicker";
 
 interface TenderDocument {
   id: string;
@@ -91,26 +92,7 @@ type Tab = "documents" | "estimates" | "bidding";
 const inputClass =
   "rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20";
 
-function DefinitionPicker({
-  definitions,
-  value,
-  onChange,
-}: {
-  definitions: WorkflowDefinitionOption[] | null;
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-      <option value="">Select approval workflow…</option>
-      {definitions?.map((d) => (
-        <option key={d.id} value={d.id}>
-          {d.name}
-        </option>
-      ))}
-    </select>
-  );
-}
+
 
 export function TenderSubmissionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -152,6 +134,8 @@ export function TenderSubmissionDetailPage() {
   const [lineItem, setLineItem] = useState("");
   const [lineQty, setLineQty] = useState("");
   const [lineUomId, setLineUomId] = useState("");
+  const [lineUomCode, setLineUomCode] = useState("");
+  const [uomMap, setUomMap] = useState<Record<string, string>>({});
   const [lineRate, setLineRate] = useState<number | null>(null);
   const [lineCategory, setLineCategory] = useState<CostCategory>("material");
   const [estimateDefinitionId, setEstimateDefinitionId] = useState("");
@@ -279,6 +263,15 @@ export function TenderSubmissionDetailPage() {
         if (base) setBaseCurrency(base.code);
       })
       .catch(() => undefined);
+    apiFetch<{ uom: { id: string; code: string; description: string | null }[] }>("/master-data/uom", session.access_token)
+      .then((data) => {
+        const map: Record<string, string> = {};
+        for (const u of data.uom || []) {
+          map[u.id] = u.code;
+        }
+        setUomMap(map);
+      })
+      .catch(() => undefined);
   }, [session]);
 
   useEffect(loadDocuments, [session, id]);
@@ -391,13 +384,13 @@ export function TenderSubmissionDetailPage() {
     if (!session || !selectedEstimateId || !lineItem.trim() || !lineQty || !lineRate) return;
     setActionError(null);
     try {
-      // unit: if a UoM was picked, look up its code from the EntityPicker label (we use the id for the API call)
+      const uomCode = lineUomCode || (lineUomId ? uomMap[lineUomId] : null) || lineUomId || "EA";
       await apiFetch(`/estimates/${selectedEstimateId}/lines`, session.access_token, {
         method: "POST",
         body: JSON.stringify({
           item: lineItem.trim(),
           quantity: Number(lineQty),
-          unit: lineUomId || "EA",
+          unit: uomCode,
           rate: lineRate,
           costCategory: lineCategory,
         }),
@@ -405,6 +398,7 @@ export function TenderSubmissionDetailPage() {
       setLineItem("");
       setLineQty("");
       setLineUomId("");
+      setLineUomCode("");
       setLineRate(null);
       loadLines(selectedEstimateId);
       loadEstimates();
@@ -761,7 +755,16 @@ export function TenderSubmissionDetailPage() {
                 <form onSubmit={handleAddLine} className="grid grid-cols-1 gap-2 sm:grid-cols-5">
                   <input value={lineItem} onChange={(e) => setLineItem(e.target.value)} placeholder="Item description" className={inputClass} />
                   <input type="number" value={lineQty} onChange={(e) => setLineQty(e.target.value)} placeholder="Qty" className={inputClass} />
-                  <EntityPicker type="uom" value={lineUomId} onChange={setLineUomId} placeholder="Unit of measure…" />
+                  <EntityPicker
+                    type="uom"
+                    value={lineUomId || lineUomCode}
+                    onChange={(id: string, opt?: EntityOption) => {
+                      setLineUomId(id);
+                      const code = opt?.code ?? opt?.label?.split(" — ")[0] ?? id;
+                      setLineUomCode(code);
+                    }}
+                    placeholder="Unit of measure…"
+                  />
                   <CurrencyInput value={lineRate} onChange={setLineRate} currencyCode={baseCurrency} />
                   <select value={lineCategory} onChange={(e) => setLineCategory(e.target.value as CostCategory)} className={inputClass}>
                     {COST_CATEGORIES.map((c) => (
@@ -796,7 +799,7 @@ export function TenderSubmissionDetailPage() {
                         <tr key={line.id} className="border-b border-zinc-50 last:border-0">
                           <td className="px-3 py-2 text-zinc-800">{line.item}</td>
                           <td className="px-3 py-2 text-zinc-600">{line.quantity}</td>
-                          <td className="px-3 py-2 text-zinc-600">{line.unit}</td>
+                          <td className="px-3 py-2 text-zinc-600">{uomMap[line.unit] || line.unit}</td>
                           <td className="px-3 py-2">
                             <CurrencyDisplay amount={line.rate} currencyCode={baseCurrency} />
                           </td>
@@ -834,7 +837,12 @@ export function TenderSubmissionDetailPage() {
 
               <PermissionGate permission="tendering.document.manage">
                 <div className="flex items-center gap-2 border-t border-zinc-100 pt-4">
-                  <DefinitionPicker definitions={definitions} value={estimateDefinitionId} onChange={setEstimateDefinitionId} />
+                  <WorkflowPicker
+                    contextKey="estimate_approval"
+                    definitions={definitions}
+                    value={estimateDefinitionId}
+                    onChange={setEstimateDefinitionId}
+                  />
                   <button
                     onClick={handleSubmitEstimateForApproval}
                     disabled={!estimateDefinitionId || submittingApproval}
@@ -944,7 +952,12 @@ export function TenderSubmissionDetailPage() {
               <PermissionGate permission="tendering.document.manage">
                 {decision.status === "draft" && (
                   <div className="flex items-center gap-2 border-t border-zinc-100 pt-4">
-                    <DefinitionPicker definitions={definitions} value={bidDefinitionId} onChange={setBidDefinitionId} />
+                    <WorkflowPicker
+                      contextKey="bid_no_bid_approval"
+                      definitions={definitions}
+                      value={bidDefinitionId}
+                      onChange={setBidDefinitionId}
+                    />
                     <button
                       onClick={handleSubmitDecisionForApproval}
                       disabled={!bidDefinitionId}
