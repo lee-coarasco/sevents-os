@@ -80,14 +80,29 @@ export async function estimatingRoutes(app: FastifyInstance, options: Estimating
 
   app.get<{ Params: { id: string } }>("/tendering/tender-submissions/:id/estimates", guard, async (request) => {
     const token = bearerToken(request.headers.authorization) as string;
-    const estimates = await listEstimateVersions(options.getRepository(), token, request.params.id);
+    let estimates = await listEstimateVersions(options.getRepository(), token, request.params.id);
+
+    // Automatically resolve any estimates currently pending approval
+    const pending = estimates.filter((e) => e.status === "pending_approval" && e.workflow_instance_id);
+    if (pending.length > 0) {
+      await Promise.allSettled(
+        pending.map((e) =>
+          resolveEstimateApproval(options.getRepository(), options.getWorkflowRepository(), token, e.id)
+        )
+      );
+      estimates = await listEstimateVersions(options.getRepository(), token, request.params.id);
+    }
+
     return { estimates };
   });
 
   app.get<{ Params: { estimateId: string } }>("/estimates/:estimateId", guard, async (request, reply) => {
     const token = bearerToken(request.headers.authorization) as string;
     try {
-      const estimate = await getEstimate(options.getRepository(), token, request.params.estimateId);
+      let estimate = await getEstimate(options.getRepository(), token, request.params.estimateId);
+      if (estimate && estimate.status === "pending_approval" && estimate.workflow_instance_id) {
+        estimate = await resolveEstimateApproval(options.getRepository(), options.getWorkflowRepository(), token, estimate.id).catch(() => estimate);
+      }
       return { estimate };
     } catch (error) {
       if (error instanceof NotFoundError) {

@@ -69,8 +69,10 @@ function invalidateResourceCache(path: string): void {
     if (
       cachedPath.startsWith(subResource) ||
       cachedPath.startsWith(rootResource) ||
-      (rootResource === "/workflow" && cachedPath.startsWith("/tasks")) ||
+      (rootResource === "/workflow" && (cachedPath.startsWith("/tasks") || cachedPath.startsWith("/approvals") || cachedPath.startsWith("/tendering") || cachedPath.startsWith("/estimates"))) ||
       (rootResource === "/tasks" && cachedPath.startsWith("/workflow")) ||
+      (rootResource === "/approvals" && (cachedPath.startsWith("/workflow") || cachedPath.startsWith("/tasks") || cachedPath.startsWith("/tendering") || cachedPath.startsWith("/estimates") || cachedPath.startsWith("/projects") || cachedPath.startsWith("/procurement"))) ||
+      (rootResource === "/estimates" && (cachedPath.startsWith("/tendering") || cachedPath.startsWith("/approvals"))) ||
       (rootResource === "/projects" && cachedPath.startsWith("/dashboard")) ||
       (rootResource === "/procurement" && cachedPath.startsWith("/dashboard")) ||
       (rootResource === "/site" && cachedPath.startsWith("/dashboard")) ||

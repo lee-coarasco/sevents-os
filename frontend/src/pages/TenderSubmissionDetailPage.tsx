@@ -137,6 +137,9 @@ export function TenderSubmissionDetailPage() {
   // Estimates
   const [estimates, setEstimates] = useState<Estimate[] | null>(null);
   const [showEstimateForm, setShowEstimateForm] = useState(false);
+  const [creatingEstimate, setCreatingEstimate] = useState(false);
+  const [creatingVersionId, setCreatingVersionId] = useState<string | null>(null);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
   const [estAssumptions, setEstAssumptions] = useState("");
   const [estInclusions, setEstInclusions] = useState("");
   const [estExclusions, setEstExclusions] = useState("");
@@ -178,8 +181,30 @@ export function TenderSubmissionDetailPage() {
 
   function loadEstimates() {
     if (!session || !id) return;
-    apiFetch<{ estimates: Estimate[] }>(`/tendering/tender-submissions/${id}/estimates`, session.access_token)
-      .then((data) => setEstimates(data.estimates))
+    apiFetch<{ estimates: Estimate[] }>(`/tendering/tender-submissions/${id}/estimates`, session.access_token, { cache: "reload" })
+      .then(async (data) => {
+        setEstimates(data.estimates);
+        const pending = (data.estimates || []).filter((e) => e.status === "pending_approval" && e.workflow_instance_id);
+        if (pending.length > 0) {
+          const results = await Promise.allSettled(
+            pending.map((e) =>
+              apiFetch<{ estimate: Estimate }>(`/estimates/${e.id}/approval-status`, session.access_token, { cache: "reload" })
+            )
+          );
+          let changed = false;
+          const updated = [...(data.estimates || [])];
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value?.estimate) {
+              const idx = updated.findIndex((x) => x.id === r.value.estimate.id);
+              if (idx !== -1 && updated[idx].status !== r.value.estimate.status) {
+                updated[idx] = r.value.estimate;
+                changed = true;
+              }
+            }
+          }
+          if (changed) setEstimates(updated);
+        }
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not reach the API"));
   }
 
@@ -260,6 +285,21 @@ export function TenderSubmissionDetailPage() {
   useEffect(loadEstimates, [session, id]);
 
   useEffect(() => {
+    if (tab === "estimates") {
+      loadEstimates();
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const hasPending = estimates?.some((e) => e.status === "pending_approval");
+    if (!hasPending || tab !== "estimates") return;
+    const interval = setInterval(() => {
+      loadEstimates();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [estimates, tab, session, id]);
+
+  useEffect(() => {
     if (!selectedEstimateId) {
       setLines(null);
       setEstimateComments([]);
@@ -314,7 +354,8 @@ export function TenderSubmissionDetailPage() {
 
   async function handleAddEstimate(event: FormEvent) {
     event.preventDefault();
-    if (!session || !id) return;
+    if (!session || !id || creatingEstimate) return;
+    setCreatingEstimate(true);
     setActionError(null);
     try {
       await apiFetch(`/tendering/tender-submissions/${id}/estimates`, session.access_token, {
@@ -340,6 +381,8 @@ export function TenderSubmissionDetailPage() {
       loadEstimates();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not create the estimate version");
+    } finally {
+      setCreatingEstimate(false);
     }
   }
 
@@ -383,7 +426,8 @@ export function TenderSubmissionDetailPage() {
   }
 
   async function handleSubmitEstimateForApproval() {
-    if (!session || !selectedEstimateId || !estimateDefinitionId) return;
+    if (!session || !selectedEstimateId || !estimateDefinitionId || submittingApproval) return;
+    setSubmittingApproval(true);
     setActionError(null);
     try {
       await apiFetch(`/estimates/${selectedEstimateId}/submit-for-approval`, session.access_token, {
@@ -393,17 +437,22 @@ export function TenderSubmissionDetailPage() {
       loadEstimates();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not submit the estimate for approval");
+    } finally {
+      setSubmittingApproval(false);
     }
   }
 
   async function handleNewEstimateVersion(estimateId: string) {
-    if (!session) return;
+    if (!session || creatingVersionId) return;
+    setCreatingVersionId(estimateId);
     setActionError(null);
     try {
       await apiFetch(`/estimates/${estimateId}/new-version`, session.access_token, { method: "POST" });
       loadEstimates();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not create a new version");
+    } finally {
+      setCreatingVersionId(null);
     }
   }
 
@@ -643,8 +692,12 @@ export function TenderSubmissionDetailPage() {
                 <input type="number" value={estMargin} onChange={(e) => setEstMargin(e.target.value)} className={inputClass} />
               </label>
               <div className="col-span-full flex gap-2">
-                <button type="submit" className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim">
-                  Create version
+                <button
+                  type="submit"
+                  disabled={creatingEstimate}
+                  className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingEstimate ? "Creating…" : "Create version"}
                 </button>
                 <button type="button" onClick={() => setShowEstimateForm(false)} className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
                   Cancel
@@ -684,8 +737,12 @@ export function TenderSubmissionDetailPage() {
                         </button>
                         {estimate.status !== "draft" && (
                           <PermissionGate permission="tendering.document.manage">
-                            <button onClick={() => handleNewEstimateVersion(estimate.id)} className="ml-3 text-xs text-zinc-400 hover:text-brand-dim">
-                              New version
+                            <button
+                              onClick={() => handleNewEstimateVersion(estimate.id)}
+                              disabled={creatingVersionId !== null}
+                              className="ml-3 text-xs text-zinc-400 hover:text-brand-dim disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {creatingVersionId === estimate.id ? "Creating…" : "New version"}
                             </button>
                           </PermissionGate>
                         )}
@@ -780,10 +837,10 @@ export function TenderSubmissionDetailPage() {
                   <DefinitionPicker definitions={definitions} value={estimateDefinitionId} onChange={setEstimateDefinitionId} />
                   <button
                     onClick={handleSubmitEstimateForApproval}
-                    disabled={!estimateDefinitionId}
-                    className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                    disabled={!estimateDefinitionId || submittingApproval}
+                    className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit for approval
+                    {submittingApproval ? "Submitting…" : "Submit for approval"}
                   </button>
                 </div>
               </PermissionGate>

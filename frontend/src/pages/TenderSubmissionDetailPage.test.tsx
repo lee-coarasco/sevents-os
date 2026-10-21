@@ -92,8 +92,8 @@ describe("TenderSubmissionDetailPage", () => {
 
     await userEvent.type(screen.getByPlaceholderText("Item description"), "Formwork");
     await userEvent.type(screen.getByPlaceholderText("Qty"), "10");
-    await userEvent.type(screen.getByPlaceholderText("Unit"), "m2");
-    await userEvent.type(screen.getByPlaceholderText("Unit rate"), "50");
+    await userEvent.type(screen.getByPlaceholderText("Unit of measure…"), "m2");
+    await userEvent.type(screen.getByPlaceholderText("AED 0.00"), "50");
     await userEvent.click(screen.getByRole("button", { name: /add line/i }));
 
     await waitFor(() =>
