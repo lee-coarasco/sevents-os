@@ -92,14 +92,28 @@ export async function biddingRoutes(app: FastifyInstance, options: BiddingRouteO
 
   app.get<{ Params: { id: string } }>("/estimates/:id/bid-decisions", guard, async (request) => {
     const token = bearerToken(request.headers.authorization) as string;
-    const decisions = await listBidNoBidDecisions(options.getRepository(), token, request.params.id);
+    let decisions = await listBidNoBidDecisions(options.getRepository(), token, request.params.id);
+
+    const pending = decisions.filter((d) => d.status === "pending_approval" && d.workflow_instance_id);
+    if (pending.length > 0) {
+      await Promise.allSettled(
+        pending.map((d) =>
+          resolveBidNoBidApproval(options.getRepository(), options.getWorkflowRepository(), token, d.id)
+        )
+      );
+      decisions = await listBidNoBidDecisions(options.getRepository(), token, request.params.id);
+    }
+
     return { decisions };
   });
 
   app.get<{ Params: { decisionId: string } }>("/bid-decisions/:decisionId", guard, async (request, reply) => {
     const token = bearerToken(request.headers.authorization) as string;
     try {
-      const decision = await getBidNoBidDecision(options.getRepository(), token, request.params.decisionId);
+      let decision = await getBidNoBidDecision(options.getRepository(), token, request.params.decisionId);
+      if (decision && decision.status === "pending_approval" && decision.workflow_instance_id) {
+        decision = await resolveBidNoBidApproval(options.getRepository(), options.getWorkflowRepository(), token, decision.id).catch(() => decision);
+      }
       return { decision };
     } catch (error) {
       return handleError(error, reply);

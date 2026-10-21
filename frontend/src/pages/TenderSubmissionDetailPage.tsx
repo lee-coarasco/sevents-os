@@ -63,6 +63,7 @@ interface BidNoBidDecision {
   recommendation: BidRecommendation;
   status: BidNoBidStatus;
   conditions: string | null;
+  workflow_instance_id?: string | null;
 }
 
 type BidCriterion = "financial_viability" | "technical_capability" | "risk_exposure" | "strategic_fit" | "resource_availability";
@@ -152,6 +153,9 @@ export function TenderSubmissionDetailPage() {
   const [criterionRationale, setCriterionRationale] = useState("");
   const [bidDefinitionId, setBidDefinitionId] = useState("");
   const [submissions, setSubmissions] = useState<BidSubmission[] | null>(null);
+  const [submittingDecisionApproval, setSubmittingDecisionApproval] = useState(false);
+  const [decisionComments, setDecisionComments] = useState<ActivityComment[]>([]);
+  const [decisionDecisions, setDecisionDecisions] = useState<ActivityDecision[]>([]);
   const [submittedTo, setSubmittedTo] = useState("");
   const [submittedAt, setSubmittedAt] = useState("");
   const [submissionEvidence, setSubmissionEvidence] = useState("");
@@ -222,19 +226,58 @@ export function TenderSubmissionDetailPage() {
 
   function loadBidDecision(estimateId: string) {
     if (!session) return;
-    apiFetch<{ decisions: BidNoBidDecision[] }>(`/estimates/${estimateId}/bid-decisions`, session.access_token)
-      .then((data) => {
-        const found = data.decisions[0] ?? null;
+    apiFetch<{ decisions: BidNoBidDecision[] }>(`/estimates/${estimateId}/bid-decisions`, session.access_token, { cache: "reload" })
+      .then(async (data) => {
+        let found = data.decisions[0] ?? null;
+        if (found && found.status === "pending_approval" && found.workflow_instance_id) {
+          try {
+            const statusRes = await apiFetch<{ decision: BidNoBidDecision }>(
+              `/bid-decisions/${found.id}/approval-status`,
+              session.access_token,
+              { cache: "reload" },
+            );
+            if (statusRes?.decision) {
+              found = statusRes.decision;
+            }
+          } catch {
+            // Keep existing
+          }
+        }
         setDecision(found);
         if (found) {
           loadCriteriaScores(found.id);
           loadSubmissions(found.id);
+          loadDecisionActivity(found);
         } else {
           setCriteriaScores(null);
           setSubmissions(null);
+          setDecisionComments([]);
+          setDecisionDecisions([]);
         }
       })
       .catch((err) => setActionError(err instanceof ApiError ? err.message : "Could not reach the API"));
+  }
+
+  function loadDecisionActivity(dec: BidNoBidDecision) {
+    if (!session || !dec.workflow_instance_id) {
+      setDecisionComments([]);
+      setDecisionDecisions([]);
+      return;
+    }
+    apiFetch<{ approvals: { comments?: ActivityComment[]; decisions?: ActivityDecision[] }[] }>(
+      `/approvals?workflowInstanceId=${dec.workflow_instance_id}`,
+      session.access_token,
+      { cache: "reload" },
+    )
+      .then((data) => {
+        const approval = data.approvals?.[0];
+        setDecisionComments(approval?.comments ?? []);
+        setDecisionDecisions(approval?.decisions ?? []);
+      })
+      .catch(() => {
+        setDecisionComments([]);
+        setDecisionDecisions([]);
+      });
   }
 
   function loadCriteriaScores(decisionId: string) {
@@ -315,6 +358,20 @@ export function TenderSubmissionDetailPage() {
     loadBidDecision(bidEstimateId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, bidEstimateId]);
+
+  useEffect(() => {
+    if (tab === "bidding" && bidEstimateId) {
+      loadBidDecision(bidEstimateId);
+    }
+  }, [tab, bidEstimateId]);
+
+  useEffect(() => {
+    if (tab !== "bidding" || !decision || decision.status !== "pending_approval" || !bidEstimateId) return;
+    const interval = setInterval(() => {
+      loadBidDecision(bidEstimateId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [decision?.status, tab, bidEstimateId, session]);
 
   async function handleAddDocument(event: FormEvent) {
     event.preventDefault();
@@ -494,16 +551,23 @@ export function TenderSubmissionDetailPage() {
   }
 
   async function handleSubmitDecisionForApproval() {
-    if (!session || !decision || !bidDefinitionId) return;
+    if (!session || !decision || !bidDefinitionId || submittingDecisionApproval) return;
+    setSubmittingDecisionApproval(true);
     setActionError(null);
     try {
-      await apiFetch(`/bid-decisions/${decision.id}/submit-for-approval`, session.access_token, {
+      const res = await apiFetch<{ decision: BidNoBidDecision }>(`/bid-decisions/${decision.id}/submit-for-approval`, session.access_token, {
         method: "POST",
         body: JSON.stringify({ definitionId: bidDefinitionId }),
       });
+      if (res?.decision) {
+        setDecision(res.decision);
+        loadDecisionActivity(res.decision);
+      }
       loadBidDecision(bidEstimateId);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not submit the decision for approval");
+    } finally {
+      setSubmittingDecisionApproval(false);
     }
   }
 
@@ -960,14 +1024,43 @@ export function TenderSubmissionDetailPage() {
                     />
                     <button
                       onClick={handleSubmitDecisionForApproval}
-                      disabled={!bidDefinitionId}
-                      className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50"
+                      disabled={!bidDefinitionId || submittingDecisionApproval}
+                      className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-dim disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Submit for approval
+                      {submittingDecisionApproval ? "Submitting…" : "Submit for approval"}
                     </button>
                   </div>
                 )}
               </PermissionGate>
+
+              {decision.status === "pending_approval" && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+                      <div>
+                        <p className="font-semibold text-amber-950">Submitted for approval</p>
+                        <p className="text-xs text-amber-700">The approval workflow is currently running. You will be notified once a decision is recorded.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadBidDecision(bidEstimateId)}
+                      className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-50 transition"
+                    >
+                      Refresh status
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(decisionComments.length > 0 || decisionDecisions.length > 0) && (
+                <ActivityThread
+                  comments={decisionComments}
+                  decisions={decisionDecisions}
+                  decisionLabels={{ approved: "Approved", rejected: "Rejected", returned_for_correction: "Returned for correction" }}
+                />
+              )}
 
               <div className="border-t border-zinc-100 pt-4">
                 <h3 className="font-brand text-sm font-semibold text-zinc-900">Bid submissions</h3>
