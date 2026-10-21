@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.knowledge_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
-    source_type TEXT NOT NULL CHECK (source_type IN ('document', 'drawing', 'rfi', 'dpr', 'contract', 'work_item', 'sop')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('document', 'drawing', 'rfi', 'dpr', 'contract', 'work_item', 'sop', 'specification', 'submittal', 'policy', 'change_order')),
     source_id TEXT NOT NULL,
     title TEXT NOT NULL,
     version TEXT NOT NULL DEFAULT 'v1',
@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS public.knowledge_documents (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_knowledge_source UNIQUE (tenant_id, source_type, source_id, version)
 );
+
+-- Ensure check constraint allows extended types on existing tables
+ALTER TABLE public.knowledge_documents DROP CONSTRAINT IF EXISTS knowledge_documents_source_type_check;
+ALTER TABLE public.knowledge_documents ADD CONSTRAINT knowledge_documents_source_type_check 
+  CHECK (source_type IN ('document', 'drawing', 'rfi', 'dpr', 'contract', 'work_item', 'sop', 'specification', 'submittal', 'policy', 'change_order'));
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_docs_tenant ON public.knowledge_documents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_docs_project ON public.knowledge_documents(project_id);

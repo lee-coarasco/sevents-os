@@ -67,6 +67,26 @@ async function resolveValidTenantId(client: SupabaseClient, candidate?: string |
   return "00000000-0000-0000-0000-000000000000";
 }
 
+const VALID_SOURCE_TYPES = new Set([
+  "document",
+  "drawing",
+  "rfi",
+  "dpr",
+  "contract",
+  "work_item",
+  "sop",
+]);
+
+function normalizeSourceType(type: string): KnowledgeSourceType {
+  const t = (type || "").toLowerCase().trim();
+  if (VALID_SOURCE_TYPES.has(t)) {
+    return t as KnowledgeSourceType;
+  }
+  if (t === "policy") return "sop";
+  // 'specification', 'submittal', 'change_order', etc. map cleanly to 'document' for DB constraint
+  return "document";
+}
+
 export function createSupabaseAiRepository(
   getUserScopedClient: (token: string) => SupabaseClient
 ): AiRepository {
@@ -74,6 +94,7 @@ export function createSupabaseAiRepository(
     async ingestDocument(token, doc, chunks) {
       const client = getUserScopedClient(token);
       const safeTenantId = await resolveValidTenantId(client, doc.tenant_id);
+      const safeSourceType = normalizeSourceType(doc.source_type);
 
       // Upsert document
       const { data: savedDoc, error: docErr } = await client
@@ -82,12 +103,15 @@ export function createSupabaseAiRepository(
           {
             tenant_id: safeTenantId,
             project_id: doc.project_id || null,
-            source_type: doc.source_type,
+            source_type: safeSourceType,
             source_id: doc.source_id,
             title: doc.title,
             version: doc.version || "v1",
             content: doc.content,
-            metadata: doc.metadata || {},
+            metadata: {
+              ...(doc.metadata || {}),
+              original_source_type: doc.source_type,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: "tenant_id,source_type,source_id,version" }

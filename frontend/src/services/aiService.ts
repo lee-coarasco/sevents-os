@@ -1,14 +1,17 @@
 import { apiFetch } from "../lib/api";
 
 export type KnowledgeSourceType =
+  | "document"
   | "drawing"
   | "rfi"
-  | "submittal"
-  | "contract"
   | "dpr"
+  | "contract"
+  | "work_item"
+  | "sop"
   | "specification"
-  | "change_order"
-  | "policy";
+  | "submittal"
+  | "policy"
+  | "change_order";
 
 export interface KnowledgeDocument {
   id: string;

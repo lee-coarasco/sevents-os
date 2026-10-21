@@ -78,14 +78,16 @@ export function DocumentDetailPage() {
     try {
       const typeMapping: Record<string, KnowledgeSourceType> = {
         drawing: "drawing",
-        specification: "specification",
         contract: "contract",
         rfi: "rfi",
-        submittal: "submittal",
         dpr: "dpr",
-        policy: "policy",
+        sop: "sop",
+        policy: "sop",
+        specification: "document",
+        submittal: "document",
+        document: "document",
       };
-      const sourceType = typeMapping[document.document_type.toLowerCase()] || "specification";
+      const sourceType = typeMapping[document.document_type.toLowerCase()] || "document";
 
       await aiService.ingestDocument(session.access_token, {
         projectId: document.project_id || undefined,

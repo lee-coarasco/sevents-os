@@ -5,7 +5,11 @@ export type KnowledgeSourceType =
   | "dpr"
   | "contract"
   | "work_item"
-  | "sop";
+  | "sop"
+  | "specification"
+  | "submittal"
+  | "policy"
+  | "change_order";
 
 export type AiOutputType =
   | "summary"
