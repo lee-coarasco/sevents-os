@@ -14,6 +14,23 @@ function bearerToken(header: string | undefined): string | null {
 
 const BUCKET = "attachments";
 
+let bucketChecked = false;
+async function ensureBucket(client: SupabaseClient) {
+  if (bucketChecked) return;
+  try {
+    const { data: bucket, error: getErr } = await client.storage.getBucket(BUCKET);
+    if (!bucket || getErr) {
+      await client.storage.createBucket(BUCKET, {
+        public: true,
+        fileSizeLimit: 50 * 1024 * 1024,
+      });
+    }
+    bucketChecked = true;
+  } catch (err) {
+    console.warn("Storage ensureBucket check:", err);
+  }
+}
+
 export async function storageRoutes(app: FastifyInstance, options: StorageRouteOptions) {
   app.addHook("preHandler", async (request, reply) => {
     if (!bearerToken(request.headers.authorization)) {
@@ -30,9 +47,19 @@ export async function storageRoutes(app: FastifyInstance, options: StorageRouteO
     const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizedName}`;
 
     const client = options.getServiceClient();
-    const { data, error } = await client.storage
+    await ensureBucket(client);
+
+    let { data, error } = await client.storage
       .from(BUCKET)
       .createSignedUploadUrl(storagePath);
+
+    // If bucket was missing, create and retry
+    if (error && error.message.toLowerCase().includes("not found")) {
+      await client.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 50 * 1024 * 1024 });
+      const retry = await client.storage.from(BUCKET).createSignedUploadUrl(storagePath);
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error || !data) {
       reply.code(500);
@@ -72,10 +99,23 @@ export async function storageRoutes(app: FastifyInstance, options: StorageRouteO
     const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}-${originalName}`;
 
     const client = options.getServiceClient();
-    const { error } = await client.storage.from(BUCKET).upload(storagePath, buffer, {
+    await ensureBucket(client);
+
+    let { error } = await client.storage.from(BUCKET).upload(storagePath, buffer, {
       contentType: mimeType,
       upsert: false,
     });
+
+    // If bucket was missing, create and retry
+    if (error && error.message.toLowerCase().includes("not found")) {
+      await client.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 50 * 1024 * 1024 });
+      const retry = await client.storage.from(BUCKET).upload(storagePath, buffer, {
+        contentType: mimeType,
+        upsert: false,
+      });
+      error = retry.error;
+    }
+
     if (error) {
       reply.code(500);
       return { error: `Storage upload failed: ${error.message}` };
