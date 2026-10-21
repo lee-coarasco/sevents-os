@@ -27,6 +27,11 @@ interface Project {
   budget_currency: string | null;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 interface WBSNode {
   id: string;
   parent_wbs_node_id: string | null;
@@ -123,6 +128,7 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { session } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
   const [wbsNodes, setWbsNodes] = useState<WBSNode[] | null>(null);
   const [milestones, setMilestones] = useState<Milestone[] | null>(null);
   const [activities, setActivities] = useState<ScheduleActivity[] | null>(null);
@@ -134,6 +140,7 @@ export function ProjectDetailPage() {
   const [editCode, setEditCode] = useState("");
   const [editStatus, setEditStatus] = useState<ProjectStatus>("active");
   const [editClientName, setEditClientName] = useState("");
+  const [isCustomClient, setIsCustomClient] = useState(false);
   const [editLocation, setEditLocation] = useState("");
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
@@ -186,12 +193,20 @@ export function ProjectDetailPage() {
 
   useEffect(load, [session, id]);
 
+  useEffect(() => {
+    if (!session) return;
+    apiFetch<{ clients: Client[] }>("/crm/clients", session.access_token)
+      .then((d) => setClients(d.clients ?? []))
+      .catch(() => setClients([]));
+  }, [session]);
+
   function startEditProject() {
     if (!project) return;
     setEditName(project.name);
     setEditCode(project.code ?? "");
     setEditStatus(project.status);
     setEditClientName(project.client_name ?? "");
+    setIsCustomClient(false);
     setEditLocation(project.location ?? "");
     setEditStart(project.baseline_start_date ?? "");
     setEditEnd(project.baseline_end_date ?? "");
@@ -456,7 +471,50 @@ export function ProjectDetailPage() {
                       </option>
                     ))}
                   </select>
-                  <input value={editClientName} onChange={(e) => setEditClientName(e.target.value)} placeholder="Client name" className={inputClass} />
+                  {isCustomClient ? (
+                    <div className="flex gap-1">
+                      <input
+                        value={editClientName}
+                        onChange={(e) => setEditClientName(e.target.value)}
+                        placeholder="Enter client name…"
+                        className={`flex-1 ${inputClass}`}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomClient(false)}
+                        className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs text-zinc-500 hover:bg-zinc-50"
+                        title="Select from CRM client list"
+                      >
+                        List
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      aria-label="Client name"
+                      value={editClientName}
+                      onChange={(e) => {
+                        if (e.target.value === "__custom__") {
+                          setIsCustomClient(true);
+                          setEditClientName("");
+                        } else {
+                          setEditClientName(e.target.value);
+                        }
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Select client…</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                      {editClientName && !clients.some((c) => c.name === editClientName) && (
+                        <option value={editClientName}>{editClientName}</option>
+                      )}
+                      <option value="__custom__">+ Enter custom client name…</option>
+                    </select>
+                  )}
                   <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" className={inputClass} />
                   <UserPicker value={editManagerId} onChange={setEditManagerId} placeholder="Project manager…" />
                   <label className="flex flex-col gap-1 text-xs text-zinc-400">

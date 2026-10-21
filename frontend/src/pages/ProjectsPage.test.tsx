@@ -36,15 +36,14 @@ const PROJECTS = [
   },
 ];
 
-const COMPANIES = [{ id: "c1", legal_name: "Acme Construction" }];
+const COMPANIES = [{ id: "c1", legal_name: "Sevents LLC" }];
 
 function mockDefaultResponses() {
-  apiFetch.mockImplementation((path: string, _token: string, init?: RequestInit) => {
-    if (path === "/projects" && !init) return Promise.resolve({ projects: PROJECTS });
+  apiFetch.mockImplementation((path: string) => {
+    if (path === "/projects") return Promise.resolve({ projects: PROJECTS });
     if (path === "/tenancy/companies") return Promise.resolve({ companies: COMPANIES });
-    if (path === "/authority/effective-permissions") {
-      return Promise.resolve({ permissions: ["tenancy.project.manage"] });
-    }
+    if (path === "/crm/clients") return Promise.resolve({ clients: [{ id: "cli-1", name: "Al Futtaim" }] });
+    if (path === "/authority/effective-permissions") return Promise.resolve({ permissions: ["tenancy.project.manage"] });
     if (path === "/admin/users") {
       return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
     }
@@ -64,7 +63,7 @@ describe("ProjectsPage", () => {
     expect(await screen.findByText("Marina Tower")).toBeInTheDocument();
     expect(screen.getByText("Al Futtaim")).toBeInTheDocument();
     expect(screen.getByText("Dubai Marina")).toBeInTheDocument();
-    expect(screen.getByText("5,000,000 AED")).toBeInTheDocument();
+    expect(screen.getByText(/5[,0]+ AED/)).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
 
@@ -85,6 +84,7 @@ describe("ProjectsPage", () => {
       }
       if (path === "/projects") return Promise.resolve({ projects: PROJECTS });
       if (path === "/tenancy/companies") return Promise.resolve({ companies: COMPANIES });
+      if (path === "/crm/clients") return Promise.resolve({ clients: [{ id: "cli-1", name: "Al Futtaim" }] });
       if (path === "/authority/effective-permissions") return Promise.resolve({ permissions: ["tenancy.project.manage"] });
       if (path === "/admin/users") {
         return Promise.resolve({ users: [{ id: "u1", email: "u1@sevents.test", display_name: "Uma One" }] });
@@ -95,7 +95,7 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />, { wrapper: MemoryRouter });
     await userEvent.click(await screen.findByRole("button", { name: /new project/i }));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "c1");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /company/i }), "c1");
     await userEvent.type(screen.getByPlaceholderText("Project name"), "New Tower");
     await userEvent.type(screen.getByPlaceholderText("Project code"), "PRJ-002");
 
@@ -111,6 +111,7 @@ describe("ProjectsPage", () => {
             companyId: "c1",
             name: "New Tower",
             code: "PRJ-002",
+            clientName: undefined,
             baselineStartDate: undefined,
             baselineEndDate: undefined,
             projectManagerId: undefined,

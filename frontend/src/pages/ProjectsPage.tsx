@@ -23,6 +23,11 @@ interface Company {
   legal_name: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 const statusColors: Record<ProjectStatus, string> = {
   active: "bg-emerald-50 text-emerald-700",
   on_hold: "bg-amber-50 text-amber-700",
@@ -44,12 +49,14 @@ export function ProjectsPage() {
   const { session } = useAuth();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [companies, setCompanies] = useState<Company[] | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [clientName, setClientName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [projectManagerId, setProjectManagerId] = useState("");
@@ -70,6 +77,9 @@ export function ProjectsPage() {
     apiFetch<{ companies: Company[] }>("/tenancy/companies", session.access_token)
       .then((data) => setCompanies(data.companies))
       .catch(() => setCompanies([]));
+    apiFetch<{ clients: Client[] }>("/crm/clients", session.access_token)
+      .then((data) => setClients(data.clients ?? []))
+      .catch(() => setClients([]));
   }, [session]);
 
   async function handleCreate(event: FormEvent) {
@@ -84,6 +94,7 @@ export function ProjectsPage() {
           companyId,
           name: name.trim(),
           code: code.trim() || undefined,
+          clientName: clientName.trim() || undefined,
           baselineStartDate: startDate || undefined,
           baselineEndDate: endDate || undefined,
           projectManagerId: projectManagerId || undefined,
@@ -91,6 +102,7 @@ export function ProjectsPage() {
       });
       setName("");
       setCode("");
+      setClientName("");
       setStartDate("");
       setEndDate("");
       setProjectManagerId("");
@@ -127,6 +139,7 @@ export function ProjectsPage() {
           {formError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select
+              aria-label="Company"
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
               className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
@@ -135,6 +148,19 @@ export function ProjectsPage() {
               {companies?.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.legal_name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Client"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            >
+              <option value="">Select client (optional)…</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </select>
@@ -180,7 +206,6 @@ export function ProjectsPage() {
         </form>
       )}
 
-      {projects === null && !error && <p className="text-sm text-zinc-400">Loading…</p>}
       {projects?.length === 0 && <p className="text-sm text-zinc-400">No projects yet.</p>}
 
       {projects && projects.length > 0 && (
