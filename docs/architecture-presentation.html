@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     tailwind.config = {
@@ -53,84 +53,86 @@
       height: 8px;
     }
     ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.6);
+      background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-      background: #334155;
+      background: #94a3b8;
       border-radius: 4px;
     }
-    ::-webkit-scrollbar-thumb:hover {
+    .dark ::-webkit-scrollbar-thumb {
+      background: #334155;
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
       background: #475569;
     }
-    .mermaid-container {
-      overflow: auto;
-      transition: transform 0.2s ease;
-      transform-origin: top left;
+    .mermaid-host svg {
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0 auto;
     }
     @media print {
       body { background: white !important; color: black !important; }
       .no-print { display: none !important; }
-      .mermaid-container { transform: none !important; }
     }
   </style>
 </head>
-<body class="bg-surface-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white">
+<body class="bg-slate-50 text-slate-900 dark:bg-surface-950 dark:text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-200">
 
   <!-- TOP APP NAV / HEADER -->
-  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-surface-950/80 backdrop-blur-md px-6 py-4">
+  <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/90 dark:border-slate-800/80 dark:bg-surface-950/80 backdrop-blur-md px-6 py-4 transition-colors duration-200">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-cyan-400 p-0.5 shadow-lg shadow-brand-500/20">
-          <div class="h-full w-full bg-surface-950 rounded-[10px] flex items-center justify-center">
-            <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+          <div class="h-full w-full bg-white dark:bg-surface-950 rounded-[10px] flex items-center justify-center transition-colors">
+            <i data-lucide="layers" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i>
           </div>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-xl font-display font-bold tracking-tight text-white">SEVENTS OS</h1>
-            <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-full">Architecture Blueprint</span>
-            <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">v2.4 Production Ready</span>
+            <h1 class="text-xl font-display font-bold tracking-tight text-slate-900 dark:text-white">SEVENTS OS</h1>
+            <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/20 rounded-full">Architecture Blueprint</span>
+            <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 rounded-full">v2.4 Production Ready</span>
           </div>
-          <p class="text-xs text-slate-400">Enterprise Construction ERP, Multi-Tenant Governance & Autonomous AI Agents</p>
+          <p class="text-xs text-slate-600 dark:text-slate-400">Enterprise Construction ERP, Multi-Tenant Governance and Autonomous AI Agents</p>
         </div>
       </div>
 
       <!-- Action & View Controls -->
       <div class="flex items-center gap-3 no-print">
-        <button id="themeToggle" class="p-2 rounded-lg border border-slate-800 bg-surface-900 hover:bg-slate-800 text-slate-400 hover:text-white transition" title="Toggle Theme">
+        <button id="themeToggle" class="p-2 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:border-slate-800 dark:bg-surface-900 dark:hover:bg-slate-800 dark:text-slate-300 transition" title="Toggle Light / Dark Mode">
           <i data-lucide="sun" id="sunIcon" class="w-4 h-4 hidden"></i>
           <i data-lucide="moon" id="moonIcon" class="w-4 h-4"></i>
         </button>
 
-        <button onclick="window.print()" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-surface-900 hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition">
+        <button onclick="window.print()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 dark:border-slate-800 dark:bg-surface-900 dark:hover:bg-slate-800 dark:text-slate-300 flex items-center gap-1.5 transition">
           <i data-lucide="printer" class="w-3.5 h-3.5"></i> Export / Print
         </button>
 
-        <a href="#matrix" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md shadow-brand-600/30 flex items-center gap-1.5 transition">
+        <button onclick="switchTab('matrix')" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md shadow-brand-600/30 flex items-center gap-1.5 transition">
           <i data-lucide="compass" class="w-3.5 h-3.5"></i> 38-Module Matrix
-        </a>
+        </button>
       </div>
     </div>
 
     <!-- TAB NAVIGATION BAR -->
-    <div class="max-w-7xl mx-auto mt-4 pt-2 flex items-center gap-2 border-t border-slate-800/60 overflow-x-auto no-print">
-      <button onclick="switchTab('highlevel')" id="tab-btn-highlevel" class="tab-btn active px-4 py-2 rounded-lg text-xs font-medium text-white bg-brand-600/20 text-brand-300 border border-brand-500/30 flex items-center gap-2 transition">
+    <div class="max-w-7xl mx-auto mt-4 pt-2 flex items-center gap-2 border-t border-slate-200 dark:border-slate-800/60 overflow-x-auto no-print">
+      <button onclick="switchTab('highlevel')" id="tab-btn-highlevel" class="tab-btn active px-4 py-2 rounded-lg text-xs font-medium text-brand-700 bg-brand-50 border border-brand-200 dark:bg-brand-600/20 dark:text-brand-300 dark:border-brand-500/30 flex items-center gap-2 transition">
         <i data-lucide="workflow" class="w-4 h-4"></i>
         1. High-Level Executive Lifecycle
       </button>
-      <button onclick="switchTab('detailed')" id="tab-btn-detailed" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-900 border border-transparent flex items-center gap-2 transition">
+      <button onclick="switchTab('detailed')" id="tab-btn-detailed" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent dark:text-slate-400 dark:hover:text-white dark:hover:bg-surface-900 flex items-center gap-2 transition">
         <i data-lucide="git-branch" class="w-4 h-4"></i>
         2. Detailed Technical & Connectivity Flow
       </button>
-      <button onclick="switchTab('ai')" id="tab-btn-ai" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-900 border border-transparent flex items-center gap-2 transition">
+      <button onclick="switchTab('ai')" id="tab-btn-ai" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent dark:text-slate-400 dark:hover:text-white dark:hover:bg-surface-900 flex items-center gap-2 transition">
         <i data-lucide="bot" class="w-4 h-4"></i>
         3. Autonomous AI Agents & Vector RAG
       </button>
-      <button onclick="switchTab('technical-flow')" id="tab-btn-technical-flow" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-900 border border-transparent flex items-center gap-2 transition">
+      <button onclick="switchTab('technical-flow')" id="tab-btn-technical-flow" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent dark:text-slate-400 dark:hover:text-white dark:hover:bg-surface-900 flex items-center gap-2 transition">
         <i data-lucide="drafting-compass" class="w-4 h-4"></i>
         4. Technical Team, CAD/BIM & Estimation
       </button>
-      <button onclick="switchTab('matrix')" id="tab-btn-matrix" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-900 border border-transparent flex items-center gap-2 transition">
+      <button onclick="switchTab('matrix')" id="tab-btn-matrix" class="tab-btn px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent dark:text-slate-400 dark:hover:text-white dark:hover:bg-surface-900 flex items-center gap-2 transition">
         <i data-lucide="table" class="w-4 h-4"></i>
         5. Complete 38-Module Catalogue
       </button>
@@ -146,174 +148,96 @@
     <div id="tab-highlevel" class="tab-pane space-y-8">
       <!-- Executive Summary Cards -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-surface-900/60 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden backdrop-blur-sm">
-          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-blue-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="bg-white border border-slate-200 dark:bg-surface-900/60 dark:border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-blue-400 uppercase tracking-wider">Commercial & Bidding</span>
-            <i data-lucide="briefcase" class="w-4 h-4 text-blue-400"></i>
+            <span class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Commercial & Bidding</span>
+            <i data-lucide="briefcase" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
           </div>
-          <div class="text-2xl font-bold font-display text-white">Stage 01</div>
-          <p class="text-xs text-slate-400 mt-1">Lead acquisition, client register, tender take-offs, cost norm estimation & bid approval matrix.</p>
+          <div class="text-2xl font-bold font-display text-slate-900 dark:text-white">Stage 01</div>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Lead acquisition, client register, tender take-offs, cost norm estimation and bid approval matrix.</p>
         </div>
 
-        <div class="bg-surface-900/60 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden backdrop-blur-sm">
-          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-indigo-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="bg-white border border-slate-200 dark:bg-surface-900/60 dark:border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Engineering & Planning</span>
-            <i data-lucide="compass" class="w-4 h-4 text-indigo-400"></i>
+            <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Engineering & Planning</span>
+            <i data-lucide="compass" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i>
           </div>
-          <div class="text-2xl font-bold font-display text-white">Stage 02</div>
-          <p class="text-xs text-slate-400 mt-1">Project WBS creation, CAD/BIM drawing registers, RFI tracking & IFC controlled release gate.</p>
+          <div class="text-2xl font-bold font-display text-slate-900 dark:text-white">Stage 02</div>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Project WBS creation, CAD/BIM drawing registers, RFI tracking and IFC controlled release gate.</p>
         </div>
 
-        <div class="bg-surface-900/60 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden backdrop-blur-sm">
-          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="bg-white border border-slate-200 dark:bg-surface-900/60 dark:border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Procurement & Field Ops</span>
-            <i data-lucide="truck" class="w-4 h-4 text-amber-400"></i>
+            <span class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Procurement & Field Ops</span>
+            <i data-lucide="truck" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
           </div>
-          <div class="text-2xl font-bold font-display text-white">Stage 03</div>
-          <p class="text-xs text-slate-400 mt-1">RFQ & PO management, multi-warehouse stores, site DPR diary, ITP quality & HSE Safety PTWs.</p>
+          <div class="text-2xl font-bold font-display text-slate-900 dark:text-white">Stage 03</div>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">RFQ & PO management, multi-warehouse stores, site DPR diary, ITP quality and HSE Safety PTWs.</p>
         </div>
 
-        <div class="bg-surface-900/60 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden backdrop-blur-sm">
-          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="bg-white border border-slate-200 dark:bg-surface-900/60 dark:border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Financials & Closeout</span>
-            <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-400"></i>
+            <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Financials & Closeout</span>
+            <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
           </div>
-          <div class="text-2xl font-bold font-display text-white">Stage 04</div>
-          <p class="text-xs text-slate-400 mt-1">Subcontractor claims, progress billing (IPC), cost code budgets, retention release & as-built archives.</p>
+          <div class="text-2xl font-bold font-display text-slate-900 dark:text-white">Stage 04</div>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Subcontractor claims, progress billing (IPC), cost code budgets, retention release and as-built archives.</p>
         </div>
       </div>
 
-      <!-- Diagram Section Header -->
-      <div class="bg-surface-900 border border-slate-800 rounded-2xl p-6">
+      <!-- Diagram Section Container -->
+      <div class="bg-white border border-slate-200 dark:bg-surface-900 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-              <i data-lucide="git-commit" class="w-5 h-5 text-brand-400"></i>
+            <h2 class="text-lg font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i data-lucide="git-commit" class="w-5 h-5 text-brand-600 dark:text-brand-400"></i>
               Executive Lifecycle & Value Chain (High-Level)
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">End-to-end commercial and operational journey from prospective lead to project financial handover.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">End-to-end commercial and operational journey from prospective lead to project financial handover.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <span class="w-2 h-2 rounded-full bg-blue-400"></span> Commercial
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span> Commercial
             </span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <span class="w-2 h-2 rounded-full bg-indigo-400"></span> Engineering
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Engineering
             </span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <span class="w-2 h-2 rounded-full bg-amber-400"></span> Site & Supply
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Site & Supply
             </span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Finance
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Finance
             </span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <span class="w-2 h-2 rounded-full bg-purple-400"></span> AI & Governance
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20">
+              <span class="w-2 h-2 rounded-full bg-purple-500"></span> AI & Core
             </span>
-          </div>
-        </div>
-
-        <!-- High-Level Mermaid Render Container -->
-        <div class="relative bg-surface-950/80 rounded-xl border border-slate-800/80 p-4 overflow-hidden">
-          <div class="mermaid text-center" id="mermaid-highlevel">
-flowchart LR
-    %% STYLING DEFINITIONS
-    classDef commercial fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#eff6ff;
-    classDef engineering fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff;
-    classDef supply fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
-    classDef field fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
-    classDef finance fill:#134e4a,stroke:#14b8a6,stroke-width:2px,color:#ccfbf1;
-    classDef platform fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe;
-    classDef decision fill:#831843,stroke:#ec4899,stroke-width:2px,color:#fce7f3;
-
-    %% SUBGRAPHS / LIFECYCLE PHASES
-    subgraph PHASE1 ["1. COMMERCIAL & TENDER ACQUISITION"]
-        C1["M10: CRM & Client Pipeline<br/>(Opportunities & Site Visits)"]:::commercial
-        C2["M05: Work Items & Norms<br/>(Standard Construction Rates)"]:::commercial
-        C3["M11: Estimation & Tendering<br/>(BOQ, Margin & Risk Matrix)"]:::commercial
-        D1{"Bid / No-Bid<br/>Approval"}:::decision
-        C1 --> C3
-        C2 --> C3
-        C3 --> D1
-    end
-
-    subgraph PHASE2 ["2. PRE-CONSTRUCTION & TECHNICAL CONTROL"]
-        P1["M09: Project Setup & WBS<br/>(Scope, Baseline & Milestones)"]:::engineering
-        E1["M12: Engineering & Design<br/>(Drawings, RFIs & Specs)"]:::engineering
-        E2["M13: Controlled Documents<br/>(IFC Release Gate & Stamp)"]:::engineering
-        D1 -->|Contract Award| P1
-        P1 --> E1
-        E1 --> E2
-    end
-
-    subgraph PHASE3 ["3. SUPPLY CHAIN & FIELD EXECUTION"]
-        S1["M14: Procurement & Vendor RFQ<br/>(POs & Delivery Schedules)"]:::supply
-        S2["M15: Multi-Warehouse Stores<br/>(Stock Ledger, GRN & Wastage)"]:::supply
-        F1["M16: Subcontractor Orders<br/>(Attendance & Measured Works)"]:::field
-        F2["M17: Site Operations & DPR<br/>(Daily Diary, Weather & Photos)"]:::field
-        Q1["M19: Quality & ITP Inspections<br/>(NCRs & Snagging Resolution)"]:::field
-        H1["M20: Safety & PTW Compliance<br/>(Permits, Hazards & Toolbox)"]:::field
-        
-        E2 -->|Approved for Construction| S1
-        E2 -->|Approved for Construction| F1
-        S1 --> S2
-        S2 --> F2
-        F1 --> F2
-        F2 --> Q1
-        F2 --> H1
-    end
-
-    subgraph PHASE4 ["4. COMMERCIAL CLOSEOUT & FINANCIALS"]
-        FIN1["M21: Cost Codes & Budgets<br/>(Actuals, Commitments & Variances)"]:::finance
-        FIN2["M22: Billing & Invoicing<br/>(IPC Claims, Tax Invoices & Retention)"]:::finance
-        FIN3["M23: Contracts & Variations<br/>(Claims, EOT & Final Account)"]:::finance
-        
-        Q1 --> FIN2
-        F2 --> FIN1
-        F1 --> FIN2
-        FIN1 --> FIN2
-        FIN2 --> FIN3
-    end
-
-    subgraph CORE ["CROSS-CUTTING PLATFORM CORE & AUTONOMOUS AI"]
-        W1["M06/M07/M08: Workflow Studio & Delegation Matrix<br/>(SLA Ladders & Dynamic Queues)"]:::platform
-        A1["M28/M29/M30: AI Agent Studio & pgvector Knowledge<br/>(RAG Assistant, ERP Tools & Guardrails)"]:::platform
-        DASH["M32: Executive Cockpit & KPI Dashboard"]:::platform
-    end
-
-    W1 -.->|Enforces Approvals| D1
-    W1 -.->|Orchestrates Tasks| S1
-    W1 -.->|Enforces IFC Gate| E2
-    A1 -.->|Analyzes Drawings & Norms| C3
-    A1 -.->|Detects Schedule Delays| F2
-    A1 -.->|Audits Invoices against POs| FIN2
-    FIN3 -.-> DASH
-    F2 -.-> DASH
           </div>
         </div>
 
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400">
-          <div class="flex items-start gap-2 bg-surface-950/40 p-3 rounded-xl border border-slate-800/60">
-            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+        <!-- Render Target Host -->
+        <div class="bg-slate-100/70 border border-slate-200 dark:bg-surface-950/80 dark:border-slate-800/80 rounded-xl p-4 overflow-x-auto min-h-[420px] flex items-center justify-center">
+          <div id="mermaid-highlevel" class="mermaid-host w-full text-center"></div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-400">
+          <div class="flex items-start gap-2 bg-slate-50 dark:bg-surface-950/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/60">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"></i>
             <div>
-              <strong class="text-slate-200">Strict IFC Release Gate:</strong>
+              <strong class="text-slate-900 dark:text-slate-200">Strict IFC Release Gate:</strong>
               Drawings must be stamped "Issued For Construction" (IFC) via M13 before field purchase orders and subcontractor work orders can be raised.
             </div>
           </div>
-          <div class="flex items-start gap-2 bg-surface-950/40 p-3 rounded-xl border border-slate-800/60">
-            <i data-lucide="zap" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+          <div class="flex items-start gap-2 bg-slate-50 dark:bg-surface-950/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/60">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"></i>
             <div>
-              <strong class="text-slate-200">Real-Time Cost Verification:</strong>
+              <strong class="text-slate-900 dark:text-slate-200">Real-Time Cost Verification:</strong>
               Field deliveries (GRN) and Subcontractor claims automatically accrue against M21 Cost Codes, preventing unbudgeted overruns.
             </div>
           </div>
-          <div class="flex items-start gap-2 bg-surface-950/40 p-3 rounded-xl border border-slate-800/60">
-            <i data-lucide="bot" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+          <div class="flex items-start gap-2 bg-slate-50 dark:bg-surface-950/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/60">
+            <i data-lucide="bot" class="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5"></i>
             <div>
-              <strong class="text-slate-200">Autonomous Copilot:</strong>
+              <strong class="text-slate-900 dark:text-slate-200">Autonomous Copilot:</strong>
               AI Agents assist with BOQ line items, safety incident categorization, and variation drafting with compulsory human approval.
             </div>
           </div>
@@ -325,26 +249,719 @@ flowchart LR
     <!-- TAB 2: DETAILED TECHNICAL ARCHITECTURE & CONNECTIVITY -->
     <!-- ========================================================================= -->
     <div id="tab-detailed" class="tab-pane hidden space-y-8">
-      <div class="bg-surface-900 border border-slate-800 rounded-2xl p-6">
+      <div class="bg-white border border-slate-200 dark:bg-surface-900 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-              <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
+            <h2 class="text-lg font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i data-lucide="cpu" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i>
               Detailed Full-Stack Architectural Topology & Event Connectivity
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Shows Frontend SPA, Fastify API Gateway, Process Automation, Autonomous Agents, and Supabase RLS Storage layers.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="resetDiagramZoom('mermaid-detailed')" class="px-2.5 py-1 rounded bg-surface-800 hover:bg-slate-700 text-xs text-slate-300 transition">Reset View</button>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Shows Frontend SPA, Fastify API Gateway, Process Automation, Autonomous Agents, and Supabase RLS Storage layers.</p>
           </div>
         </div>
 
-        <div class="relative bg-surface-950/80 rounded-xl border border-slate-800/80 p-4 overflow-auto max-h-[850px]">
-          <div class="mermaid" id="mermaid-detailed">
-flowchart TB
-    %% ==========================================
-    %% COLOR SCHEME DEFINITION
-    %% ==========================================
+        <div class="bg-slate-100/70 border border-slate-200 dark:bg-surface-950/80 dark:border-slate-800/80 rounded-xl p-4 overflow-x-auto min-h-[600px] flex items-center justify-center">
+          <div id="mermaid-detailed" class="mermaid-host w-full text-center"></div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+          <div class="bg-slate-50 dark:bg-surface-950/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="font-semibold text-sky-700 dark:text-sky-400 mb-1 flex items-center gap-1.5">
+              <i data-lucide="shield" class="w-4 h-4"></i> Zero-Trust Multi-Tenancy
+            </div>
+            <p class="text-slate-600 dark:text-slate-400">Every single database query enforces <code class="text-sky-800 dark:text-sky-300 font-mono">tenant_id = auth.uid()</code> via PostgreSQL Row-Level Security (RLS). Cross-tenant leakage is mathematically impossible.</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-surface-950/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="font-semibold text-purple-700 dark:text-purple-400 mb-1 flex items-center gap-1.5">
+              <i data-lucide="git-merge" class="w-4 h-4"></i> Version-Pinned Workflows
+            </div>
+            <p class="text-slate-600 dark:text-slate-400">Live workflow instances are pinned to the published schema version active at inception. Re-publishing a workflow never breaks in-flight approvals.</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-surface-950/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="font-semibold text-emerald-700 dark:text-emerald-400 mb-1 flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-4 h-4"></i> Safety Guardrail (Human-in-Loop)
+            </div>
+            <p class="text-slate-600 dark:text-slate-400">Per BRD non-functional requirements, AI agents are strictly advisory for Life Safety (M20) and High-Value Financials (M21/M22). Human confirmation is enforced.</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-surface-950/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="font-semibold text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1.5">
+              <i data-lucide="hard-drive" class="w-4 h-4"></i> Hybrid File Architecture
+            </div>
+            <p class="text-slate-600 dark:text-slate-400">High-volume site photos and CAD drawings bypass Fastify server memory limits (via presigned URLs direct to CDN) while maintaining strict permission-controlled download URLs.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: AUTONOMOUS AI AGENTS & VECTOR RAG -->
+    <!-- ========================================================================= -->
+    <div id="tab-ai" class="tab-pane hidden space-y-8">
+      <div class="bg-white border border-slate-200 dark:bg-surface-900 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div class="mb-6">
+          <h2 class="text-lg font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5 text-emerald-600 dark:text-emerald-400"></i>
+            Autonomous AI Agents, Model Context Protocol (MCP) & Retrieval-Augmented Generation (RAG)
+          </h2>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">How Sevents OS bridges Large Language Models with construction ERP tools, pgvector embeddings, and human audit approval.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <!-- Col 1: RAG Pipeline -->
+          <div class="bg-slate-50 dark:bg-surface-950/70 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-sm mb-3">
+                <i data-lucide="file-search" class="w-4 h-4"></i>
+                1. Vector RAG Pipeline (M28)
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">Contract documents, specs, architectural drawing metadata, and safety regulations are automatically chunked and indexed.</p>
+              
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px]">1</span>
+                  <span>Document Upload & Text Extraction</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px]">2</span>
+                  <span>512-Token Overlapping Semantic Chunking</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px]">3</span>
+                  <span>OpenAI <code class="text-emerald-700 dark:text-emerald-400 font-mono">text-embedding-3-small</code> Vectorization</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px]">4</span>
+                  <span>pgvector Cosine Similarity Match with RLS</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px]">5</span>
+                  <span>Context-Injected Grounded Answer with Citations</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500">
+              Guarantees zero hallucinations by grounding answers strictly in approved tenant records.
+            </div>
+          </div>
+
+          <!-- Col 2: Agent Studio & Tools -->
+          <div class="bg-slate-50 dark:bg-surface-950/70 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold text-sm mb-3">
+                <i data-lucide="boxes" class="w-4 h-4"></i>
+                2. Agent Studio & ERP Tools (M29)
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">Agents are assigned specialized domain roles with strict boundaries and specific ERP tool permissions.</p>
+
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <div class="font-medium text-indigo-700 dark:text-indigo-300">Estimating Copilot</div>
+                  <div class="text-slate-500 dark:text-slate-400 text-[11px]">Tools: <code class="text-indigo-600 dark:text-indigo-400 font-mono">query_catalogue_norms</code>, <code class="text-indigo-600 dark:text-indigo-400 font-mono">calc_boq_margin</code></div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <div class="font-medium text-indigo-700 dark:text-indigo-300">Site Operations Auditor</div>
+                  <div class="text-slate-500 dark:text-slate-400 text-[11px]">Tools: <code class="text-indigo-600 dark:text-indigo-400 font-mono">read_dpr_logs</code>, <code class="text-indigo-600 dark:text-indigo-400 font-mono">flag_weather_delay</code></div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <div class="font-medium text-indigo-700 dark:text-indigo-300">Safety & HSE Screener</div>
+                  <div class="text-slate-500 dark:text-slate-400 text-[11px]">Tools: <code class="text-indigo-600 dark:text-indigo-400 font-mono">classify_hazard_risk</code>, <code class="text-indigo-600 dark:text-indigo-400 font-mono">draft_ptw_conditions</code></div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <div class="font-medium text-indigo-700 dark:text-indigo-300">Commercial Claims Assessor</div>
+                  <div class="text-slate-500 dark:text-slate-400 text-[11px]">Tools: <code class="text-indigo-600 dark:text-indigo-400 font-mono">audit_subcontractor_claim</code>, <code class="text-indigo-600 dark:text-indigo-400 font-mono">diff_po_grn</code></div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500">
+              Built on Model Context Protocol (MCP) standards for clean modularity.
+            </div>
+          </div>
+
+          <!-- Col 3: Human-In-The-Loop Execution -->
+          <div class="bg-slate-50 dark:bg-surface-950/70 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold text-sm mb-3">
+                <i data-lucide="user-check" class="w-4 h-4"></i>
+                3. Human-in-the-Loop & Audit (M30)
+              </div>
+              <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">Autonomous execution runs in sandbox queues with mandatory human approval gates before executing write operations.</p>
+
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <span class="text-rose-700 dark:text-rose-400 font-semibold">Autonomous Advisory Mode:</span>
+                  <p class="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">Agent analyzes inputs, retrieves data, formulates recommendation and drafts the transaction record.</p>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <span class="text-rose-700 dark:text-rose-400 font-semibold">Interception Barrier:</span>
+                  <p class="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">If action modifies financial records or site safety status, agent creates an approval ticket in M07 / M08.</p>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <span class="text-rose-700 dark:text-rose-400 font-semibold">Authorized Sign-off:</span>
+                  <p class="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">Designated role (Project Manager, QS, QHSE Lead) reviews side-by-side diff and provides cryptographic approval.</p>
+                </div>
+                <div class="p-2.5 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-slate-800">
+                  <span class="text-rose-700 dark:text-rose-400 font-semibold">Immutable Telemetry:</span>
+                  <p class="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">Execution steps, token usage, latency, and prompt hashes logged permanently in M35 audit logs.</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500">
+              Complies with Enterprise Governance, ISO 9001 and UAE Federal Safety regulations.
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Orchestration Sequence Render Host -->
+        <div class="bg-slate-100/70 border border-slate-200 dark:bg-surface-950/80 dark:border-slate-800/80 rounded-xl p-4 overflow-x-auto min-h-[480px] flex items-center justify-center">
+          <div id="mermaid-ai" class="mermaid-host w-full text-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: TECHNICAL TEAM, CAD/BIM & ESTIMATION FLOW -->
+    <!-- ========================================================================= -->
+    <div id="tab-technical-flow" class="tab-pane hidden space-y-8">
+      <div class="bg-white border border-slate-200 dark:bg-surface-900 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div class="mb-6">
+          <h2 class="text-lg font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="drafting-compass" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i>
+            Technical Engineering, CAD/BIM & Quantity Surveying Workflow
+          </h2>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Explains where technical team assets (architectural drawings, structural models, RFIs, BOQs, quantity take-offs) live and how they connect to field delivery.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-slate-50 dark:bg-surface-950/70 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="text-indigo-700 dark:text-indigo-400 font-semibold text-sm mb-2 flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4"></i> Technical Team Roles
+            </div>
+            <ul class="text-xs space-y-2 text-slate-700 dark:text-slate-300">
+              <li><strong class="text-slate-900 dark:text-white">Chief Architect & Designers:</strong> Author design briefs, upload CAD/BIM files, manage revision stamps (REV-A, B, C).</li>
+              <li><strong class="text-slate-900 dark:text-white">Quantity Surveyor (QS):</strong> Performs quantity take-offs, links items to M05 Work Catalogue, computes margins.</li>
+              <li><strong class="text-slate-900 dark:text-white">Structural / MEP Engineers:</strong> Issue and resolve RFIs (Requests for Information), inspect site installations against drawings.</li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-50 dark:bg-surface-950/70 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="text-amber-700 dark:text-amber-400 font-semibold text-sm mb-2 flex items-center gap-2">
+              <i data-lucide="stamp" class="w-4 h-4"></i> IFC Gate (M12 / M13)
+            </div>
+            <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              No technical drawing is released to the site until it passes the <strong class="text-slate-900 dark:text-white">Issued for Construction (IFC) Release Gate</strong>. Drawings in "Draft" or "Consultant Review" are locked against site PO issuance to prevent costly structural rework.
+            </p>
+          </div>
+
+          <div class="bg-slate-50 dark:bg-surface-950/70 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div class="text-emerald-700 dark:text-emerald-400 font-semibold text-sm mb-2 flex items-center gap-2">
+              <i data-lucide="calculator" class="w-4 h-4"></i> Work-Item Catalogue (M05)
+            </div>
+            <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              Contains the company's 1,308-row canonical work-item catalogue with standardized labor and material cost norms. Estimators assemble tender bids by picking validated norms rather than guessing rates.
+            </p>
+          </div>
+        </div>
+
+        <!-- Technical Flow Render Host -->
+        <div class="bg-slate-100/70 border border-slate-200 dark:bg-surface-950/80 dark:border-slate-800/80 rounded-xl p-4 overflow-x-auto min-h-[480px] flex items-center justify-center">
+          <div id="mermaid-technical" class="mermaid-host w-full text-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: COMPLETE 38-MODULE CATALOGUE MATRIX -->
+    <!-- ========================================================================= -->
+    <div id="tab-matrix" class="tab-pane hidden space-y-6">
+      <div class="bg-white border border-slate-200 dark:bg-surface-900 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-lg font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i data-lucide="layers" class="w-5 h-5 text-brand-600 dark:text-brand-400"></i>
+              Sevents OS Complete 38-Module Enterprise Matrix
+            </h2>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Comprehensive catalogue mapping all modules across the 8 development phases with connectivity, tables, and roles.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="text" id="moduleFilter" onkeyup="filterModules()" placeholder="Search modules, roles, tables..." class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-xs text-slate-900 placeholder-slate-400 dark:bg-surface-950 dark:border-slate-800 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 w-64 transition">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs border-collapse" id="moduleTable">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 dark:bg-surface-950/90 dark:text-slate-400 dark:border-slate-800 uppercase font-semibold text-[10px] tracking-wider">
+                <th class="py-3 px-4">Code</th>
+                <th class="py-3 px-4">Module Name</th>
+                <th class="py-3 px-4">Phase</th>
+                <th class="py-3 px-4">Core Capabilities</th>
+                <th class="py-3 px-4">Upstream / Downstream Links</th>
+                <th class="py-3 px-4">Key Tables</th>
+                <th class="py-3 px-4">Primary Canonical Roles</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+              <!-- Phase 1 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">M01</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Identity, Auth & Sessions</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 1</span></td>
+                <td class="py-3 px-4">Sign-in, MFA, Session Control, SSO-ready, Security Logs</td>
+                <td class="py-3 px-4">Prerequisite for all modules &rarr; M02, M03</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">auth.users, sessions</td>
+                <td class="py-3 px-4">All Users, System Admin</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">M02</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Multi-Tenancy & Org Setup</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 1</span></td>
+                <td class="py-3 px-4">Company Profile, Branches, Currencies, Fiscal Calendar, RLS Isolation</td>
+                <td class="py-3 px-4">Feeds M03, M09, M21</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">tenants, branches</td>
+                <td class="py-3 px-4">Company Admin</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">M03</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Departments, Roles & Authority</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 1</span></td>
+                <td class="py-3 px-4">Department Tree, Authority Matrix, Approval Limits, Segregation of Duties</td>
+                <td class="py-3 px-4">Enforces security in M06, M08, M14, M22</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">departments, roles, permissions</td>
+                <td class="py-3 px-4">HR Director, C-Suite</td>
+              </tr>
+
+              <!-- Phase 2 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-purple-600 dark:text-purple-400">M05</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Work-Item Catalogue & Norms</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-500/10 dark:text-purple-400 font-mono text-[10px]">Phase 2</span></td>
+                <td class="py-3 px-4">1,308-row canonical work norms, standard unit rates, trade mappings</td>
+                <td class="py-3 px-4">Feeds M11 Estimating, M09 WBS</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">catalogue_work_items</td>
+                <td class="py-3 px-4">Chief QS, Cost Estimator</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-purple-600 dark:text-purple-400">M06</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Workflow Studio & Engine</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-500/10 dark:text-purple-400 font-mono text-[10px]">Phase 2</span></td>
+                <td class="py-3 px-4">React Flow visual DAG builder, BFS validation, version-pinned execution</td>
+                <td class="py-3 px-4">Powers M07, M08, M14, M19, M23</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">workflow_definitions, nodes</td>
+                <td class="py-3 px-4">Platform Admin, Workflow Architect</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-purple-600 dark:text-purple-400">M33</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Master Data & Configuration</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-500/10 dark:text-purple-400 font-mono text-[10px]">Phase 2</span></td>
+                <td class="py-3 px-4">Cost codes, units of measurement, numbering schemes, document classes</td>
+                <td class="py-3 px-4">Global across all functional modules</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">master_data_items, cost_codes</td>
+                <td class="py-3 px-4">Financial Controller, Admin</td>
+              </tr>
+
+              <!-- Phase 3 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M04</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Employee Directory & Workforce</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">Employee profiles, trade skills, safety certifications, project allocations</td>
+                <td class="py-3 px-4">Feeds M07 Tasks, M17 Site Logs</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">employees, employee_skills</td>
+                <td class="py-3 px-4">HR Manager, Project Manager</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M07</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Tasks, My Work & Work Queues</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">Personal/role work inbox, SLA timers, checklists, evidence capture</td>
+                <td class="py-3 px-4">Driven by M06 Workflows</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">tasks, task_assignments</td>
+                <td class="py-3 px-4">All Team Members</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M08</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Approvals & Delegation Matrix</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">Threshold signing limits, parallel/sequential chains, substitute delegates</td>
+                <td class="py-3 px-4">Gates M11, M14, M16, M22</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">approval_requests, delegations</td>
+                <td class="py-3 px-4">Managers, Commercial Directors, CFO</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M09</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Project Register, Scope & WBS</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">Project setup, WBS tree, contract value, baseline schedule, milestones</td>
+                <td class="py-3 px-4">Hub for all construction operations</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">projects, project_wbs</td>
+                <td class="py-3 px-4">Project Director, Planning Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M31</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Notifications & SLA Escalation</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">In-app notifications, email alerts, SLA countdown timers, auto-escalation</td>
+                <td class="py-3 px-4">Triggered by M07, M08, M20</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">notifications, sla_configs</td>
+                <td class="py-3 px-4">All Users</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-sky-600 dark:text-sky-400">M35</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Audit, Security & Retention</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 font-mono text-[10px]">Phase 3</span></td>
+                <td class="py-3 px-4">Append-only immutable audit, state change history, data retention</td>
+                <td class="py-3 px-4">Intercepts all write events system-wide</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">audit_logs, session_logs</td>
+                <td class="py-3 px-4">Compliance Officer, Auditor</td>
+              </tr>
+
+              <!-- Phase 4 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">M10</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Client, CRM & Sales Pipeline</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 4</span></td>
+                <td class="py-3 px-4">Client registry, opportunity stages, site inspection notes, conversion</td>
+                <td class="py-3 px-4">Converts to M11 Tender & M09 Project</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">crm_clients, crm_opportunities</td>
+                <td class="py-3 px-4">Business Dev, Sales Manager</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">M11</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Tendering & Commercial Estimating</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 4</span></td>
+                <td class="py-3 px-4">Tender documents, BOQ creation, margin analysis, bid/no-bid decision</td>
+                <td class="py-3 px-4">Uses M05 norms &rarr; creates M09 Budget</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">tenders, estimates, boq_items</td>
+                <td class="py-3 px-4">Commercial Director, Chief QS</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">M12</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Engineering, CAD/BIM & RFIs</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 4</span></td>
+                <td class="py-3 px-4">Drawing registers, revision tracking (REV-A/B/C), technical RFIs</td>
+                <td class="py-3 px-4">Gates M13 IFC & Site Procurement</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">engineering_drawings, rfis</td>
+                <td class="py-3 px-4">Chief Architect, MEP Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">M13</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Controlled Documents (IFC Gate)</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 4</span></td>
+                <td class="py-3 px-4">IFC stamping, transmittals, digital signatures, CDN storage</td>
+                <td class="py-3 px-4">Required before M14 POs & M16 Subcontracts</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">controlled_documents</td>
+                <td class="py-3 px-4">Document Controller</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">M18</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Lookahead Planning & Delay Tracking</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400 font-mono text-[10px]">Phase 4</span></td>
+                <td class="py-3 px-4">3-week lookaheads, critical path analysis, delay cause logging (EOT)</td>
+                <td class="py-3 px-4">Feeds M17 Site & M23 Claims</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">lookaheads, delay_logs</td>
+                <td class="py-3 px-4">Planning Engineer, Project Manager</td>
+              </tr>
+
+              <!-- Phase 5 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M14</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Procurement & Vendor Orders</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Material requisitions, RFQs, vendor quote comparison, PO issuance</td>
+                <td class="py-3 px-4">Delivers to M15 Stores & M21 Budgets</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">purchase_orders, vendors</td>
+                <td class="py-3 px-4">Procurement Manager, Buyer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M15</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Inventory, Stores & GRN</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Multi-site stock ledger, Good Receipt Notes (GRN), store issues, wastage</td>
+                <td class="py-3 px-4">Receives from M14 &rarr; M22 3-way match</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">inventory_items, grn_receipts</td>
+                <td class="py-3 px-4">Storekeeper, Logistics Lead</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M16</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Subcontractor & Manpower Ops</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Subcontract work orders, daily biometric attendance, measured claims</td>
+                <td class="py-3 px-4">Verified by M17 & billed in M22</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">subcontractor_work_orders, claims</td>
+                <td class="py-3 px-4">Quantity Surveyor, Site Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M17</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Site Operations & Daily Progress (DPR)</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Daily site diary, weather conditions, manpower count, progress photos</td>
+                <td class="py-3 px-4">Validates M16 claims, M18 schedules</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">site_diaries, dpr_logs</td>
+                <td class="py-3 px-4">Site Manager, Site Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M19</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Quality, Inspection & NCR</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Inspection Test Plans (ITP), Non-Conformance Reports (NCR), snags</td>
+                <td class="py-3 px-4">Prerequisite for M22 Progress Billing</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">quality_itp, ncrs</td>
+                <td class="py-3 px-4">QA/QC Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-rose-600 dark:text-rose-400">M20</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Safety, Incidents & PTW</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Permit to Work (PTW), hazard observations, safety incident root causes</td>
+                <td class="py-3 px-4">Life-safety gate (human authority strictly enforced)</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">safety_incidents, ptws</td>
+                <td class="py-3 px-4">HSE Manager, Safety Officer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">M25</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Equipment, Plant & Fleet</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 font-mono text-[10px]">Phase 5</span></td>
+                <td class="py-3 px-4">Heavy machinery register, maintenance logs, utilization, certificates</td>
+                <td class="py-3 px-4">Allocated to M09 projects</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">equipment_fleet, maintenance_logs</td>
+                <td class="py-3 px-4">Plant & Equipment Manager</td>
+              </tr>
+
+              <!-- Phase 6 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M21</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Finance, Budgets & Cost Control</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Cost codes, committed costs, actuals vs budget, cash flow projections</td>
+                <td class="py-3 px-4">Aggregates M14, M15, M16, M22</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">project_budgets, cost_actuals</td>
+                <td class="py-3 px-4">CFO, Financial Controller</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M22</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Billing, Invoicing & Receivables</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Interim Payment Certificates (IPC), tax invoices, retention release</td>
+                <td class="py-3 px-4">Driven by M17 progress & M19 sign-offs</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">invoices, payment_claims</td>
+                <td class="py-3 px-4">Senior Accountant, Billing Specialist</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M23</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Contracts, Claims & Variations</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Contract repository, Variation Orders (VO), Extension of Time (EOT)</td>
+                <td class="py-3 px-4">Updates M09 contract value & M21 budgets</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">contracts, variation_orders</td>
+                <td class="py-3 px-4">Commercial Director, Legal Counsel</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M24</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">People, HR & Appraisals</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Recruitment, competency reviews, visa/labor cards, leaves, appraisals</td>
+                <td class="py-3 px-4">Connects with M04 Directory</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">people_appraisals, training</td>
+                <td class="py-3 px-4">HR Director</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M26</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Communications & Meeting Minutes</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Site progress meetings (MOM), action item extraction, client notices</td>
+                <td class="py-3 px-4">Generates M07 Tasks & M23 Notices</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">meeting_minutes, action_items</td>
+                <td class="py-3 px-4">Project Coordinator</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">M27</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Legal, Permits & Compliance</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
+                <td class="py-3 px-4">Municipality building permits, environmental licenses, expiry alerts</td>
+                <td class="py-3 px-4">Prerequisite for site mobilization</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">legal_permits, licenses</td>
+                <td class="py-3 px-4">Corporate Legal Counsel</td>
+              </tr>
+
+              <!-- Phase 7 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">M28</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">AI Knowledge Assistant (RAG)</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400 font-mono text-[10px]">Phase 7</span></td>
+                <td class="py-3 px-4">pgvector semantic search, contract RAG queries, document embeddings</td>
+                <td class="py-3 px-4">Queries M09, M12, M13, M23 data</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">knowledge_documents, embeddings</td>
+                <td class="py-3 px-4">All Knowledge Workers</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">M29</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">AI Agent Studio & Tool Registry</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400 font-mono text-[10px]">Phase 7</span></td>
+                <td class="py-3 px-4">Agent configuration, tool policy mapping (MCP), prompt templates</td>
+                <td class="py-3 px-4">Direct safe interface into ERP modules</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">ai_agents, ai_tools</td>
+                <td class="py-3 px-4">AI Admin, Operations Architect</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">M30</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Agent Runs & Human-in-Loop Review</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400 font-mono text-[10px]">Phase 7</span></td>
+                <td class="py-3 px-4">Telemetry tracking, step replay, safety overrides, human approval</td>
+                <td class="py-3 px-4">Logged directly into M35 Audit</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">ai_agent_runs, ai_agent_steps</td>
+                <td class="py-3 px-4">Authorized Human Reviewers</td>
+              </tr>
+
+              <!-- Phase 8 -->
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">M32</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Dashboards & KPI Executive Builder</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-500/10 dark:text-slate-400 font-mono text-[10px]">Phase 8</span></td>
+                <td class="py-3 px-4">Cross-project portfolio KPIs, cost variance, schedule SPI/CPI charts</td>
+                <td class="py-3 px-4">Aggregates metrics from M09, M17, M21</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">dashboard_widgets, kpi_metrics</td>
+                <td class="py-3 px-4">CEO, Managing Director, Project Heads</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">M34</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Integrations & Webhooks Engine</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-500/10 dark:text-slate-400 font-mono text-[10px]">Phase 8</span></td>
+                <td class="py-3 px-4">REST Webhooks, external accounting exports, biometric attendance feeds</td>
+                <td class="py-3 px-4">External bridges into M15, M16, M21</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">integration_configs, webhooks</td>
+                <td class="py-3 px-4">IT Director, Integration Architect</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">M36</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Platform Admin & Maintenance</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-500/10 dark:text-slate-400 font-mono text-[10px]">Phase 8</span></td>
+                <td class="py-3 px-4">Tenant feature flags, background job monitoring, cache eviction</td>
+                <td class="py-3 px-4">System-wide operational controls</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">platform_settings, feature_flags</td>
+                <td class="py-3 px-4">Super Admin, DevOps Engineer</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">M37</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Mobile PWA & Offline Site Mode</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-500/10 dark:text-slate-400 font-mono text-[10px]">Phase 8</span></td>
+                <td class="py-3 px-4">Offline service worker cache, local draft queue, background sync</td>
+                <td class="py-3 px-4">Powers field capture for M17, M19, M20</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">IndexedDB local storage</td>
+                <td class="py-3 px-4">Field Engineers, Foremen</td>
+              </tr>
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3 px-4 font-mono font-bold text-slate-600 dark:text-slate-400">M38</td>
+                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">Migration & Data Quality Wizard</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-500/10 dark:text-slate-400 font-mono text-[10px]">Phase 8</span></td>
+                <td class="py-3 px-4">Excel/CSV mass onboarding, dry-run schema validation, rollback capability</td>
+                <td class="py-3 px-4">Seeds M02, M04, M05, M09, M33</td>
+                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">migration_jobs, import_errors</td>
+                <td class="py-3 px-4">Implementation Specialist</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 dark:border-slate-800/80 py-6 text-center text-xs text-slate-500 transition-colors">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-2">
+      <div>SEVENTS OS — Architecture Blueprint & Stakeholder Presentation</div>
+      <div>Confidential & Proprietary • Built with Fastify, React, Supabase & pgvector</div>
+    </div>
+  </footer>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // =========================================================================
+    // MERMAID DIAGRAM SOURCE DEFINITIONS (100% Syntax Cleaned & Validated)
+    // =========================================================================
+    const DIAGRAMS = {
+      'mermaid-highlevel': `flowchart LR
+    %% CLASS DEFINITIONS
+    classDef commercial fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#eff6ff;
+    classDef engineering fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff;
+    classDef supply fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
+    classDef field fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
+    classDef finance fill:#134e4a,stroke:#14b8a6,stroke-width:2px,color:#ccfbf1;
+    classDef platform fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe;
+    classDef decision fill:#831843,stroke:#ec4899,stroke-width:2px,color:#fce7f3;
+
+    %% STAGE 1: COMMERCIAL
+    subgraph PHASE1 ["1. COMMERCIAL AND TENDER ACQUISITION"]
+        C1["M10: CRM and Client Pipeline<br/>(Opportunities and Site Visits)"]:::commercial
+        C2["M05: Work Items and Norms<br/>(Standard Construction Rates)"]:::commercial
+        C3["M11: Estimation and Tendering<br/>(BOQ, Margin and Risk Matrix)"]:::commercial
+        D1{"Bid / No-Bid<br/>Approval"}:::decision
+        C1 --> C3
+        C2 --> C3
+        C3 --> D1
+    end
+
+    %% STAGE 2: ENGINEERING
+    subgraph PHASE2 ["2. PRE-CONSTRUCTION AND TECHNICAL CONTROL"]
+        P1["M09: Project Setup and WBS<br/>(Scope, Baseline and Milestones)"]:::engineering
+        E1["M12: Engineering and Design<br/>(Drawings, RFIs and Specs)"]:::engineering
+        E2["M13: Controlled Documents<br/>(IFC Release Gate and Stamp)"]:::engineering
+        D1 -->|Contract Award| P1
+        P1 --> E1
+        E1 --> E2
+    end
+
+    %% STAGE 3: SUPPLY & FIELD
+    subgraph PHASE3 ["3. SUPPLY CHAIN AND FIELD EXECUTION"]
+        S1["M14: Procurement and Vendor RFQ<br/>(POs and Delivery Schedules)"]:::supply
+        S2["M15: Multi-Warehouse Stores<br/>(Stock Ledger, GRN and Wastage)"]:::supply
+        F1["M16: Subcontractor Orders<br/>(Attendance and Measured Works)"]:::field
+        F2["M17: Site Operations and DPR<br/>(Daily Diary, Weather and Photos)"]:::field
+        Q1["M19: Quality and ITP Inspections<br/>(NCRs and Snagging Resolution)"]:::field
+        H1["M20: Safety and PTW Compliance<br/>(Permits, Hazards and Toolbox)"]:::field
+        
+        E2 -->|Approved for Construction| S1
+        E2 -->|Approved for Construction| F1
+        S1 --> S2
+        S2 --> F2
+        F1 --> F2
+        F2 --> Q1
+        F2 --> H1
+    end
+
+    %% STAGE 4: FINANCE
+    subgraph PHASE4 ["4. COMMERCIAL CLOSEOUT AND FINANCIALS"]
+        FIN1["M21: Cost Codes and Budgets<br/>(Actuals, Commitments and Variances)"]:::finance
+        FIN2["M22: Billing and Invoicing<br/>(IPC Claims, Tax Invoices and Retention)"]:::finance
+        FIN3["M23: Contracts and Variations<br/>(Claims, EOT and Final Account)"]:::finance
+        
+        Q1 --> FIN2
+        F2 --> FIN1
+        F1 --> FIN2
+        FIN1 --> FIN2
+        FIN2 --> FIN3
+    end
+
+    %% PLATFORM CORE
+    subgraph CORE ["CROSS-CUTTING PLATFORM CORE AND AUTONOMOUS AI"]
+        W1["M06/M07/M08: Workflow Studio and Delegation Matrix<br/>(SLA Ladders and Dynamic Queues)"]:::platform
+        A1["M28/M29/M30: AI Agent Studio and pgvector Knowledge<br/>(RAG Assistant, ERP Tools and Guardrails)"]:::platform
+        DASH["M32: Executive Cockpit and KPI Dashboard"]:::platform
+    end
+
+    W1 -. Enforces Approvals .-> D1
+    W1 -. Orchestrates Tasks .-> S1
+    W1 -. Enforces IFC Gate .-> E2
+    A1 -. Analyzes Drawings and Norms .-> C3
+    A1 -. Detects Schedule Delays .-> F2
+    A1 -. Audits Invoices against POs .-> FIN2
+    FIN3 --> DASH
+    F2 --> DASH`,
+
+      'mermaid-detailed': `flowchart TB
+    %% CLASS DEFINITIONS
     classDef clientLayer fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef apiLayer fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
     classDef workflowLayer fill:#311042,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
@@ -352,68 +969,56 @@ flowchart TB
     classDef dbLayer fill:#1f2937,stroke:#fbbf24,stroke-width:2px,color:#f8fafc;
     classDef secLayer fill:#881337,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
 
-    %% ==========================================
     %% LAYER 1: CLIENT APPLICATION TIER
-    %% ==========================================
-    subgraph L1 ["LAYER 1: ENTERPRISE CLIENT APPLICATION (React 18 + Vite + Tailwind)"]
-        UI_WEB["Executive & Engineering Web Portal<br/>(Projects, CRM, Tenders, CAD Registers, Billing)"]:::clientLayer
-        UI_FLOW["Visual Workflow & DAG Studio<br/>(React Flow Canvas, Node Palette, BFS Validation)"]:::clientLayer
-        UI_AGENT["AI Agent Studio & Knowledge Hub<br/>(Chat Copilot, Prompt Playground, Document Search)"]:::clientLayer
-        UI_FIELD["Field Operations & Offline PWA<br/>(Site Diary, ITP Snags, PTW Sign-off, Photo Upload)"]:::clientLayer
+    subgraph L1 ["LAYER 1: ENTERPRISE CLIENT APPLICATION (React 18, Vite, Tailwind)"]
+        UI_WEB["Executive and Engineering Web Portal<br/>(Projects, CRM, Tenders, CAD Registers, Billing)"]:::clientLayer
+        UI_FLOW["Visual Workflow and DAG Studio<br/>(React Flow Canvas, Node Palette, BFS Validation)"]:::clientLayer
+        UI_AGENT["AI Agent Studio and Knowledge Hub<br/>(Chat Copilot, Prompt Playground, Document Search)"]:::clientLayer
+        UI_FIELD["Field Operations and Offline PWA<br/>(Site Diary, ITP Snags, PTW Sign-off, Photo Upload)"]:::clientLayer
     end
 
-    %% ==========================================
-    %% LAYER 2: FASTIFY API GATEWAY & MICRO-SERVICES
-    %% ==========================================
-    subgraph L2 ["LAYER 2: BACKEND API GATEWAY (Node.js 20 + Fastify 5 REST Framework)"]
-        GW_AUTH["Auth & Session Controller<br/>(JWT, MFA, Tenant Resolution)"]:::secLayer
-        GW_SEC["Permission & Role Guard (RBAC)<br/>(Authority Matrix, Value Approval Limits)"]:::secLayer
-        GW_STREAM["Direct Storage Streamer & CDN Signer<br/>(50MB BodyLimit, Presigned S3/Supabase URLs)"]:::apiLayer
+    %% LAYER 2: BACKEND API GATEWAY
+    subgraph L2 ["LAYER 2: BACKEND API GATEWAY (Node.js 20, Fastify 5 REST Framework)"]
+        GW_AUTH["Auth and Session Controller<br/>(JWT, MFA, Tenant Resolution)"]:::secLayer
+        GW_SEC["Permission and Role Guard (RBAC)<br/>(Authority Matrix, Value Approval Limits)"]:::secLayer
+        GW_STREAM["Direct Storage Streamer and CDN Signer<br/>(50MB BodyLimit, Presigned S3/Supabase URLs)"]:::apiLayer
 
         subgraph SVCS ["Micro-Domain Route Controllers"]
             API_COMM["Commercial API<br/>(/crm, /tendering, /estimating)"]:::apiLayer
             API_ENG["Engineering API<br/>(/projects, /engineering, /documents)"]:::apiLayer
             API_OPS["Field Operations API<br/>(/procurement, /inventory, /site, /quality, /safety)"]:::apiLayer
-            API_FIN["Finance & Contracts API<br/>(/finance, /billing, /contracts)"]:::apiLayer
+            API_FIN["Finance and Contracts API<br/>(/finance, /billing, /contracts)"]:::apiLayer
         end
     end
 
-    %% ==========================================
-    %% LAYER 3: WORKFLOW ENGINE & QUEUES
-    %% ==========================================
-    subgraph L3 ["LAYER 3: PROCESS AUTOMATION & WORKFLOW RUNTIME"]
-        WF_RUNTIME["M06: Workflow DAG Runtime<br/>(Breadth-First Node Stepper & Version Pinned Execution)"]:::workflowLayer
-        WF_RULES["Condition & Expression Engine<br/>(Evaluates Contract Value, Budget Variance, Delays)"]:::workflowLayer
-        WF_TASKS["M07: Dynamic Role Task Queues<br/>(Personal & Department Queues, Escalation Ladders)"]:::workflowLayer
+    %% LAYER 3: WORKFLOW ENGINE
+    subgraph L3 ["LAYER 3: PROCESS AUTOMATION AND WORKFLOW RUNTIME"]
+        WF_RUNTIME["M06: Workflow DAG Runtime<br/>(Breadth-First Node Stepper and Version Pinned Execution)"]:::workflowLayer
+        WF_RULES["Condition and Expression Engine<br/>(Evaluates Contract Value, Budget Variance, Delays)"]:::workflowLayer
+        WF_TASKS["M07: Dynamic Role Task Queues<br/>(Personal and Department Queues, Escalation Ladders)"]:::workflowLayer
         WF_MATRIX["M08: Immutable Approvals Matrix<br/>(Sequential/Parallel Chains, Segregation of Duties)"]:::workflowLayer
     end
 
-    %% ==========================================
-    %% LAYER 4: AUTONOMOUS AI & AGENT STUDIO
-    %% ==========================================
-    subgraph L4 ["LAYER 4: ENTERPRISE AI & AUTONOMOUS AGENT ORCHESTRATION"]
-        RAG_CORE["M28: AI Knowledge Assistant<br/>(Semantic Document Ingestion & Text Chunking)"]:::agentLayer
+    %% LAYER 4: AUTONOMOUS AI
+    subgraph L4 ["LAYER 4: ENTERPRISE AI AND AUTONOMOUS AGENT ORCHESTRATION"]
+        RAG_CORE["M28: AI Knowledge Assistant<br/>(Semantic Document Ingestion and Text Chunking)"]:::agentLayer
         VECTOR_INDEX["pgvector High-Dimensional Index<br/>(1536-dim Embeddings, Cosine Similarity Search)"]:::agentLayer
-        AGENT_STUDIO["M29: Agent Studio & LLM Router<br/>(OpenAI GPT-4o / Azure / Anthropic / Gemini Pro)"]:::agentLayer
-        TOOL_REG["ERP Tool Registry & MCP Connectors<br/>(Check Stock, Read WBS, Verify Cost Codes, Draft RFIs)"]:::agentLayer
+        AGENT_STUDIO["M29: Agent Studio and LLM Router<br/>(OpenAI GPT-4o, Azure, Anthropic, Gemini Pro)"]:::agentLayer
+        TOOL_REG["ERP Tool Registry and MCP Connectors<br/>(Check Stock, Read WBS, Verify Cost Codes, Draft RFIs)"]:::agentLayer
         HITL_GUARD["M30: Human-in-the-Loop Interceptor<br/>(Safety Invariant Guardrail, Financial Threshold Check)"]:::agentLayer
     end
 
-    %% ==========================================
-    %% LAYER 5: DATA PERSISTENCE & STORAGE TIER
-    %% ==========================================
-    subgraph L5 ["LAYER 5: SUPABASE POSTGRESQL & MULTI-TENANT STORAGE CLOUD"]
+    %% LAYER 5: DATA PERSISTENCE
+    subgraph L5 ["LAYER 5: SUPABASE POSTGRESQL AND MULTI-TENANT STORAGE CLOUD"]
         DB_RLS["PostgreSQL 16 with Row-Level Security<br/>(Strict tenant_id Isolation across 38 Schemas)"]:::dbLayer
         DB_BLOB["Supabase Storage Buckets CDN<br/>(Controlled Drawings, Site Evidence Photos, Submissions)"]:::dbLayer
         DB_AUDIT["Append-Only Tamper Evident Audit Log<br/>(SHA-256 Checksums, User Sign-offs, State Diffs)"]:::secLayer
     end
 
-    %% ==========================================
-    %% INTER-LAYER CONNECTIVITY FLOWS
-    %% ==========================================
-    UI_WEB -->|HTTP / REST + Bearer Token| GW_AUTH
+    %% CONNECTIONS
+    UI_WEB -->|HTTP REST + Bearer Token| GW_AUTH
     UI_FLOW -->|JSON DAG Graph State| GW_AUTH
-    UI_AGENT -->|RAG Queries & Tool Invocations| GW_AUTH
+    UI_AGENT -->|RAG Queries and Tool Invocations| GW_AUTH
     UI_FIELD -->|Offline Sync / Multipart| GW_STREAM
 
     GW_AUTH --> GW_SEC
@@ -441,161 +1046,9 @@ flowchart TB
     TOOL_REG -->|Direct Safe ERP API Read/Write| SVCS
     TOOL_REG --> HITL_GUARD
     HITL_GUARD -->|Approved Actions Only| WF_RUNTIME
-    HITL_GUARD -.->|Audit Trail| DB_AUDIT
-          </div>
-        </div>
+    HITL_GUARD -. Audit Trail .-> DB_AUDIT`,
 
-        <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-          <div class="bg-surface-950/60 p-3.5 rounded-xl border border-slate-800">
-            <div class="font-semibold text-sky-400 mb-1 flex items-center gap-1.5">
-              <i data-lucide="shield" class="w-4 h-4"></i> Zero-Trust Multi-Tenancy
-            </div>
-            <p class="text-slate-400">Every single database query enforces <code class="text-sky-300">tenant_id = auth.uid()</code> via PostgreSQL Row-Level Security (RLS). Cross-tenant leakage is mathematically impossible.</p>
-          </div>
-          <div class="bg-surface-950/60 p-3.5 rounded-xl border border-slate-800">
-            <div class="font-semibold text-purple-400 mb-1 flex items-center gap-1.5">
-              <i data-lucide="git-merge" class="w-4 h-4"></i> Version-Pinned Workflows
-            </div>
-            <p class="text-slate-400">Live workflow instances are pinned to the published schema version active at inception. Re-publishing a workflow never breaks in-flight approvals.</p>
-          </div>
-          <div class="bg-surface-950/60 p-3.5 rounded-xl border border-slate-800">
-            <div class="font-semibold text-emerald-400 mb-1 flex items-center gap-1.5">
-              <i data-lucide="lock" class="w-4 h-4"></i> Safety Guardrail (Human-in-Loop)
-            </div>
-            <p class="text-slate-400">Per BRD non-functional requirements, AI agents are strictly advisory for Life Safety (M20) and High-Value Financials (M21/M22). Human confirmation is enforced.</p>
-          </div>
-          <div class="bg-surface-950/60 p-3.5 rounded-xl border border-slate-800">
-            <div class="font-semibold text-amber-400 mb-1 flex items-center gap-1.5">
-              <i data-lucide="hard-drive" class="w-4 h-4"></i> Hybrid File Architecture
-            </div>
-            <p class="text-slate-400">High-volume site photos and CAD drawings bypass Fastify server memory limits (via presigned URLs direct to CDN) while maintaining strict permission-controlled download URLs.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================================================= -->
-    <!-- TAB 3: AUTONOMOUS AI AGENTS & VECTOR RAG -->
-    <!-- ========================================================================= -->
-    <div id="tab-ai" class="tab-pane hidden space-y-8">
-      <div class="bg-surface-900 border border-slate-800 rounded-2xl p-6">
-        <div class="mb-6">
-          <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-            <i data-lucide="sparkles" class="w-5 h-5 text-emerald-400"></i>
-            Autonomous AI Agents, Model Context Protocol (MCP) & Retrieval-Augmented Generation (RAG)
-          </h2>
-          <p class="text-xs text-slate-400 mt-0.5">How Sevents OS bridges Large Language Models with construction ERP tools, pgvector embeddings, and human audit approval.</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Col 1: RAG Pipeline -->
-          <div class="bg-surface-950/70 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center gap-2 text-emerald-400 font-semibold text-sm mb-3">
-                <i data-lucide="file-search" class="w-4 h-4"></i>
-                1. Vector RAG Pipeline (M28)
-              </div>
-              <p class="text-xs text-slate-400 mb-4">Contract documents, specs, architectural drawing metadata, and safety regulations are automatically chunked and indexed.</p>
-              
-              <div class="space-y-2 text-xs">
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800 flex items-center gap-2 text-slate-300">
-                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">1</span>
-                  <span>Document Upload & Text Extraction (OCR)</span>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800 flex items-center gap-2 text-slate-300">
-                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">2</span>
-                  <span>512-Token Overlapping Semantic Chunking</span>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800 flex items-center gap-2 text-slate-300">
-                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">3</span>
-                  <span>OpenAI <code class="text-emerald-400">text-embedding-3-small</code> Vectorization</span>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800 flex items-center gap-2 text-slate-300">
-                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">4</span>
-                  <span>pgvector Cosine Similarity Match with RLS</span>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800 flex items-center gap-2 text-slate-300">
-                  <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">5</span>
-                  <span>Context-Injected Grounded Answer with Citations</span>
-                </div>
-              </div>
-            </div>
-            <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
-              Guarantees zero hallucinations by grounding answers strictly in approved tenant records.
-            </div>
-          </div>
-
-          <!-- Col 2: Agent Studio & Tools -->
-          <div class="bg-surface-950/70 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center gap-2 text-indigo-400 font-semibold text-sm mb-3">
-                <i data-lucide="boxes" class="w-4 h-4"></i>
-                2. Agent Studio & ERP Tools (M29)
-              </div>
-              <p class="text-xs text-slate-400 mb-4">Agents are assigned specialized domain roles with strict boundaries and specific ERP tool permissions.</p>
-
-              <div class="space-y-2 text-xs">
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <div class="font-medium text-indigo-300">Estimating Copilot</div>
-                  <div class="text-slate-400 text-[11px]">Tools: <code class="text-indigo-400">query_catalogue_norms</code>, <code class="text-indigo-400">calc_boq_margin</code></div>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <div class="font-medium text-indigo-300">Site Operations Auditor</div>
-                  <div class="text-slate-400 text-[11px]">Tools: <code class="text-indigo-400">read_dpr_logs</code>, <code class="text-indigo-400">flag_weather_delay</code></div>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <div class="font-medium text-indigo-300">Safety & HSE Screener</div>
-                  <div class="text-slate-400 text-[11px]">Tools: <code class="text-indigo-400">classify_hazard_risk</code>, <code class="text-indigo-400">draft_ptw_conditions</code></div>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <div class="font-medium text-indigo-300">Commercial Claims Assessor</div>
-                  <div class="text-slate-400 text-[11px]">Tools: <code class="text-indigo-400">audit_subcontractor_claim</code>, <code class="text-indigo-400">diff_po_grn</code></div>
-                </div>
-              </div>
-            </div>
-            <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
-              Built on Model Context Protocol (MCP) standards for clean modularity.
-            </div>
-          </div>
-
-          <!-- Col 3: Human-In-The-Loop Execution -->
-          <div class="bg-surface-950/70 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center gap-2 text-rose-400 font-semibold text-sm mb-3">
-                <i data-lucide="user-check" class="w-4 h-4"></i>
-                3. Human-in-the-Loop & Audit (M30)
-              </div>
-              <p class="text-xs text-slate-400 mb-4">Autonomous execution runs in sandbox queues with mandatory human approval gates before executing write operations.</p>
-
-              <div class="space-y-2 text-xs">
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <span class="text-rose-400 font-semibold">Autonomous Advisory Mode:</span>
-                  <p class="text-slate-400 text-[11px] mt-0.5">Agent analyzes inputs, retrieves data, formulates recommendation & drafts the transaction record.</p>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <span class="text-rose-400 font-semibold">Interception Barrier:</span>
-                  <p class="text-slate-400 text-[11px] mt-0.5">If action modifies financial records or site safety status, agent creates an approval ticket in M07 / M08.</p>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <span class="text-rose-400 font-semibold">Authorized Sign-off:</span>
-                  <p class="text-slate-400 text-[11px] mt-0.5">Designated role (Project Manager, QS, QHSE Lead) reviews side-by-side diff and provides cryptographic approval.</p>
-                </div>
-                <div class="p-2.5 rounded-lg bg-surface-900 border border-slate-800">
-                  <span class="text-rose-400 font-semibold">Immutable Telemetry:</span>
-                  <p class="text-slate-400 text-[11px] mt-0.5">Execution steps, token usage, latency, and prompt hashes logged permanently in M35 audit logs.</p>
-                </div>
-              </div>
-            </div>
-            <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-500">
-              Complies with Enterprise Governance, ISO 9001 and UAE Federal Safety regulations.
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Orchestration Mermaid Diagram -->
-        <div class="mt-6 bg-surface-950/80 rounded-xl border border-slate-800/80 p-4">
-          <div class="mermaid" id="mermaid-ai">
-sequenceDiagram
+      'mermaid-ai': `sequenceDiagram
     autonumber
     actor User as Engineer / QS User
     participant UI as Agent Studio / Chat UI
@@ -606,109 +1059,58 @@ sequenceDiagram
     participant Human as Project Manager (Approver)
     participant DB as Postgres RLS Database
 
-    User->>UI: "Analyze variation claim #04 against drawing REV-C"
+    User->>UI: Analyze variation claim #04 against drawing REV-C
     UI->>API: POST /api/v1/ai/agents/execute
-    API->>Agent: Initialize Task Context & Policy Limits
+    API->>Agent: Initialize Task Context and Policy Limits
     Agent->>Vector: Cosine Search: Drawing REV-C specifications
-    Vector-->>Agent: Relevant clauses & measurement specs
+    Vector-->>Agent: Relevant clauses and measurement specs
     Agent->>Tools: Invoke tool: query_contract_boq(project_id)
     Tools->>DB: Query boq_items table
-    DB-->>Tools: Contract item rates & quantities
+    DB-->>Tools: Contract item rates and quantities
     Tools-->>Agent: BOQ unit rates
-    Agent->>Agent: Calculate rate variance & claim validity
+    Agent->>Agent: Calculate rate variance and claim validity
     
     alt Needs Write or Financial Approval
         Agent->>API: Create Pending Approval Ticket (M08)
-        API->>Human: Push Notification & SLA Timer
-        Human->>UI: Review Side-by-Side Agent Analysis & Approve
+        API->>Human: Push Notification and SLA Timer
+        Human->>UI: Review Side-by-Side Agent Analysis and Approve
         UI->>API: POST /api/v1/approvals/sign-off
         API->>DB: Commit Variation Order record (M23)
     else Advisory Query
         Agent->>UI: Stream Structured Response with Citations
     end
-    Agent->>DB: Save Telemetry, Prompts & Audit Trace (M35)
-          </div>
-        </div>
-      </div>
-    </div>
+    Agent->>DB: Save Telemetry, Prompts and Audit Trace (M35)`,
 
-    <!-- ========================================================================= -->
-    <!-- TAB 4: TECHNICAL TEAM, CAD/BIM & ESTIMATION FLOW -->
-    <!-- ========================================================================= -->
-    <div id="tab-technical-flow" class="tab-pane hidden space-y-8">
-      <div class="bg-surface-900 border border-slate-800 rounded-2xl p-6">
-        <div class="mb-6">
-          <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-            <i data-lucide="drafting-compass" class="w-5 h-5 text-indigo-400"></i>
-            Technical Engineering, CAD/BIM & Quantity Surveying Workflow
-          </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Explains where technical team assets (architectural drawings, structural models, RFIs, BOQs, quantity take-offs) live and how they connect to field delivery.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div class="bg-surface-950/70 p-4 rounded-xl border border-slate-800">
-            <div class="text-indigo-400 font-semibold text-sm mb-2 flex items-center gap-2">
-              <i data-lucide="file-text" class="w-4 h-4"></i> Technical Team Roles
-            </div>
-            <ul class="text-xs space-y-2 text-slate-300">
-              <li><strong class="text-white">Chief Architect & Designers:</strong> Author design briefs, upload CAD/BIM files, manage revision stamps (REV-A, B, C).</li>
-              <li><strong class="text-white">Quantity Surveyor (QS):</strong> Performs quantity take-offs, links items to M05 Work Catalogue, computes margins.</li>
-              <li><strong class="text-white">Structural / MEP Engineers:</strong> Issue and resolve RFIs (Requests for Information), inspect site installations against drawings.</li>
-            </ul>
-          </div>
-
-          <div class="bg-surface-950/70 p-4 rounded-xl border border-slate-800">
-            <div class="text-amber-400 font-semibold text-sm mb-2 flex items-center gap-2">
-              <i data-lucide="stamp" class="w-4 h-4"></i> IFC Gate (M12 / M13)
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">
-              No technical drawing is released to the site until it passes the <strong class="text-white">Issued for Construction (IFC) Release Gate</strong>. Drawings in "Draft" or "Consultant Review" are locked against site PO issuance to prevent costly structural rework.
-            </p>
-          </div>
-
-          <div class="bg-surface-950/70 p-4 rounded-xl border border-slate-800">
-            <div class="text-emerald-400 font-semibold text-sm mb-2 flex items-center gap-2">
-              <i data-lucide="calculator" class="w-4 h-4"></i> Work-Item Catalogue (M05)
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">
-              Contains the company's 1,308-row canonical work-item catalogue with standardized labor and material cost norms. Estimators assemble tender bids by picking validated norms rather than guessing rates.
-            </p>
-          </div>
-        </div>
-
-        <!-- Technical Flow Mermaid -->
-        <div class="bg-surface-950/80 rounded-xl border border-slate-800/80 p-4">
-          <div class="mermaid" id="mermaid-technical">
-flowchart TD
+      'mermaid-technical': `flowchart TD
     classDef arch fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
     classDef qs fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
     classDef gate fill:#881337,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
     classDef site fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
 
-    subgraph ARCH_STAGE ["A. ARCHITECTURAL & ENGINEERING DESIGN (M12)"]
-        T1["Architectural & MEP Brief Received"]:::arch
-        T2["CAD / BIM Drawing Upload & Revision Indexing<br/>(File Storage + Hash Verification)"]:::arch
-        T3["Technical RFIs (Requests for Information)<br/>(Consultant Query & Clarification Cycle)"]:::arch
+    subgraph ARCH_STAGE ["A. ARCHITECTURAL AND ENGINEERING DESIGN (M12)"]
+        T1["Architectural and MEP Brief Received"]:::arch
+        T2["CAD / BIM Drawing Upload and Revision Indexing<br/>(File Storage and Hash Verification)"]:::arch
+        T3["Technical RFIs (Requests for Information)<br/>(Consultant Query and Clarification Cycle)"]:::arch
         T1 --> T2
-        T2 <--> T3
+        T2 --- T3
     end
 
-    subgraph QS_STAGE ["B. QUANTITY SURVEYING & ESTIMATION (M05 & M11)"]
+    subgraph QS_STAGE ["B. QUANTITY SURVEYING AND ESTIMATION (M05 AND M11)"]
         Q1["Extract Quantities (Take-off from Drawings)"]:::qs
-        Q2["Match Items to M05 Work-Item Catalogue<br/>(1,308 Standard Labor & Material Norms)"]:::qs
-        Q3["Generate Commercial BOQ & Margin Analysis<br/>(Tender Submission Package)"]:::qs
+        Q2["Match Items to M05 Work-Item Catalogue<br/>(1,308 Standard Labor and Material Norms)"]:::qs
+        Q3["Generate Commercial BOQ and Margin Analysis<br/>(Tender Submission Package)"]:::qs
         T2 --> Q1
         Q1 --> Q2
         Q2 --> Q3
     end
 
     subgraph IFC_GATE ["C. TECHNICAL GOVERNANCE GATE (M13)"]
-        G1{"Consultant & PM<br/>IFC Approval Stamp?"}:::gate
+        G1{"Consultant and PM<br/>IFC Approval Stamp?"}:::gate
         T3 --> G1
         Q3 --> G1
     end
 
-    subgraph FIELD_STAGE ["D. DOWNSTREAM REQUISITION & FIELD HANDOVER (M14 & M17)"]
+    subgraph FIELD_STAGE ["D. DOWNSTREAM REQUISITION AND FIELD HANDOVER (M14 AND M17)"]
         S1["Approved Drawings Automatically Synced to Site PWA"]:::site
         S2["Procurement Generates Material Requisitions (M14)"]:::site
         S3["Subcontractor Work Orders Bound to Drawing Revision (M16)"]:::site
@@ -719,448 +1121,129 @@ flowchart TD
         G1 -->|APPROVED: IFC Stamped| S3
         S1 --> S4
         S3 --> S4
-        G1 -.->|REJECTED / REVISE| T2
-    end
-          </div>
-        </div>
-      </div>
-    </div>
+        G1 -. REJECTED / REVISE .-> T2
+    end`
+    };
 
-    <!-- ========================================================================= -->
-    <!-- TAB 5: COMPLETE 38-MODULE CATALOGUE MATRIX -->
-    <!-- ========================================================================= -->
-    <div id="tab-matrix" class="tab-pane hidden space-y-6">
-      <div class="bg-surface-900 border border-slate-800 rounded-2xl p-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-              <i data-lucide="layers" class="w-5 h-5 text-brand-400"></i>
-              Sevents OS Complete 38-Module Enterprise Matrix
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Comprehensive catalogue mapping all modules across the 8 development phases with connectivity, tables, and roles.</p>
-          </div>
-          <div class="flex items-center gap-3">
-            <input type="text" id="moduleFilter" onkeyup="filterModules()" placeholder="Search modules, roles, tables..." class="px-3.5 py-1.5 rounded-lg bg-surface-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 w-64 transition">
-          </div>
-        </div>
+    // =========================================================================
+    // DYNAMIC LIGHT / DARK THEME COLOR ADAPTER FOR MERMAID
+    // =========================================================================
+    function adaptDiagramForTheme(code, isDark) {
+      if (isDark) return code;
+      // In light mode, adjust dark fill colors to clean, high-contrast light tints
+      return code
+        .replace(/fill:#1e3a8a/g, 'fill:#dbeafe')
+        .replace(/stroke:#3b82f6/g, 'stroke:#2563eb')
+        .replace(/color:#eff6ff/g, 'color:#1e3a8a')
 
-        <div class="overflow-x-auto rounded-xl border border-slate-800">
-          <table class="w-full text-left text-xs border-collapse" id="moduleTable">
-            <thead>
-              <tr class="bg-surface-950/90 text-slate-400 border-b border-slate-800 uppercase font-semibold text-[10px] tracking-wider">
-                <th class="py-3 px-4">Code</th>
-                <th class="py-3 px-4">Module Name</th>
-                <th class="py-3 px-4">Phase</th>
-                <th class="py-3 px-4">Core Capabilities</th>
-                <th class="py-3 px-4">Upstream / Downstream Links</th>
-                <th class="py-3 px-4">Key Tables</th>
-                <th class="py-3 px-4">Primary Canonical Roles</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
-              <!-- Phase 1 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-indigo-400">M01</td>
-                <td class="py-3 px-4 font-semibold text-white">Identity, Auth & Sessions</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 1</span></td>
-                <td class="py-3 px-4">Sign-in, MFA, Session Control, SSO-ready, Security Logs</td>
-                <td class="py-3 px-4">Prerequisite for all modules &rarr; M02, M03</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">auth.users, sessions</td>
-                <td class="py-3 px-4">All Users, System Admin</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-indigo-400">M02</td>
-                <td class="py-3 px-4 font-semibold text-white">Multi-Tenancy & Org Setup</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 1</span></td>
-                <td class="py-3 px-4">Company Profile, Branches, Currencies, Fiscal Calendar, RLS Isolation</td>
-                <td class="py-3 px-4">Feeds M03, M09, M21</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">tenants, branches</td>
-                <td class="py-3 px-4">Company Admin</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-indigo-400">M03</td>
-                <td class="py-3 px-4 font-semibold text-white">Departments, Roles & Authority</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 1</span></td>
-                <td class="py-3 px-4">Department Tree, Authority Matrix, Approval Limits, Segregation of Duties</td>
-                <td class="py-3 px-4">Enforces security in M06, M08, M14, M22</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">departments, roles, permissions</td>
-                <td class="py-3 px-4">HR Director, C-Suite</td>
-              </tr>
+        .replace(/fill:#312e81/g, 'fill:#e0e7ff')
+        .replace(/stroke:#6366f1/g, 'stroke:#4f46e5')
+        .replace(/color:#e0e7ff/g, 'color:#312e81')
 
-              <!-- Phase 2 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-purple-400">M05</td>
-                <td class="py-3 px-4 font-semibold text-white">Work-Item Catalogue & Norms</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-mono text-[10px]">Phase 2</span></td>
-                <td class="py-3 px-4">1,308-row canonical work norms, standard unit rates, trade mappings</td>
-                <td class="py-3 px-4">Feeds M11 Estimating, M09 WBS</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">catalogue_work_items</td>
-                <td class="py-3 px-4">Chief QS, Cost Estimator</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-purple-400">M06</td>
-                <td class="py-3 px-4 font-semibold text-white">Workflow Studio & Engine</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-mono text-[10px]">Phase 2</span></td>
-                <td class="py-3 px-4">React Flow visual DAG builder, BFS validation, version-pinned execution</td>
-                <td class="py-3 px-4">Powers M07, M08, M14, M19, M23</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">workflow_definitions, nodes</td>
-                <td class="py-3 px-4">Platform Admin, Workflow Architect</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-purple-400">M33</td>
-                <td class="py-3 px-4 font-semibold text-white">Master Data & Configuration</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-mono text-[10px]">Phase 2</span></td>
-                <td class="py-3 px-4">Cost codes, units of measurement, numbering schemes, document classes</td>
-                <td class="py-3 px-4">Global across all functional modules</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">master_data_items, cost_codes</td>
-                <td class="py-3 px-4">Financial Controller, Admin</td>
-              </tr>
+        .replace(/fill:#78350f/g, 'fill:#fef3c7')
+        .replace(/stroke:#f59e0b/g, 'stroke:#d97706')
+        .replace(/color:#fef3c7/g, 'color:#78350f')
 
-              <!-- Phase 3 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M04</td>
-                <td class="py-3 px-4 font-semibold text-white">Employee Directory & Workforce</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">Employee profiles, trade skills, safety certifications, project allocations</td>
-                <td class="py-3 px-4">Feeds M07 Tasks, M17 Site Logs</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">employees, employee_skills</td>
-                <td class="py-3 px-4">HR Manager, Project Manager</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M07</td>
-                <td class="py-3 px-4 font-semibold text-white">Tasks, My Work & Work Queues</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">Personal/role work inbox, SLA timers, checklists, evidence capture</td>
-                <td class="py-3 px-4">Driven by M06 Workflows</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">tasks, task_assignments</td>
-                <td class="py-3 px-4">All Team Members</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M08</td>
-                <td class="py-3 px-4 font-semibold text-white">Approvals & Delegation Matrix</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">Threshold signing limits, parallel/sequential chains, substitute delegates</td>
-                <td class="py-3 px-4">Gates M11, M14, M16, M22</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">approval_requests, delegations</td>
-                <td class="py-3 px-4">Managers, Commercial Directors, CFO</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M09</td>
-                <td class="py-3 px-4 font-semibold text-white">Project Register, Scope & WBS</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">Project setup, WBS tree, contract value, baseline schedule, milestones</td>
-                <td class="py-3 px-4">Hub for all construction operations</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">projects, project_wbs</td>
-                <td class="py-3 px-4">Project Director, Planning Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M31</td>
-                <td class="py-3 px-4 font-semibold text-white">Notifications & SLA Escalation</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">In-app notifications, email alerts, SLA countdown timers, auto-escalation</td>
-                <td class="py-3 px-4">Triggered by M07, M08, M20</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">notifications, sla_configs</td>
-                <td class="py-3 px-4">All Users</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-sky-400">M35</td>
-                <td class="py-3 px-4 font-semibold text-white">Audit, Security & Retention</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px]">Phase 3</span></td>
-                <td class="py-3 px-4">Append-only immutable audit, state change history, data retention</td>
-                <td class="py-3 px-4">Intercepts all write events system-wide</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">audit_logs, session_logs</td>
-                <td class="py-3 px-4">Compliance Officer, Auditor</td>
-              </tr>
+        .replace(/fill:#064e3b/g, 'fill:#d1fae5')
+        .replace(/stroke:#10b981/g, 'stroke:#059669')
+        .replace(/stroke:#34d399/g, 'stroke:#059669')
+        .replace(/color:#ecfdf5/g, 'color:#064e3b')
 
-              <!-- Phase 4 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-blue-400">M10</td>
-                <td class="py-3 px-4 font-semibold text-white">Client, CRM & Sales Pipeline</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 4</span></td>
-                <td class="py-3 px-4">Client registry, opportunity stages, site inspection notes, conversion</td>
-                <td class="py-3 px-4">Converts to M11 Tender & M09 Project</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">crm_clients, crm_opportunities</td>
-                <td class="py-3 px-4">Business Dev, Sales Manager</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-blue-400">M11</td>
-                <td class="py-3 px-4 font-semibold text-white">Tendering & Commercial Estimating</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 4</span></td>
-                <td class="py-3 px-4">Tender documents, BOQ creation, margin analysis, bid/no-bid decision</td>
-                <td class="py-3 px-4">Uses M05 norms &rarr; creates M09 Budget</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">tenders, estimates, boq_items</td>
-                <td class="py-3 px-4">Commercial Director, Chief QS</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-blue-400">M12</td>
-                <td class="py-3 px-4 font-semibold text-white">Engineering, CAD/BIM & RFIs</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 4</span></td>
-                <td class="py-3 px-4">Drawing registers, revision tracking (REV-A/B/C), technical RFIs</td>
-                <td class="py-3 px-4">Gates M13 IFC & Site Procurement</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">engineering_drawings, rfis</td>
-                <td class="py-3 px-4">Chief Architect, MEP Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-blue-400">M13</td>
-                <td class="py-3 px-4 font-semibold text-white">Controlled Documents (IFC Gate)</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 4</span></td>
-                <td class="py-3 px-4">IFC stamping, transmittals, digital signatures, CDN storage</td>
-                <td class="py-3 px-4">Required before M14 POs & M16 Subcontracts</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">controlled_documents</td>
-                <td class="py-3 px-4">Document Controller</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-blue-400">M18</td>
-                <td class="py-3 px-4 font-semibold text-white">Lookahead Planning & Delay Tracking</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono text-[10px]">Phase 4</span></td>
-                <td class="py-3 px-4">3-week lookaheads, critical path analysis, delay cause logging (EOT)</td>
-                <td class="py-3 px-4">Feeds M17 Site & M23 Claims</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">lookaheads, delay_logs</td>
-                <td class="py-3 px-4">Planning Engineer, Project Manager</td>
-              </tr>
+        .replace(/fill:#134e4a/g, 'fill:#ccfbf1')
+        .replace(/stroke:#14b8a6/g, 'stroke:#0d9488')
+        .replace(/color:#ccfbf1/g, 'color:#134e4a')
 
-              <!-- Phase 5 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M14</td>
-                <td class="py-3 px-4 font-semibold text-white">Procurement & Vendor Orders</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Material requisitions, RFQs, vendor quote comparison, PO issuance</td>
-                <td class="py-3 px-4">Delivers to M15 Stores & M21 Budgets</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">purchase_orders, vendors</td>
-                <td class="py-3 px-4">Procurement Manager, Buyer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M15</td>
-                <td class="py-3 px-4 font-semibold text-white">Inventory, Stores & GRN</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Multi-site stock ledger, Good Receipt Notes (GRN), store issues, wastage</td>
-                <td class="py-3 px-4">Receives from M14 &rarr; M22 3-way match</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">inventory_items, grn_receipts</td>
-                <td class="py-3 px-4">Storekeeper, Logistics Lead</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M16</td>
-                <td class="py-3 px-4 font-semibold text-white">Subcontractor & Manpower Ops</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Subcontract work orders, daily biometric attendance, measured claims</td>
-                <td class="py-3 px-4">Verified by M17 & billed in M22</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">subcontractor_work_orders, claims</td>
-                <td class="py-3 px-4">Quantity Surveyor, Site Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M17</td>
-                <td class="py-3 px-4 font-semibold text-white">Site Operations & Daily Progress (DPR)</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Daily site diary, weather conditions, manpower count, progress photos</td>
-                <td class="py-3 px-4">Validates M16 claims, M18 schedules</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">site_diaries, dpr_logs</td>
-                <td class="py-3 px-4">Site Manager, Site Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M19</td>
-                <td class="py-3 px-4 font-semibold text-white">Quality, Inspection & NCR</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Inspection Test Plans (ITP), Non-Conformance Reports (NCR), snags</td>
-                <td class="py-3 px-4">Prerequisite for M22 Progress Billing</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">quality_itp, ncrs</td>
-                <td class="py-3 px-4">QA/QC Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-rose-400">M20</td>
-                <td class="py-3 px-4 font-semibold text-white">Safety, Incidents & PTW</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Permit to Work (PTW), hazard observations, safety incident root causes</td>
-                <td class="py-3 px-4">Life-safety gate (human authority strictly enforced)</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">safety_incidents, ptws</td>
-                <td class="py-3 px-4">HSE Manager, Safety Officer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-amber-400">M25</td>
-                <td class="py-3 px-4 font-semibold text-white">Equipment, Plant & Fleet</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">Phase 5</span></td>
-                <td class="py-3 px-4">Heavy machinery register, maintenance logs, utilization, certificates</td>
-                <td class="py-3 px-4">Allocated to M09 projects</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">equipment_fleet, maintenance_logs</td>
-                <td class="py-3 px-4">Plant & Equipment Manager</td>
-              </tr>
+        .replace(/fill:#4c1d95/g, 'fill:#ede9fe')
+        .replace(/stroke:#8b5cf6/g, 'stroke:#7c3aed')
+        .replace(/color:#ede9fe/g, 'color:#4c1d95')
 
-              <!-- Phase 6 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M21</td>
-                <td class="py-3 px-4 font-semibold text-white">Finance, Budgets & Cost Control</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Cost codes, committed costs, actuals vs budget, cash flow projections</td>
-                <td class="py-3 px-4">Aggregates M14, M15, M16, M22</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">project_budgets, cost_actuals</td>
-                <td class="py-3 px-4">CFO, Financial Controller</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M22</td>
-                <td class="py-3 px-4 font-semibold text-white">Billing, Invoicing & Receivables</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Interim Payment Certificates (IPC), tax invoices, retention release</td>
-                <td class="py-3 px-4">Driven by M17 progress & M19 sign-offs</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">invoices, payment_claims</td>
-                <td class="py-3 px-4">Senior Accountant, Billing Specialist</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M23</td>
-                <td class="py-3 px-4 font-semibold text-white">Contracts, Claims & Variations</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Contract repository, Variation Orders (VO), Extension of Time (EOT)</td>
-                <td class="py-3 px-4">Updates M09 contract value & M21 budgets</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">contracts, variation_orders</td>
-                <td class="py-3 px-4">Commercial Director, Legal Counsel</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M24</td>
-                <td class="py-3 px-4 font-semibold text-white">People, HR & Appraisals</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Recruitment, competency reviews, visa/labor cards, leaves, appraisals</td>
-                <td class="py-3 px-4">Connects with M04 Directory</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">people_appraisals, training</td>
-                <td class="py-3 px-4">HR Director</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M26</td>
-                <td class="py-3 px-4 font-semibold text-white">Communications & Meeting Minutes</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Site progress meetings (MOM), action item extraction, client notices</td>
-                <td class="py-3 px-4">Generates M07 Tasks & M23 Notices</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">meeting_minutes, action_items</td>
-                <td class="py-3 px-4">Project Coordinator</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-emerald-400">M27</td>
-                <td class="py-3 px-4 font-semibold text-white">Legal, Permits & Compliance</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px]">Phase 6</span></td>
-                <td class="py-3 px-4">Municipality building permits, environmental licenses, expiry alerts</td>
-                <td class="py-3 px-4">Prerequisite for site mobilization</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">legal_permits, licenses</td>
-                <td class="py-3 px-4">Corporate Legal Counsel</td>
-              </tr>
+        .replace(/fill:#831843/g, 'fill:#fce7f3')
+        .replace(/stroke:#ec4899/g, 'stroke:#db2777')
+        .replace(/color:#fce7f3/g, 'color:#831843')
 
-              <!-- Phase 7 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-teal-400">M28</td>
-                <td class="py-3 px-4 font-semibold text-white">AI Knowledge Assistant (RAG)</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono text-[10px]">Phase 7</span></td>
-                <td class="py-3 px-4">pgvector semantic search, contract RAG queries, document embeddings</td>
-                <td class="py-3 px-4">Queries M09, M12, M13, M23 data</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">knowledge_documents, embeddings</td>
-                <td class="py-3 px-4">All Knowledge Workers</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-teal-400">M29</td>
-                <td class="py-3 px-4 font-semibold text-white">AI Agent Studio & Tool Registry</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono text-[10px]">Phase 7</span></td>
-                <td class="py-3 px-4">Agent configuration, tool policy mapping (MCP), prompt templates</td>
-                <td class="py-3 px-4">Direct safe interface into ERP modules</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">ai_agents, ai_tools</td>
-                <td class="py-3 px-4">AI Admin, Operations Architect</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-teal-400">M30</td>
-                <td class="py-3 px-4 font-semibold text-white">Agent Runs & Human-in-Loop Review</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono text-[10px]">Phase 7</span></td>
-                <td class="py-3 px-4">Telemetry tracking, step replay, safety overrides, human approval</td>
-                <td class="py-3 px-4">Logged directly into M35 Audit</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">ai_agent_runs, ai_agent_steps</td>
-                <td class="py-3 px-4">Authorized Human Reviewers</td>
-              </tr>
+        .replace(/fill:#0f172a/g, 'fill:#f1f5f9')
+        .replace(/stroke:#38bdf8/g, 'stroke:#0284c7')
+        .replace(/color:#f8fafc/g, 'color:#0f172a')
 
-              <!-- Phase 8 -->
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-slate-400">M32</td>
-                <td class="py-3 px-4 font-semibold text-white">Dashboards & KPI Executive Builder</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 font-mono text-[10px]">Phase 8</span></td>
-                <td class="py-3 px-4">Cross-project portfolio KPIs, cost variance, schedule SPI/CPI charts</td>
-                <td class="py-3 px-4">Aggregates metrics from M09, M17, M21</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">dashboard_widgets, kpi_metrics</td>
-                <td class="py-3 px-4">CEO, Managing Director, Project Heads</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-slate-400">M34</td>
-                <td class="py-3 px-4 font-semibold text-white">Integrations & Webhooks Engine</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 font-mono text-[10px]">Phase 8</span></td>
-                <td class="py-3 px-4">REST Webhooks, external accounting exports, biometric attendance feeds</td>
-                <td class="py-3 px-4">External bridges into M15, M16, M21</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">integration_configs, webhooks</td>
-                <td class="py-3 px-4">IT Director, Integration Architect</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-slate-400">M36</td>
-                <td class="py-3 px-4 font-semibold text-white">Platform Admin & Maintenance</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 font-mono text-[10px]">Phase 8</span></td>
-                <td class="py-3 px-4">Tenant feature flags, background job monitoring, cache eviction</td>
-                <td class="py-3 px-4">System-wide operational controls</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">platform_settings, feature_flags</td>
-                <td class="py-3 px-4">Super Admin, DevOps Engineer</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-slate-400">M37</td>
-                <td class="py-3 px-4 font-semibold text-white">Mobile PWA & Offline Site Mode</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 font-mono text-[10px]">Phase 8</span></td>
-                <td class="py-3 px-4">Offline service worker cache, local draft queue, background sync</td>
-                <td class="py-3 px-4">Powers field capture for M17, M19, M20</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">IndexedDB local storage</td>
-                <td class="py-3 px-4">Field Engineers, Foremen</td>
-              </tr>
-              <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-mono font-bold text-slate-400">M38</td>
-                <td class="py-3 px-4 font-semibold text-white">Migration & Data Quality Wizard</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 font-mono text-[10px]">Phase 8</span></td>
-                <td class="py-3 px-4">Excel/CSV mass onboarding, dry-run schema validation, rollback capability</td>
-                <td class="py-3 px-4">Seeds M02, M04, M05, M09, M33</td>
-                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">migration_jobs, import_errors</td>
-                <td class="py-3 px-4">Implementation Specialist</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        .replace(/fill:#1e1b4b/g, 'fill:#eef2ff')
+        .replace(/stroke:#818cf8/g, 'stroke:#4f46e5')
 
-  </main>
+        .replace(/fill:#311042/g, 'fill:#fae8ff')
+        .replace(/stroke:#c084fc/g, 'stroke:#9333ea')
 
-  <!-- FOOTER -->
-  <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-2">
-      <div>SEVENTS OS — Architecture Blueprint & Stakeholder Presentation</div>
-      <div>Confidential & Proprietary • Built with Fastify, React, Supabase & pgvector</div>
-    </div>
-  </footer>
+        .replace(/fill:#1f2937/g, 'fill:#f3f4f6')
+        .replace(/stroke:#fbbf24/g, 'stroke:#d97706')
 
-  <script>
-    // Initialize Lucide Icons
-    lucide.createIcons();
+        .replace(/fill:#881337/g, 'fill:#ffe4e6')
+        .replace(/stroke:#f43f5e/g, 'stroke:#e11d48');
+    }
 
-    // Initialize Mermaid with dark theme
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      themeVariables: {
-        darkMode: true,
-        background: '#090d16',
-        primaryColor: '#1e1b4b',
-        primaryTextColor: '#f8fafc',
-        primaryBorderColor: '#6366f1',
-        lineColor: '#64748b',
-        secondaryColor: '#0f172a',
-        tertiaryColor: '#1e293b'
-      },
-      flowchart: {
-        curve: 'basis',
-        htmlLabels: true
+    // =========================================================================
+    // ROBUST ASYNC MERMAID RENDERER
+    // =========================================================================
+    let renderCounter = 0;
+    async function renderDiagram(targetId) {
+      const host = document.getElementById(targetId);
+      if (!host) return;
+
+      const isDark = document.documentElement.classList.contains('dark');
+      const rawCode = DIAGRAMS[targetId];
+      if (!rawCode) return;
+
+      const adaptedCode = adaptDiagramForTheme(rawCode, isDark);
+
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: isDark ? 'dark' : 'default',
+        themeVariables: isDark ? {
+          darkMode: true,
+          background: '#090d16',
+          primaryColor: '#1e1b4b',
+          primaryTextColor: '#f8fafc',
+          primaryBorderColor: '#6366f1',
+          lineColor: '#64748b'
+        } : {
+          darkMode: false,
+          background: '#ffffff',
+          primaryColor: '#e0e7ff',
+          primaryTextColor: '#0f172a',
+          primaryBorderColor: '#6366f1',
+          lineColor: '#94a3b8'
+        },
+        flowchart: {
+          curve: 'basis',
+          htmlLabels: true
+        }
+      });
+
+      renderCounter++;
+      const uniqueSvgId = `svg-${targetId}-${renderCounter}`;
+
+      try {
+        const { svg } = await mermaid.render(uniqueSvgId, adaptedCode);
+        host.innerHTML = svg;
+      } catch (err) {
+        console.error(`Mermaid render failed for ${targetId}:`, err);
+        host.innerHTML = `<div class="p-4 text-xs font-mono text-rose-500 bg-rose-50 dark:bg-rose-950/30 rounded-lg border border-rose-200 dark:border-rose-900/40">Render Error: ${err.message}</div>`;
       }
-    });
+    }
 
-    // Tab Switching Functionality
+    // Active Tab Tracking & Render Dispatcher
+    let currentActiveTab = 'highlevel';
+    const TAB_DIAGRAMS = {
+      'highlevel': ['mermaid-highlevel'],
+      'detailed': ['mermaid-detailed'],
+      'ai': ['mermaid-ai'],
+      'technical-flow': ['mermaid-technical'],
+      'matrix': []
+    };
+
     function switchTab(tabId) {
+      currentActiveTab = tabId;
       document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
       document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active', 'bg-brand-600/20', 'text-brand-300', 'border-brand-500/30');
-        btn.classList.add('text-slate-400', 'border-transparent');
+        btn.classList.remove('active', 'bg-brand-50', 'text-brand-700', 'border-brand-200', 'dark:bg-brand-600/20', 'dark:text-brand-300', 'dark:border-brand-500/30');
+        btn.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100', 'dark:text-slate-400', 'dark:hover:text-white', 'dark:hover:bg-surface-900', 'border-transparent');
       });
 
       const activePane = document.getElementById(`tab-${tabId}`);
@@ -1168,13 +1251,43 @@ flowchart TD
 
       const activeBtn = document.getElementById(`tab-btn-${tabId}`);
       if (activeBtn) {
-        activeBtn.classList.add('active', 'bg-brand-600/20', 'text-brand-300', 'border-brand-500/30');
-        activeBtn.classList.remove('text-slate-400', 'border-transparent');
+        activeBtn.classList.add('active', 'bg-brand-50', 'text-brand-700', 'border-brand-200', 'dark:bg-brand-600/20', 'dark:text-brand-300', 'dark:border-brand-500/30');
+        activeBtn.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100', 'dark:text-slate-400', 'dark:hover:text-white', 'dark:hover:bg-surface-900', 'border-transparent');
       }
 
-      // Re-trigger icon rendering
+      // Re-trigger icon rendering & render diagrams in this tab
       lucide.createIcons();
+      const diagrams = TAB_DIAGRAMS[tabId] || [];
+      diagrams.forEach(diagId => renderDiagram(diagId));
     }
+
+    // =========================================================================
+    // THEME TOGGLE (LIGHT / DARK)
+    // =========================================================================
+    const themeToggleBtn = document.getElementById('themeToggle');
+    const sunIcon = document.getElementById('sunIcon');
+    const moonIcon = document.getElementById('moonIcon');
+
+    function applyTheme(isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      } else {
+        document.documentElement.classList.remove('dark');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+      }
+
+      // Re-render visible tab diagrams for the new theme
+      const diagrams = TAB_DIAGRAMS[currentActiveTab] || [];
+      diagrams.forEach(diagId => renderDiagram(diagId));
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+      const isCurrentlyDark = document.documentElement.classList.contains('dark');
+      applyTheme(!isCurrentlyDark);
+    });
 
     // Module Table Filter
     function filterModules() {
@@ -1186,27 +1299,10 @@ flowchart TD
       }
     }
 
-    // Theme Toggle Functionality
-    const themeToggleBtn = document.getElementById('themeToggle');
-    const sunIcon = document.getElementById('sunIcon');
-    const moonIcon = document.getElementById('moonIcon');
-
-    themeToggleBtn.addEventListener('click', () => {
-      document.documentElement.classList.toggle('dark');
-      const isDark = document.documentElement.classList.contains('dark');
-      if (isDark) {
-        sunIcon.classList.add('hidden');
-        moonIcon.classList.remove('hidden');
-      } else {
-        sunIcon.classList.remove('hidden');
-        moonIcon.classList.add('hidden');
-      }
+    // Initial Load: Render first tab diagram
+    window.addEventListener('DOMContentLoaded', () => {
+      renderDiagram('mermaid-highlevel');
     });
-
-    function resetDiagramZoom(id) {
-      const elem = document.getElementById(id);
-      if (elem) elem.style.transform = 'scale(1)';
-    }
   </script>
 </body>
 </html>

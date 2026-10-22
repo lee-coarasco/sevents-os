@@ -90,14 +90,14 @@ flowchart LR
         DASH["M32: Executive Cockpit & KPI Dashboard"]:::platform
     end
 
-    W1 -.->|Enforces Approvals| D1
-    W1 -.->|Orchestrates Tasks| S1
-    W1 -.->|Enforces IFC Gate| E2
-    A1 -.->|Analyzes Drawings & Norms| C3
-    A1 -.->|Detects Schedule Delays| F2
-    A1 -.->|Audits Invoices against POs| FIN2
-    FIN3 -.-> DASH
-    F2 -.-> DASH
+    W1 -. Enforces Approvals .-> D1
+    W1 -. Orchestrates Tasks .-> S1
+    W1 -. Enforces IFC Gate .-> E2
+    A1 -. Analyzes Drawings & Norms .-> C3
+    A1 -. Detects Schedule Delays .-> F2
+    A1 -. Audits Invoices against POs .-> FIN2
+    FIN3 --> DASH
+    F2 --> DASH
 ```
 
 ---
@@ -192,7 +192,7 @@ flowchart TB
     TOOL_REG -->|Direct Safe ERP API Read/Write| SVCS
     TOOL_REG --> HITL_GUARD
     HITL_GUARD -->|Approved Actions Only| WF_RUNTIME
-    HITL_GUARD -.->|Audit Trail| DB_AUDIT
+    HITL_GUARD -. Audit Trail .-> DB_AUDIT
 ```
 
 ---
