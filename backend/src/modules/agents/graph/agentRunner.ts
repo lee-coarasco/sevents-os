@@ -235,7 +235,7 @@ export class AgentRunner {
       let answer = `[${this.ctx.agent.name}] I have analyzed your inquiry: "${prompt}". Based on ${this.ctx.agent.description || "project parameters"}, everything is operating within nominal construction limits. If you need a specific tool action (such as drafting an RFI, checking BOQ rates, or delay calculation), please specify the task detail.`;
 
       try {
-        const adapter = createAiAdapter();
+        const adapter = this.getAdapterForAgent();
         const systemPrompt = `${this.ctx.agent.system_prompt}\n\nYou are operating as the autonomous AI agent "${this.ctx.agent.name}". Maintain a professional, executive construction engineering tone.`;
         const res = await adapter.chatComplete(prompt, {
           systemPrompt,
@@ -744,9 +744,33 @@ export class AgentRunner {
     };
   }
 
+  private getAdapterForAgent() {
+    const model = (this.ctx.agent.model || "").toLowerCase();
+    if (
+      model.includes("openrouter") ||
+      model.includes(":free") ||
+      model.includes("deepseek") ||
+      model.includes("llama") ||
+      model.includes("qwen") ||
+      model.includes("mistral")
+    ) {
+      return createAiAdapter({ provider: "openrouter" });
+    }
+    if (model.includes("gemini")) {
+      return createAiAdapter({ provider: "gemini" });
+    }
+    if (model.includes("claude")) {
+      return createAiAdapter({ provider: "anthropic" });
+    }
+    if (model.includes("gpt") || model.includes("o1-")) {
+      return createAiAdapter({ provider: "openai" });
+    }
+    return createAiAdapter();
+  }
+
   private async synthesizeSummary(agentName: string, toolKey: string, data: any, userPrompt?: string): Promise<string> {
     try {
-      const adapter = createAiAdapter();
+      const adapter = this.getAdapterForAgent();
       const systemPrompt = `${this.ctx.agent.system_prompt}\n\nYou are operating as the autonomous AI agent "${this.ctx.agent.name}". Maintain a professional construction engineering tone. Provide a concise, clear summary of the tool output for the user.`;
       const prompt = `User Request: "${userPrompt || "Execute task"}"\n\nTool Executed: ${toolKey}\n\nTool Output Payload:\n${JSON.stringify(data, null, 2)}`;
       const res = await adapter.chatComplete(prompt, {

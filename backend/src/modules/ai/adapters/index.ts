@@ -124,6 +124,23 @@ export function listSupportedProviders(): ProviderMeta[] {
       isCustom: false,
     },
     {
+      id: "openrouter",
+      name: "OpenRouter (Free & Multi-LLM)",
+      defaultModel: "openrouter/free",
+      supportedModels: [
+        "openrouter/free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "deepseek/deepseek-r1:free",
+        "google/gemini-2.0-flash-exp:free",
+        "mistralai/mistral-7b-instruct:free",
+        "qwen/qwen-2.5-coder-32b-instruct:free",
+      ],
+      isConfigured: Boolean(process.env.OPENROUTER_API_KEY || (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))),
+      requiresKey: true,
+      isCustom: false,
+      baseUrl: "https://openrouter.ai/api/v1",
+    },
+    {
       id: "local",
       name: "SEVENTS Local Engine",
       defaultModel: "sevents-local-v1",
@@ -173,11 +190,12 @@ export function resolveDefaultProvider(): AiProviderType {
   }
 
   const envChoice = (process.env.AI_DEFAULT_PROVIDER || "").toLowerCase().trim() as AiProviderType;
-  if (["openai", "gemini", "anthropic", "azure", "local"].includes(envChoice) || customProvidersMap.has(envChoice)) {
+  if (["openai", "gemini", "anthropic", "azure", "openrouter", "local"].includes(envChoice) || customProvidersMap.has(envChoice)) {
     return envChoice;
   }
 
   // Auto-detect based on configured credentials
+  if (process.env.OPENROUTER_API_KEY || (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))) return "openrouter";
   if (process.env.OPENAI_API_KEY) return "openai";
   if (process.env.GEMINI_API_KEY) return "gemini";
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
@@ -196,6 +214,12 @@ export function createAiAdapter(config?: Partial<AiProviderConfig>): AiAdapter {
   }
 
   switch (providerType) {
+    case "openrouter":
+      return new OpenAiAdapter(
+        config?.apiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+        config?.baseUrl || process.env.OPENROUTER_BASE_URL || process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+        "openrouter"
+      );
     case "openai":
       return new OpenAiAdapter(config?.apiKey, config?.baseUrl);
     case "gemini":

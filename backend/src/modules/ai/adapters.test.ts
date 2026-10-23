@@ -13,15 +13,16 @@ import {
 } from "./adapters/index.js";
 
 describe("AI Provider Adapter Architecture", () => {
-  it("lists all 5 supported providers with models and config status", () => {
+  it("lists all supported providers with models and config status", () => {
     const providers = listSupportedProviders();
-    expect(providers.length).toBe(5);
+    expect(providers.length).toBe(6);
 
     const ids = providers.map((p) => p.id);
     expect(ids).toContain("openai");
     expect(ids).toContain("gemini");
     expect(ids).toContain("anthropic");
     expect(ids).toContain("azure");
+    expect(ids).toContain("openrouter");
     expect(ids).toContain("local");
 
     const localMeta = providers.find((p) => p.id === "local");

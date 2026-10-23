@@ -61,6 +61,7 @@ export function AiAgentsPage() {
   const [formDesc, setFormDesc] = useState("");
   const [formPrompt, setFormPrompt] = useState("");
   const [formModel, setFormModel] = useState("gpt-4o-mini");
+  const [useCustomModelInput, setUseCustomModelInput] = useState(false);
   const [formTemp, setFormTemp] = useState(0.2);
   const [formRole, setFormRole] = useState("role.site_engineer");
   const [formTools, setFormTools] = useState<string[]>([]);
@@ -106,7 +107,28 @@ export function AiAgentsPage() {
       setAgents(agentList);
       setTools(toolList);
       setExecutions(execList);
-      setProviders(provResult.providers);
+      const mergedProviders: ProviderMeta[] = [...(provResult.providers || [])];
+      try {
+        const stored = localStorage.getItem("sevents_custom_providers");
+        if (stored) {
+          const localCustoms: ProviderMeta[] = JSON.parse(stored);
+          for (const lc of localCustoms) {
+            if (!mergedProviders.some((p) => p.id === lc.id)) {
+              mergedProviders.push(lc);
+              // Register with backend in background
+              aiService.registerCustomProvider(session.access_token, {
+                id: lc.id,
+                name: lc.name,
+                baseUrl: lc.baseUrl || "",
+                defaultModel: lc.defaultModel,
+                supportedModels: lc.supportedModels,
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch {}
+
+      setProviders(mergedProviders);
       if (provResult.activeProvider) {
         setActiveProviderId(provResult.activeProvider);
       }
@@ -264,6 +286,12 @@ export function AiAgentsPage() {
         supportedModels: extra,
       });
       setProviders(res.providers);
+      try {
+        const stored = localStorage.getItem("sevents_custom_providers");
+        const list = stored ? JSON.parse(stored) : [];
+        const updated = [...list.filter((c: any) => c.id !== res.provider.id), res.provider];
+        localStorage.setItem("sevents_custom_providers", JSON.stringify(updated));
+      } catch {}
       setShowAddCustomProviderModal(false);
       setCustomId("");
       setCustomName("");
@@ -285,6 +313,13 @@ export function AiAgentsPage() {
     try {
       const updated = await aiService.deleteCustomProvider(session.access_token, providerId);
       setProviders(updated);
+      try {
+        const stored = localStorage.getItem("sevents_custom_providers");
+        if (stored) {
+          const list = JSON.parse(stored);
+          localStorage.setItem("sevents_custom_providers", JSON.stringify(list.filter((c: any) => c.id !== providerId)));
+        }
+      } catch {}
       if (activeProviderId === providerId) {
         setActiveProviderId("openai");
       }
@@ -299,6 +334,17 @@ export function AiAgentsPage() {
     try {
       const updated = await aiService.addModel(session.access_token, providerId, newModelInput.trim());
       setProviders(updated);
+      try {
+        const stored = localStorage.getItem("sevents_custom_providers");
+        if (stored) {
+          const list: ProviderMeta[] = JSON.parse(stored);
+          const target = list.find((c) => c.id === providerId);
+          if (target && !target.supportedModels.includes(newModelInput.trim())) {
+            target.supportedModels.push(newModelInput.trim());
+            localStorage.setItem("sevents_custom_providers", JSON.stringify(list));
+          }
+        }
+      } catch {}
       setActiveAddingModelProviderId(null);
       setNewModelInput("");
     } catch (err: any) {
@@ -361,6 +407,8 @@ export function AiAgentsPage() {
       setFormDesc(agentToEdit.description || "");
       setFormPrompt(agentToEdit.system_prompt);
       setFormModel(agentToEdit.model);
+      const isKnown = providers.some((p) => p.supportedModels.includes(agentToEdit.model));
+      setUseCustomModelInput(!isKnown);
       setFormTemp(agentToEdit.temperature);
       setFormRole(agentToEdit.canonical_role_id || "");
       setFormTools(agentToEdit.allowed_tools || []);
@@ -372,6 +420,7 @@ export function AiAgentsPage() {
       setFormDesc("");
       setFormPrompt("You are an expert construction AI agent. Follow SEVENTS policies strictly.");
       setFormModel("gpt-4o-mini");
+      setUseCustomModelInput(false);
       setFormTemp(0.2);
       setFormRole("role.site_engineer");
       setFormTools(["search_knowledge_base"]);
@@ -1185,6 +1234,22 @@ export function AiAgentsPage() {
                         isCustom: false,
                       },
                       {
+                        id: "openrouter",
+                        name: "OpenRouter",
+                        defaultModel: "openrouter/free",
+                        supportedModels: [
+                          "openrouter/free",
+                          "meta-llama/llama-3.3-70b-instruct:free",
+                          "deepseek/deepseek-r1:free",
+                          "google/gemini-2.0-flash-exp:free",
+                          "mistralai/mistral-7b-instruct:free",
+                          "qwen/qwen-2.5-coder-32b-instruct:free",
+                        ],
+                        isConfigured: false,
+                        requiresKey: true,
+                        isCustom: false,
+                      },
+                      {
                         id: "local",
                         name: "SEVENTS Local Engine",
                         defaultModel: "sevents-local-v1",
@@ -1458,31 +1523,82 @@ export function AiAgentsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-zinc-500 mb-1">
-                    Model
-                  </label>
-                  <select
-                    value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
-                  >
-                    {providers.map((prov) => (
-                      <optgroup key={prov.id} label={`${prov.name} (${prov.id})`}>
-                        {prov.supportedModels.map((m) => (
-                          <option key={`${prov.id}-${m}`} value={m}>
-                            {m} {m === prov.defaultModel ? "— (Default)" : ""}
-                          </option>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold uppercase text-zinc-500">
+                      Model
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setUseCustomModelInput(!useCustomModelInput)}
+                      className="text-[10px] text-brand hover:underline font-medium"
+                    >
+                      {useCustomModelInput ? "Select from list" : "✏️ Custom model"}
+                    </button>
+                  </div>
+                  {useCustomModelInput ? (
+                    <div>
+                      <input
+                        type="text"
+                        value={formModel}
+                        onChange={(e) => setFormModel(e.target.value)}
+                        placeholder="e.g. openrouter/free, mistralai/mistral-7b"
+                        className="w-full rounded-lg border border-zinc-300 p-2 text-xs font-mono focus:border-brand focus:outline-none"
+                      />
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span className="text-[10px] text-zinc-400">Quick:</span>
+                        {[
+                          "openrouter/free",
+                          "meta-llama/llama-3.3-70b-instruct:free",
+                          "deepseek/deepseek-r1:free",
+                          "gpt-4o-mini",
+                          "gemini-1.5-flash",
+                        ].map((qm) => (
+                          <button
+                            key={qm}
+                            type="button"
+                            onClick={() => setFormModel(qm)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              formModel === qm
+                                ? "bg-brand text-white font-medium"
+                                : "bg-zinc-100 hover:bg-zinc-200 text-zinc-600"
+                            }`}
+                          >
+                            {qm.replace(":free", "")}
+                          </button>
                         ))}
-                      </optgroup>
-                    ))}
-                    {!providers.some((p) => p.supportedModels.includes(formModel)) && (
-                      <optgroup label="Custom / Other Model">
-                        <option value={formModel}>{formModel}</option>
-                      </optgroup>
-                    )}
-                  </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={formModel}
+                      onChange={(e) => {
+                        if (e.target.value === "__custom__") {
+                          setUseCustomModelInput(true);
+                        } else {
+                          setFormModel(e.target.value);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none"
+                    >
+                      {providers.map((prov) => (
+                        <optgroup key={prov.id} label={`${prov.name} (${prov.id})`}>
+                          {prov.supportedModels.map((m) => (
+                            <option key={`${prov.id}-${m}`} value={m}>
+                              {m} {m === prov.defaultModel ? "— (Default)" : ""}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      {!providers.some((p) => p.supportedModels.includes(formModel)) && (
+                        <optgroup label="Current Custom Model">
+                          <option value={formModel}>{formModel}</option>
+                        </optgroup>
+                      )}
+                      <option value="__custom__">➕ Enter custom model name...</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
