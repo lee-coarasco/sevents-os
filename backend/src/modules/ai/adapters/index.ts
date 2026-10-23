@@ -34,6 +34,35 @@ export interface CustomProviderInput {
 
 const customProvidersMap = new Map<string, ProviderMeta & { apiKey?: string; baseUrl: string }>();
 const extraModelsMap = new Map<string, Set<string>>();
+const configuredCredentialsMap = new Map<
+  string,
+  { apiKey?: string; baseUrl?: string; defaultModel?: string }
+>();
+
+export function configureProviderCredentials(
+  providerId: string,
+  creds: { apiKey?: string; baseUrl?: string; defaultModel?: string }
+): ProviderMeta | null {
+  const pId = providerId.toLowerCase().trim();
+  const existing = configuredCredentialsMap.get(pId) || {};
+  configuredCredentialsMap.set(pId, {
+    apiKey: creds.apiKey !== undefined ? creds.apiKey.trim() : existing.apiKey,
+    baseUrl: creds.baseUrl !== undefined ? creds.baseUrl.trim() : existing.baseUrl,
+    defaultModel: creds.defaultModel !== undefined ? creds.defaultModel.trim() : existing.defaultModel,
+  });
+
+  if (customProvidersMap.has(pId)) {
+    const custom = customProvidersMap.get(pId)!;
+    if (creds.apiKey !== undefined) custom.apiKey = creds.apiKey.trim() || undefined;
+    if (creds.baseUrl) custom.baseUrl = creds.baseUrl.trim();
+    if (creds.defaultModel) custom.defaultModel = creds.defaultModel.trim();
+    custom.isConfigured = Boolean(custom.apiKey || custom.baseUrl.includes("localhost") || custom.baseUrl.includes("127.0.0.1"));
+    return custom;
+  }
+
+  const all = listSupportedProviders();
+  return all.find((p) => p.id === pId) || null;
+}
 
 export function registerCustomProvider(input: CustomProviderInput): ProviderMeta {
   const cleanId = input.id.toLowerCase().trim().replace(/[^a-z0-9_-]/g, "");
@@ -90,43 +119,50 @@ export function listSupportedProviders(): ProviderMeta[] {
     {
       id: "openai",
       name: "OpenAI",
-      defaultModel: "gpt-4o-mini",
+      defaultModel: configuredCredentialsMap.get("openai")?.defaultModel || "gpt-4o-mini",
       supportedModels: ["gpt-4o-mini", "gpt-4o", "o1-mini", "text-embedding-3-small"],
-      isConfigured: Boolean(process.env.OPENAI_API_KEY),
+      isConfigured: Boolean(configuredCredentialsMap.get("openai")?.apiKey || process.env.OPENAI_API_KEY),
       requiresKey: true,
       isCustom: false,
+      baseUrl: configuredCredentialsMap.get("openai")?.baseUrl || process.env.OPENAI_BASE_URL,
     },
     {
       id: "gemini",
       name: "Google Gemini",
-      defaultModel: "gemini-1.5-flash",
+      defaultModel: configuredCredentialsMap.get("gemini")?.defaultModel || "gemini-1.5-flash",
       supportedModels: ["gemini-1.5-flash", "gemini-1.5-pro", "text-embedding-004"],
-      isConfigured: Boolean(process.env.GEMINI_API_KEY),
+      isConfigured: Boolean(configuredCredentialsMap.get("gemini")?.apiKey || process.env.GEMINI_API_KEY),
       requiresKey: true,
       isCustom: false,
+      baseUrl: configuredCredentialsMap.get("gemini")?.baseUrl || process.env.GEMINI_BASE_URL,
     },
     {
       id: "anthropic",
       name: "Anthropic Claude",
-      defaultModel: "claude-3-5-sonnet-20241022",
+      defaultModel: configuredCredentialsMap.get("anthropic")?.defaultModel || "claude-3-5-sonnet-20241022",
       supportedModels: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
-      isConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+      isConfigured: Boolean(configuredCredentialsMap.get("anthropic")?.apiKey || process.env.ANTHROPIC_API_KEY),
       requiresKey: true,
       isCustom: false,
+      baseUrl: configuredCredentialsMap.get("anthropic")?.baseUrl || process.env.ANTHROPIC_BASE_URL,
     },
     {
       id: "azure",
       name: "Azure OpenAI",
-      defaultModel: "gpt-4o",
+      defaultModel: configuredCredentialsMap.get("azure")?.defaultModel || "gpt-4o",
       supportedModels: ["gpt-4o", "gpt-4o-mini", "text-embedding-3-small"],
-      isConfigured: Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY),
+      isConfigured: Boolean(
+        (configuredCredentialsMap.get("azure")?.apiKey && configuredCredentialsMap.get("azure")?.baseUrl) ||
+        (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY)
+      ),
       requiresKey: true,
       isCustom: false,
+      baseUrl: configuredCredentialsMap.get("azure")?.baseUrl || process.env.AZURE_OPENAI_ENDPOINT,
     },
     {
       id: "openrouter",
       name: "OpenRouter (Free & Multi-LLM)",
-      defaultModel: "openrouter/free",
+      defaultModel: configuredCredentialsMap.get("openrouter")?.defaultModel || "openrouter/free",
       supportedModels: [
         "openrouter/free",
         "meta-llama/llama-3.3-70b-instruct:free",
@@ -135,10 +171,14 @@ export function listSupportedProviders(): ProviderMeta[] {
         "mistralai/mistral-7b-instruct:free",
         "qwen/qwen-2.5-coder-32b-instruct:free",
       ],
-      isConfigured: Boolean(process.env.OPENROUTER_API_KEY || (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))),
+      isConfigured: Boolean(
+        configuredCredentialsMap.get("openrouter")?.apiKey ||
+        process.env.OPENROUTER_API_KEY ||
+        (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))
+      ),
       requiresKey: true,
       isCustom: false,
-      baseUrl: "https://openrouter.ai/api/v1",
+      baseUrl: configuredCredentialsMap.get("openrouter")?.baseUrl || "https://openrouter.ai/api/v1",
     },
     {
       id: "local",
@@ -195,10 +235,10 @@ export function resolveDefaultProvider(): AiProviderType {
   }
 
   // Auto-detect based on configured credentials
-  if (process.env.OPENROUTER_API_KEY || (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))) return "openrouter";
-  if (process.env.OPENAI_API_KEY) return "openai";
-  if (process.env.GEMINI_API_KEY) return "gemini";
-  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (configuredCredentialsMap.get("openrouter")?.apiKey || process.env.OPENROUTER_API_KEY || (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))) return "openrouter";
+  if (configuredCredentialsMap.get("openai")?.apiKey || process.env.OPENAI_API_KEY) return "openai";
+  if (configuredCredentialsMap.get("gemini")?.apiKey || process.env.GEMINI_API_KEY) return "gemini";
+  if (configuredCredentialsMap.get("anthropic")?.apiKey || process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) return "azure";
 
   return "local";
@@ -210,26 +250,31 @@ export function createAiAdapter(config?: Partial<AiProviderConfig>): AiAdapter {
   // Check custom providers first
   if (customProvidersMap.has(providerType)) {
     const custom = customProvidersMap.get(providerType)!;
-    return new OpenAiAdapter(config?.apiKey || custom.apiKey, config?.baseUrl || custom.baseUrl, custom.id);
+    const cred = configuredCredentialsMap.get(providerType);
+    return new OpenAiAdapter(config?.apiKey || cred?.apiKey || custom.apiKey, config?.baseUrl || cred?.baseUrl || custom.baseUrl, custom.id);
   }
+
+  const cred = configuredCredentialsMap.get(providerType);
+  const effectiveApiKey = config?.apiKey || cred?.apiKey;
+  const effectiveBaseUrl = config?.baseUrl || cred?.baseUrl;
 
   switch (providerType) {
     case "openrouter":
       return new OpenAiAdapter(
-        config?.apiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
-        config?.baseUrl || process.env.OPENROUTER_BASE_URL || process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+        effectiveApiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+        effectiveBaseUrl || process.env.OPENROUTER_BASE_URL || process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
         "openrouter"
       );
     case "openai":
-      return new OpenAiAdapter(config?.apiKey, config?.baseUrl);
+      return new OpenAiAdapter(effectiveApiKey || process.env.OPENAI_API_KEY, effectiveBaseUrl || process.env.OPENAI_BASE_URL);
     case "gemini":
-      return new GeminiAdapter(config?.apiKey);
+      return new GeminiAdapter(effectiveApiKey || process.env.GEMINI_API_KEY, effectiveBaseUrl || process.env.GEMINI_BASE_URL);
     case "anthropic":
-      return new AnthropicAdapter(config?.apiKey);
+      return new AnthropicAdapter(effectiveApiKey || process.env.ANTHROPIC_API_KEY, effectiveBaseUrl || process.env.ANTHROPIC_BASE_URL);
     case "azure":
       return new AzureOpenAiAdapter(
-        config?.azureEndpoint,
-        config?.apiKey,
+        effectiveBaseUrl || config?.azureEndpoint || process.env.AZURE_OPENAI_ENDPOINT || "https://example.openai.azure.com",
+        effectiveApiKey || process.env.AZURE_OPENAI_API_KEY,
         config?.azureDeployment,
         config?.azureApiVersion
       );

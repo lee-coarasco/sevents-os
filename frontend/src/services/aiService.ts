@@ -141,17 +141,33 @@ export const aiService = {
   async testProvider(
     token: string,
     provider: string,
-    apiKey?: string
+    apiKey?: string,
+    baseUrl?: string
   ): Promise<{ ok: boolean; message: string; latencyMs: number }> {
     const res = await apiFetch<{ result: { ok: boolean; message: string; latencyMs: number } }>(
       "/ai/providers/test",
       token,
       {
         method: "POST",
-        body: JSON.stringify({ provider, apiKey }),
+        body: JSON.stringify({ provider, apiKey, baseUrl }),
       }
     );
     return res.result;
+  },
+
+  async configureProvider(
+    token: string,
+    payload: { provider: string; apiKey?: string; baseUrl?: string; defaultModel?: string }
+  ): Promise<{ provider: ProviderMeta; providers: ProviderMeta[] }> {
+    const res = await apiFetch<{ success: boolean; provider: ProviderMeta; providers: ProviderMeta[] }>(
+      "/ai/providers/configure",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
   },
 
   async registerCustomProvider(

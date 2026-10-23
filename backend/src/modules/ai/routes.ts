@@ -10,6 +10,7 @@ import {
   registerCustomProvider,
   removeCustomProvider,
   addModelToProvider,
+  configureProviderCredentials,
   type AiProviderType,
   type CustomProviderInput,
 } from "./adapters/index.js";
@@ -214,6 +215,29 @@ export function registerAiRoutes(options: AiRoutesOptions): FastifyPluginAsync {
           const adapter = createAiAdapter({ provider, apiKey, baseUrl });
           const result = await adapter.testConnection();
           return reply.send({ result });
+        } catch (err: any) {
+          return reply.status(500).send({ error: err.message });
+        }
+      }
+    );
+
+    /**
+     * POST /ai/providers/configure
+     * Update credentials / settings for any provider (built-in or custom)
+     */
+    app.post<{ Body: { provider: string; apiKey?: string; baseUrl?: string; defaultModel?: string } }>(
+      "/ai/providers/configure",
+      manageGuard,
+      async (req, reply) => {
+        try {
+          const { provider, apiKey, baseUrl, defaultModel } = req.body;
+          if (!provider) return reply.status(400).send({ error: "provider is required" });
+          const updated = configureProviderCredentials(provider, { apiKey, baseUrl, defaultModel });
+          return reply.send({
+            success: true,
+            provider: updated,
+            providers: listSupportedProviders(),
+          });
         } catch (err: any) {
           return reply.status(500).send({ error: err.message });
         }

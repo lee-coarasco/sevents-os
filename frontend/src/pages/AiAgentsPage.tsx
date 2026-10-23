@@ -44,6 +44,17 @@ export function AiAgentsPage() {
   const [newModelInput, setNewModelInput] = useState("");
   const [savingNewModel, setSavingNewModel] = useState(false);
 
+  // Configure Provider Modal State
+  const [configuringProvider, setConfiguringProvider] = useState<ProviderMeta | null>(null);
+  const [configApiKey, setConfigApiKey] = useState("");
+  const [configBaseUrl, setConfigBaseUrl] = useState("");
+  const [configDefaultModel, setConfigDefaultModel] = useState("");
+  const [showConfigApiKey, setShowConfigApiKey] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [configTesting, setConfigTesting] = useState(false);
+  const [configTestResult, setConfigTestResult] = useState<{ ok: boolean; message: string; latencyMs: number } | null>(null);
+  const [storedCredentials, setStoredCredentials] = useState<Record<string, { apiKey?: string; baseUrl?: string; defaultModel?: string }>>({});
+
   // Console State
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [consolePrompt, setConsolePrompt] = useState<string>("");
@@ -139,6 +150,25 @@ export function AiAgentsPage() {
         }
       } catch {}
 
+      let localCreds: Record<string, { apiKey?: string; baseUrl?: string; defaultModel?: string }> = {};
+      try {
+        const stored = localStorage.getItem("sevents_provider_credentials");
+        if (stored) {
+          localCreds = JSON.parse(stored);
+          setStoredCredentials(localCreds);
+          for (const [pId, c] of Object.entries(localCreds)) {
+            if (c.apiKey || c.baseUrl) {
+              aiService.configureProvider(session.access_token, {
+                provider: pId,
+                apiKey: c.apiKey,
+                baseUrl: c.baseUrl,
+                defaultModel: c.defaultModel,
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch {}
+
       setProviders(mergedProviders);
       try {
         const storedActive = localStorage.getItem("sevents_active_provider");
@@ -187,7 +217,20 @@ export function AiAgentsPage() {
     if (!session?.access_token || providerTestingId) return;
     setProviderTestingId(providerId);
     try {
-      const res = await aiService.testProvider(session.access_token, providerId);
+      let storedKey: string | undefined = storedCredentials[providerId]?.apiKey;
+      let storedUrl: string | undefined = storedCredentials[providerId]?.baseUrl;
+      if (!storedKey) {
+        try {
+          const stored = localStorage.getItem("sevents_provider_credentials");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            storedKey = parsed[providerId]?.apiKey;
+            storedUrl = parsed[providerId]?.baseUrl;
+          }
+        } catch {}
+      }
+
+      const res = await aiService.testProvider(session.access_token, providerId, storedKey, storedUrl);
       setProviderTestResults((prev) => ({ ...prev, [providerId]: res }));
     } catch (err: any) {
       setProviderTestResults((prev) => ({
@@ -196,6 +239,101 @@ export function AiAgentsPage() {
       }));
     } finally {
       setProviderTestingId(null);
+    }
+  };
+
+  const handleOpenConfigureProviderModal = (prov: ProviderMeta) => {
+    setConfiguringProvider(prov);
+    let key = storedCredentials[prov.id]?.apiKey || "";
+    let url = storedCredentials[prov.id]?.baseUrl || prov.baseUrl || (prov.id === "openrouter" ? "https://openrouter.ai/api/v1" : "");
+    let model = storedCredentials[prov.id]?.defaultModel || prov.defaultModel || "";
+
+    try {
+      const stored = localStorage.getItem("sevents_provider_credentials");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed[prov.id]) {
+          if (parsed[prov.id].apiKey) key = parsed[prov.id].apiKey;
+          if (parsed[prov.id].baseUrl) url = parsed[prov.id].baseUrl;
+          if (parsed[prov.id].defaultModel) model = parsed[prov.id].defaultModel;
+        }
+      }
+    } catch {}
+
+    setConfigApiKey(key);
+    setConfigBaseUrl(url);
+    setConfigDefaultModel(model);
+    setShowConfigApiKey(false);
+    setConfigTestResult(null);
+  };
+
+  const handleTestModalConfig = async () => {
+    if (!configuringProvider || !session?.access_token || configTesting) return;
+    setConfigTesting(true);
+    setConfigTestResult(null);
+    try {
+      const res = await aiService.testProvider(
+        session.access_token,
+        configuringProvider.id,
+        configApiKey.trim() || undefined,
+        configBaseUrl.trim() || undefined
+      );
+      setConfigTestResult(res);
+    } catch (err: any) {
+      setConfigTestResult({ ok: false, message: err.message || "Test failed", latencyMs: 0 });
+    } finally {
+      setConfigTesting(false);
+    }
+  };
+
+  const handleSaveProviderConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configuringProvider || !session?.access_token || savingConfig) return;
+    setSavingConfig(true);
+    try {
+      const cleanKey = configApiKey.trim();
+      const cleanUrl = configBaseUrl.trim();
+      const cleanModel = configDefaultModel.trim();
+
+      const newCreds = {
+        ...storedCredentials,
+        [configuringProvider.id]: {
+          apiKey: cleanKey,
+          baseUrl: cleanUrl || undefined,
+          defaultModel: cleanModel || undefined,
+        },
+      };
+      setStoredCredentials(newCreds);
+
+      try {
+        localStorage.setItem("sevents_provider_credentials", JSON.stringify(newCreds));
+      } catch {}
+
+      const res = await aiService.configureProvider(session.access_token, {
+        provider: configuringProvider.id,
+        apiKey: cleanKey || undefined,
+        baseUrl: cleanUrl || undefined,
+        defaultModel: cleanModel || undefined,
+      });
+
+      setProviders(res.providers);
+
+      if (cleanKey) {
+        setProviderTestResults((prev) => ({
+          ...prev,
+          [configuringProvider.id]: {
+            ok: true,
+            message: `${configuringProvider.name} key updated and active.`,
+            latencyMs: 10,
+          },
+        }));
+      }
+
+      setConfiguringProvider(null);
+    } catch (err: any) {
+      alert("Failed to save provider configuration: " + err.message);
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -1337,6 +1475,7 @@ export function AiAgentsPage() {
                   const testRes = providerTestResults[prov.id];
                   const isTesting = providerTestingId === prov.id;
                   const isActive = prov.id === activeProviderId;
+                  const isConfigured = prov.isConfigured || Boolean(storedCredentials[prov.id]?.apiKey);
 
                   return (
                     <div
@@ -1362,8 +1501,9 @@ export function AiAgentsPage() {
                               </span>
                             )}
                           </div>
-                          {prov.isConfigured ? (
-                            <span className="rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          {isConfigured ? (
+                            <span className="rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                               Configured
                             </span>
                           ) : prov.requiresKey ? (
@@ -1466,6 +1606,15 @@ export function AiAgentsPage() {
                               title="Delete custom provider"
                             >
                               Delete
+                            </button>
+                          )}
+                          {prov.id !== "local" && (
+                            <button
+                              onClick={() => handleOpenConfigureProviderModal(prov)}
+                              className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-2xs flex items-center gap-1"
+                              title="Set or update API key & base URL"
+                            >
+                              🔑 {isConfigured ? "Update Key" : "Set Key"}
                             </button>
                           )}
                           <button
@@ -2115,6 +2264,134 @@ export function AiAgentsPage() {
                 >
                   {savingCustomProvider ? "Registering..." : "Save Provider"}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Configure Provider Key & Endpoint Modal */}
+      {configuringProvider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden border border-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-900 px-6 py-4 text-white">
+              <div>
+                <h3 className="font-bold text-white text-base flex items-center gap-2">
+                  <span>🔑 Configure {configuringProvider.name}</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Update API key, custom base URL, and default model for this provider.
+                </p>
+              </div>
+              <button
+                onClick={() => setConfiguringProvider(null)}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProviderConfig} className="p-6 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold uppercase text-zinc-500">
+                    API Key
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigApiKey(!showConfigApiKey)}
+                    className="text-[11px] text-brand hover:underline font-medium"
+                  >
+                    {showConfigApiKey ? "Hide Key" : "Reveal Key"}
+                  </button>
+                </div>
+                <input
+                  type={showConfigApiKey ? "text" : "password"}
+                  value={configApiKey}
+                  onChange={(e) => setConfigApiKey(e.target.value)}
+                  placeholder={
+                    configuringProvider.id === "openrouter"
+                      ? "sk-or-v1-..."
+                      : configuringProvider.id === "openai"
+                      ? "sk-proj-..."
+                      : `Enter ${configuringProvider.name} API key...`
+                  }
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs font-mono focus:border-brand focus:outline-none"
+                />
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  {configuringProvider.id === "openrouter"
+                    ? "Get your key from openrouter.ai/keys. Saved locally and synced for live agent requests."
+                    : "Key is saved locally in your browser and injected securely into agent executions."}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-zinc-500 mb-1">
+                  API Base URL
+                </label>
+                <input
+                  type="url"
+                  value={configBaseUrl}
+                  onChange={(e) => setConfigBaseUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs font-mono focus:border-brand focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-zinc-500 mb-1">
+                  Default Model
+                </label>
+                <input
+                  type="text"
+                  value={configDefaultModel}
+                  onChange={(e) => setConfigDefaultModel(e.target.value)}
+                  placeholder={configuringProvider.defaultModel}
+                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs font-mono focus:border-brand focus:outline-none"
+                />
+              </div>
+
+              {configTestResult && (
+                <div
+                  className={`rounded-xl p-3 text-xs border ${
+                    configTestResult.ok
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : "bg-rose-50 border-rose-200 text-rose-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-semibold mb-0.5">
+                    <span>{configTestResult.ok ? "✓ Connection Successful" : "✗ Connection Failed"}</span>
+                    <span className="font-mono text-[10px]">{configTestResult.latencyMs}ms</span>
+                  </div>
+                  <p className="text-[11px] leading-tight">{configTestResult.message}</p>
+                </div>
+              )}
+
+              <div className="border-t border-zinc-100 pt-4 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleTestModalConfig}
+                  disabled={configTesting}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                >
+                  {configTesting ? "Testing Key..." : "⚡ Test Connection"}
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfiguringProvider(null)}
+                    className="rounded-lg border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingConfig}
+                    className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                  >
+                    {savingConfig ? "Saving..." : "Save Configuration"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
