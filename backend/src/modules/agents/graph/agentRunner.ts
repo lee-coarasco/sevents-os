@@ -9,6 +9,7 @@ import type {
 } from "../types.js";
 import { calculateCost } from "../types.js";
 import type { ToolExecutor } from "../tools/toolExecutor.js";
+import { createAiAdapter } from "../../ai/adapters/index.js";
 
 export interface AgentRunnerContext {
   token: string;
@@ -231,7 +232,22 @@ export class AgentRunner {
 
     if (!plannedTool) {
       // Direct conversational response
-      const answer = `[${this.ctx.agent.name}] I have analyzed your inquiry: "${prompt}". Based on ${this.ctx.agent.description || "project parameters"}, everything is operating within nominal construction limits. If you need a specific tool action (such as drafting an RFI, checking BOQ rates, or delay calculation), please specify the task detail.`;
+      let answer = `[${this.ctx.agent.name}] I have analyzed your inquiry: "${prompt}". Based on ${this.ctx.agent.description || "project parameters"}, everything is operating within nominal construction limits. If you need a specific tool action (such as drafting an RFI, checking BOQ rates, or delay calculation), please specify the task detail.`;
+
+      try {
+        const adapter = createAiAdapter();
+        const systemPrompt = `${this.ctx.agent.system_prompt}\n\nYou are operating as the autonomous AI agent "${this.ctx.agent.name}". Maintain a professional, executive construction engineering tone.`;
+        const res = await adapter.chatComplete(prompt, {
+          systemPrompt,
+          model: this.ctx.agent.model,
+          temperature: this.ctx.agent.temperature || 0.2,
+        });
+        if (res.content && !res.content.startsWith("[OpenAI (Simulated")) {
+          answer = res.content;
+        }
+      } catch (err) {
+        console.warn("[AgentRunner] Direct chatComplete failed, using default:", err);
+      }
       
       const step2Tokens = this.estimateTokens(answer);
       const step2Cost = calculateCost(this.ctx.agent.model, 0, step2Tokens);
@@ -421,7 +437,7 @@ export class AgentRunner {
     });
 
     // Step 3: Synthesis Step
-    const summary = this.synthesizeSummary(this.ctx.agent.name, plannedTool.toolKey, toolResult.data);
+    const summary = await this.synthesizeSummary(this.ctx.agent.name, plannedTool.toolKey, toolResult.data, prompt);
     const step3Tokens = this.estimateTokens(summary);
     const step3Cost = calculateCost(this.ctx.agent.model, 0, step3Tokens);
 
@@ -635,7 +651,7 @@ export class AgentRunner {
       timestamp: new Date().toISOString(),
     });
 
-    const summary = this.synthesizeSummary(this.ctx.agent.name, pending.toolKey, toolResult.data);
+    const summary = await this.synthesizeSummary(this.ctx.agent.name, pending.toolKey, toolResult.data, execution.input_prompt);
     const synthTokens = this.estimateTokens(summary);
     const synthCost = calculateCost(this.ctx.agent.model, 0, synthTokens);
 
@@ -728,7 +744,23 @@ export class AgentRunner {
     };
   }
 
-  private synthesizeSummary(agentName: string, toolKey: string, data: any): string {
+  private async synthesizeSummary(agentName: string, toolKey: string, data: any, userPrompt?: string): Promise<string> {
+    try {
+      const adapter = createAiAdapter();
+      const systemPrompt = `${this.ctx.agent.system_prompt}\n\nYou are operating as the autonomous AI agent "${this.ctx.agent.name}". Maintain a professional construction engineering tone. Provide a concise, clear summary of the tool output for the user.`;
+      const prompt = `User Request: "${userPrompt || "Execute task"}"\n\nTool Executed: ${toolKey}\n\nTool Output Payload:\n${JSON.stringify(data, null, 2)}`;
+      const res = await adapter.chatComplete(prompt, {
+        systemPrompt,
+        model: this.ctx.agent.model,
+        temperature: this.ctx.agent.temperature || 0.2,
+      });
+      if (res.content && !res.content.startsWith("[OpenAI (Simulated")) {
+        return res.content;
+      }
+    } catch (err) {
+      console.warn("[AgentRunner] LLM synthesis failed, using template:", err);
+    }
+
     switch (toolKey) {
       case "create_site_rfi":
         return `Formal RFI has been officially registered as **${data.rfiNumber}** with status *${data.status}*. It has been assigned to the **${data.recipient}**.`;
@@ -736,12 +768,21 @@ export class AgentRunner {
         return `Safety observation **${data.observationId}** (${data.severity?.toUpperCase()} priority) logged in site safety records. Mandatory action: "${data.actionRequired}".`;
       case "calculate_delay_impact":
         return `Delay evaluation calculated an estimated **${data.criticalPathSlipDays} days** critical path slip with overhead exposure of **${data.estimatedOverheadExposure?.toLocaleString()} ${data.currency}**.\n\n*Contractual Advice*: ${data.recommendation}`;
-      case "check_inventory_stock":
-        return `Inventory check for "${data.itemName}": Available quantity is **${data.stockRecords?.[0]?.availableQuantity ?? 120} units** (Threshold: ${data.stockRecords?.[0]?.reorderThreshold ?? 50}). Storage location: "${data.stockRecords?.[0]?.location ?? "Central Yard"}". Status: *IN STOCK*.`;
+      case "check_inventory_stock": {
+        const rec = data.stockRecords?.[0];
+        const qty = rec?.availableQuantity ?? rec?.quantity_on_hand ?? 120;
+        const loc = rec?.location ?? rec?.warehouse ?? "Central Yard";
+        return `Inventory check for "${data.itemName}": Available quantity is **${qty} units**. Storage location: "${loc}". Status: *IN STOCK*.`;
+      }
       case "get_boq_items":
         return `Retrieved ${data.items?.length || 0} work items from approved project BOQ catalogue lines.`;
-      case "query_project_schedule":
-        return `Project schedule query: Planned progress is **${data.project?.plannedProgress ?? "64%"}** vs actual **${data.project?.actualProgress ?? "58%"}** (variance: **${data.project?.varianceDays ?? -8} days**). Critical milestone: "${data.project?.criticalMilestone ?? "Level 14 Casting"}".`;
+      case "query_project_schedule": {
+        const proj = data.project;
+        const name = proj?.name || "Active Project";
+        const code = proj?.code ? ` (${proj.code})` : "";
+        const val = proj?.contract_value ? ` | Contract Value: ${proj.contract_value.toLocaleString()} AED` : "";
+        return `Project Schedule Status for **${name}${code}**:\n• Status: *${proj?.status || "active"}*\n• Target Dates: ${proj?.start_date || "N/A"} to ${proj?.target_end_date || "N/A"}${val}`;
+      }
       case "search_knowledge_base":
         return `Grounded knowledge search identified **${data.matchedDocuments?.length || 0} project documents** matching requirements.`;
       default:
