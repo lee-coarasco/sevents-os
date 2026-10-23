@@ -327,11 +327,13 @@ export const agentService = {
     agentId: string,
     inputPrompt: string,
     projectId?: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    model?: string,
+    systemPrompt?: string
   ): Promise<AgentExecution> {
     const res = await apiFetch<{ execution: AgentExecution }>("/agents/run", token, {
       method: "POST",
-      body: JSON.stringify({ agentId, inputPrompt, projectId, idempotencyKey }),
+      body: JSON.stringify({ agentId, inputPrompt, projectId, idempotencyKey, model, systemPrompt }),
     });
     return res.execution;
   },

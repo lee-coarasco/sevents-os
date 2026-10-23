@@ -9,7 +9,7 @@ import type {
 } from "../types.js";
 import { calculateCost } from "../types.js";
 import type { ToolExecutor } from "../tools/toolExecutor.js";
-import { createAiAdapter } from "../../ai/adapters/index.js";
+import { createAiAdapter, resolveDefaultProvider } from "../../ai/adapters/index.js";
 
 export interface AgentRunnerContext {
   token: string;
@@ -244,9 +244,12 @@ export class AgentRunner {
         });
         if (res.content && !res.content.startsWith("[OpenAI (Simulated")) {
           answer = res.content;
+        } else if (res.content && res.content.startsWith("[OpenAI (Simulated")) {
+          answer = `[${this.ctx.agent.name}] AI Provider API key is missing. Please configure OPENROUTER_API_KEY or OPENAI_API_KEY in your deployment environment or set an active configured provider.`;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("[AgentRunner] Direct chatComplete failed, using default:", err);
+        answer = `[${this.ctx.agent.name}] AI Model Error (${this.ctx.agent.model}): ${err?.message || "Connection failed"}. Please verify your provider API key.`;
       }
       
       const step2Tokens = this.estimateTokens(answer);
@@ -763,6 +766,17 @@ export class AgentRunner {
       return createAiAdapter({ provider: "anthropic" });
     }
     if (model.includes("gpt") || model.includes("o1-")) {
+      if (process.env.OPENAI_API_KEY) {
+        return createAiAdapter({ provider: "openai" });
+      }
+      const def = resolveDefaultProvider();
+      if (
+        def === "openrouter" ||
+        process.env.OPENROUTER_API_KEY ||
+        (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))
+      ) {
+        return createAiAdapter({ provider: "openrouter" });
+      }
       return createAiAdapter({ provider: "openai" });
     }
     return createAiAdapter();

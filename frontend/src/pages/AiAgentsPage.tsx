@@ -104,14 +104,24 @@ export function AiAgentsPage() {
         agentService.listMcpServers(session.access_token).catch(() => []),
       ]);
       setMcpServers(mcpList);
-      setAgents(agentList);
+      let finalAgentList = [...agentList];
+      try {
+        const storedOverrides = localStorage.getItem("sevents_agent_overrides");
+        if (storedOverrides) {
+          const overrides: Record<string, Partial<AgentDefinition>> = JSON.parse(storedOverrides);
+          finalAgentList = finalAgentList.map((ag) =>
+            overrides[ag.id] ? ({ ...ag, ...overrides[ag.id] } as AgentDefinition) : ag
+          );
+        }
+      } catch {}
+      setAgents(finalAgentList);
       setTools(toolList);
       setExecutions(execList);
       const mergedProviders: ProviderMeta[] = [...(provResult.providers || [])];
       try {
         const stored = localStorage.getItem("sevents_custom_providers");
         if (stored) {
-          const localCustoms: ProviderMeta[] = JSON.parse(stored);
+          const localCustoms: (ProviderMeta & { apiKey?: string })[] = JSON.parse(stored);
           for (const lc of localCustoms) {
             if (!mergedProviders.some((p) => p.id === lc.id)) {
               mergedProviders.push(lc);
@@ -120,6 +130,7 @@ export function AiAgentsPage() {
                 id: lc.id,
                 name: lc.name,
                 baseUrl: lc.baseUrl || "",
+                apiKey: lc.apiKey,
                 defaultModel: lc.defaultModel,
                 supportedModels: lc.supportedModels,
               }).catch(() => {});
@@ -129,11 +140,21 @@ export function AiAgentsPage() {
       } catch {}
 
       setProviders(mergedProviders);
-      if (provResult.activeProvider) {
-        setActiveProviderId(provResult.activeProvider);
+      try {
+        const storedActive = localStorage.getItem("sevents_active_provider");
+        if (storedActive) {
+          setActiveProviderId(storedActive);
+          aiService.setActiveProvider(session.access_token, storedActive as any).catch(() => {});
+        } else if (provResult.activeProvider) {
+          setActiveProviderId(provResult.activeProvider);
+        }
+      } catch {
+        if (provResult.activeProvider) {
+          setActiveProviderId(provResult.activeProvider);
+        }
       }
-      if (agentList.length > 0 && !selectedAgentId) {
-        setSelectedAgentId(agentList[0].id);
+      if (finalAgentList.length > 0 && !selectedAgentId) {
+        setSelectedAgentId(finalAgentList[0].id);
       }
     } catch (err: any) {
       setError(err.message || "Failed to load agent studio data");
@@ -152,6 +173,9 @@ export function AiAgentsPage() {
     try {
       const active = await aiService.setActiveProvider(session.access_token, providerId);
       setActiveProviderId(active);
+      try {
+        localStorage.setItem("sevents_active_provider", active);
+      } catch {}
     } catch (err: any) {
       alert("Failed to switch active provider: " + err.message);
     } finally {
@@ -289,7 +313,11 @@ export function AiAgentsPage() {
       try {
         const stored = localStorage.getItem("sevents_custom_providers");
         const list = stored ? JSON.parse(stored) : [];
-        const updated = [...list.filter((c: any) => c.id !== res.provider.id), res.provider];
+        const itemToStore = {
+          ...res.provider,
+          apiKey: customApiKey || undefined,
+        };
+        const updated = [...list.filter((c: any) => c.id !== res.provider.id), itemToStore];
         localStorage.setItem("sevents_custom_providers", JSON.stringify(updated));
       } catch {}
       setShowAddCustomProviderModal(false);
@@ -358,12 +386,18 @@ export function AiAgentsPage() {
     const promptToSend = (presetPrompt || consolePrompt).trim();
     if (!promptToSend || !selectedAgentId || !session?.access_token || runningAgent) return;
 
+    const currentAgent = agents.find((a) => a.id === selectedAgentId);
+
     setRunningAgent(true);
     try {
       const exec = await agentService.runAgent(
         session.access_token,
         selectedAgentId,
-        promptToSend
+        promptToSend,
+        undefined,
+        undefined,
+        currentAgent?.model,
+        currentAgent?.system_prompt
       );
       setActiveExecution(exec);
       setConsolePrompt("");
@@ -433,9 +467,33 @@ export function AiAgentsPage() {
     e.preventDefault();
     if (!session?.access_token || !formKey || !formName || !formPrompt) return;
 
+    const updatedFields: Partial<AgentDefinition> = {
+      name: formName,
+      description: formDesc,
+      system_prompt: formPrompt,
+      model: formModel,
+      temperature: formTemp,
+      canonical_role_id: formRole || null,
+      allowed_tools: formTools,
+      hitl_policy: formHitl,
+    };
+
     setSavingAgent(true);
     try {
       if (editingAgent) {
+        try {
+          const storedOverrides = localStorage.getItem("sevents_agent_overrides");
+          const overrides: Record<string, Partial<AgentDefinition>> = storedOverrides
+            ? JSON.parse(storedOverrides)
+            : {};
+          overrides[editingAgent.id] = updatedFields;
+          localStorage.setItem("sevents_agent_overrides", JSON.stringify(overrides));
+        } catch {}
+
+        setAgents((prev) =>
+          prev.map((a) => (a.id === editingAgent.id ? ({ ...a, ...updatedFields } as AgentDefinition) : a))
+        );
+
         await agentService.updateAgent(session.access_token, editingAgent.id, {
           name: formName,
           description: formDesc,
@@ -447,7 +505,7 @@ export function AiAgentsPage() {
           hitlPolicy: formHitl,
         });
       } else {
-        await agentService.createAgent(session.access_token, {
+        const created = await agentService.createAgent(session.access_token, {
           key: formKey,
           name: formName,
           description: formDesc,
@@ -458,6 +516,14 @@ export function AiAgentsPage() {
           allowedTools: formTools,
           hitlPolicy: formHitl,
         });
+        try {
+          const storedOverrides = localStorage.getItem("sevents_agent_overrides");
+          const overrides: Record<string, Partial<AgentDefinition>> = storedOverrides
+            ? JSON.parse(storedOverrides)
+            : {};
+          overrides[created.id] = { ...created };
+          localStorage.setItem("sevents_agent_overrides", JSON.stringify(overrides));
+        } catch {}
       }
       setIsModalOpen(false);
       loadData();
@@ -473,6 +539,14 @@ export function AiAgentsPage() {
     if (!confirm(`Are you sure you want to delete agent profile "${name}"?`)) return;
     try {
       await agentService.deleteAgent(session.access_token, id);
+      try {
+        const storedOverrides = localStorage.getItem("sevents_agent_overrides");
+        if (storedOverrides) {
+          const overrides = JSON.parse(storedOverrides);
+          delete overrides[id];
+          localStorage.setItem("sevents_agent_overrides", JSON.stringify(overrides));
+        }
+      } catch {}
       setAgents((prev) => prev.filter((a) => a.id !== id));
       if (selectedAgentId === id && agents.length > 1) {
         setSelectedAgentId(agents.find((a) => a.id !== id)?.id || "");

@@ -68,14 +68,25 @@ export class OpenAiAdapter implements AiAdapter {
 
     messages.push({ role: "user", content: prompt });
 
+    let modelToSend = model;
+    if (this.provider === "openrouter" && !model.includes("/") && !model.includes(":")) {
+      modelToSend = `openai/${model}`;
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+    if (this.provider === "openrouter") {
+      headers["HTTP-Referer"] = "https://sevents.app";
+      headers["X-Title"] = "SEVENTS OS";
+    }
+
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
-        model,
+        model: modelToSend,
         messages,
         temperature: options?.temperature ?? 0.2,
         max_tokens: options?.maxTokens ?? 1500,

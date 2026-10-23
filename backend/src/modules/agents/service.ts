@@ -280,6 +280,12 @@ export function createAgentsService(
       if (!agent) {
         throw new Error(`Agent definition not found with id: ${input.agentId}`);
       }
+      if (input.model) {
+        agent.model = input.model;
+      }
+      if (input.systemPrompt) {
+        agent.system_prompt = input.systemPrompt;
+      }
       if (!agent.is_active) {
         throw new Error(`Agent "${agent.name}" is currently deactivated.`);
       }
