@@ -6,8 +6,9 @@ export class GeminiAdapter implements AiAdapter {
   private apiKey?: string;
   private baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (baseUrl) this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
   async generateEmbedding(text: string, _model: string = "text-embedding-004"): Promise<number[]> {

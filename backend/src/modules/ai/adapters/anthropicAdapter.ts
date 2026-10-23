@@ -6,8 +6,9 @@ export class AnthropicAdapter implements AiAdapter {
   private apiKey?: string;
   private baseUrl = "https://api.anthropic.com/v1";
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.ANTHROPIC_API_KEY;
+    if (baseUrl) this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
