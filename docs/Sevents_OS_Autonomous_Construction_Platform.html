@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sevents OS & Autonomous AI Agents — Executive Presentation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .slide { display: none; }
+    .slide.active { display: flex; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between select-none">
+
+  <!-- Top Navigation & Presentation Header -->
+  <header class="flex items-center justify-between px-8 py-4 border-b border-slate-800 bg-slate-900/60 backdrop-blur">
+    <div class="flex items-center gap-3">
+      <div class="h-3 w-3 rounded-full bg-amber-500 animate-pulse"></div>
+      <span class="font-bold text-sm tracking-wide text-white">SEVENTS OS</span>
+      <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Autonomous Construction Platform</span>
+    </div>
+    <div class="flex items-center gap-4 text-xs font-semibold text-slate-400">
+      <span id="slideIndicator">Slide 1 of 12</span>
+      <div class="flex items-center gap-1">
+        <button id="prevBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors">◀ Prev</button>
+        <button id="nextBtn" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold transition-colors">Next ▶</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Slide Canvas -->
+  <main class="flex-1 flex items-center justify-center p-6 md:p-12">
+
+    <!-- SLIDE 1: TITLE SLIDE -->
+    <div class="slide active flex-col justify-center max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-12 shadow-2xl relative overflow-hidden">
+      <div class="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
+      <div class="mb-4">
+        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
+          ⚡ Next-Gen Construction OS
+        </span>
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight">
+        Sevents OS & Autonomous AI Agents
+      </h1>
+      <p class="text-xl md:text-2xl font-semibold text-sky-400 mt-3">
+        The Unified Operating System for Real-Time Construction Management
+      </p>
+      <p class="text-slate-300 max-w-3xl mt-6 text-base leading-relaxed">
+        Connecting enterprise ERP workflows (BIM, Inventory, BOQs, RFIs) with autonomous, Human-in-the-Loop AI copilots to eliminate communication delays, avoid material stockouts, and protect project gross margins.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-10">
+        <div class="p-4 rounded-2xl bg-slate-800/80 border border-amber-500/40">
+          <p class="text-amber-400 font-bold text-sm">Unified Single Source of Truth</p>
+          <p class="text-slate-400 text-xs mt-1">BIM + Store Ledgers + BOQs + RFIs in one single platform</p>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700">
+          <p class="text-white font-bold text-sm">Autonomous Execution</p>
+          <p class="text-slate-400 text-xs mt-1">Multi-step reasoning with live database tool calling</p>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700">
+          <p class="text-emerald-400 font-bold text-sm">100% Human Oversight</p>
+          <p class="text-slate-400 text-xs mt-1">Strict Human-in-the-Loop (HITL) mutation approval gates</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: INDUSTRY PROBLEM #1 -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">The Industry Problem #1: Software Fragmentation</div>
+      <h2 class="text-3xl font-extrabold text-white">Why Construction Projects Bleed Margins Without a Single Unified ERP</h2>
+      <p class="text-sm text-slate-400 mt-1">Disconnected spreadsheets, WhatsApp coordination, and siloed software cost contractors 15–20% of project margin.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
+        <div class="p-6 rounded-2xl bg-slate-950/60 border border-rose-500/30">
+          <h3 class="text-lg font-bold text-rose-400">❌ Spreadsheet Chaos</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Critical BOQs, rate analyses, and stock registers live in 40+ disconnected Excel sheets. One broken formula leads to six-figure bidding errors.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/60 border border-rose-500/30">
+          <h3 class="text-lg font-bold text-rose-400">❌ Site vs. Head Office Disconnect</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Site diaries written on paper or WhatsApp. Head office commercial managers only discover project delays 3 to 4 weeks after they happen on site.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/60 border border-rose-500/30">
+          <h3 class="text-lg font-bold text-rose-400">❌ Inventory Blindspots</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Stores run out of essential rebar or cement mid-pour because procurement and site stores don't share a real-time stock balance ledger.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/60 border border-rose-500/30">
+          <h3 class="text-lg font-bold text-rose-400">❌ Unrecovered Variation Claims</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Contractors lose legitimate Extension of Time (EOT) and cost claims because daily site disruption events aren't backed by contractual evidence.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: INDUSTRY PROBLEM #2 -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">The Industry Problem #2: Limits of Traditional Software</div>
+      <h2 class="text-3xl font-extrabold text-white">Traditional ERPs Are Passive Databases — They Don't Solve the Human Bottleneck</h2>
+      <p class="text-sm text-slate-400 mt-1">Even with software, site engineers spend 35% of their working hours manually typing data instead of supervising quality.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
+        <div class="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Passive & Outdated</span>
+            <h3 class="text-base font-bold text-white mt-1">Passive Data Entry</h3>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              Traditional ERPs wait for overworked site engineers to navigate 15 dropdowns and manually log tickets. When people get busy, data entry stops and the ERP becomes outdated.
+            </p>
+          </div>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">5-10 Days Delay</span>
+            <h3 class="text-base font-bold text-white mt-1">Slow RFI Latency</h3>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              Engineers take 5–10 days to draft, reference drawing clauses, and send simple RFIs, holding up critical path concrete pours and MEP installations.
+            </p>
+          </div>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Rear-View Mirror</span>
+            <h3 class="text-base font-bold text-white mt-1">Reactive Decisions</h3>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              Standard systems tell you that you blew the budget last month. They cannot simulate the downstream impact of a 5-day delay on subcontractor handoffs.
+            </p>
+          </div>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">High Human Error</span>
+            <h3 class="text-base font-bold text-white mt-1">Drawing Cross-Checks</h3>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              Checking whether a revised structural revision clashes with MEP services requires hours of manual cross-referencing across separate PDF drawing sets.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: THE SOLUTION -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">The Unified Solution: Sevents OS</div>
+      <h2 class="text-3xl font-extrabold text-white">Complete Construction ERP Integrated with Autonomous Agentic AI</h2>
+      <p class="text-sm text-slate-400 mt-1">One centralized system of record for site operations, supercharged with intelligent copilots that take real action.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-sky-500/40">
+          <h3 class="text-base font-bold text-sky-400">Core Enterprise ERP Layer</h3>
+          <ul class="mt-4 space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2"><span>•</span> BIM & 3D IFC Viewer integrated directly in browser</li>
+            <li class="flex items-start gap-2"><span>•</span> Project-specific site stores & laydown yard ledgers</li>
+            <li class="flex items-start gap-2"><span>•</span> Goods Received Notes (GRN) & Material Issue Slips (MIN)</li>
+            <li class="flex items-start gap-2"><span>•</span> Master BOQ catalogue with rate & variation tracking</li>
+            <li class="flex items-start gap-2"><span>•</span> Submittals, RFIs, and Inspection Gate Pass workflows</li>
+          </ul>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-amber-500/40">
+          <h3 class="text-base font-bold text-amber-400">Autonomous Agentic AI Layer</h3>
+          <ul class="mt-4 space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2"><span>•</span> Specialized departmental copilots (Site, Commercial, Stores)</li>
+            <li class="flex items-start gap-2"><span>•</span> Live Tool Calling: queries real inventory and drawing data</li>
+            <li class="flex items-start gap-2"><span>•</span> Automated RFI drafting with clause referencing in 15 seconds</li>
+            <li class="flex items-start gap-2"><span>•</span> Delay overhead and critical path risk quantification</li>
+            <li class="flex items-start gap-2"><span>•</span> Natural language assistant for drawings, BOQs, and specs</li>
+          </ul>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-emerald-500/40">
+          <h3 class="text-base font-bold text-emerald-400">Human-In-The-Loop Governance</h3>
+          <ul class="mt-4 space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2"><span>•</span> Read actions execute instantly with zero latency</li>
+            <li class="flex items-start gap-2"><span>•</span> State mutation actions pause at prominent HITL checkpoints</li>
+            <li class="flex items-start gap-2"><span>•</span> Engineers approve, reject, or modify agent payloads</li>
+            <li class="flex items-start gap-2"><span>•</span> Immutable audit trail logging user, prompt, model, & cost</li>
+            <li class="flex items-start gap-2"><span>•</span> Guaranteed zero unverified hallucinations or rogue orders</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: LLM VS ASSISTANT VS AGENTIC AI -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Technology Architecture</div>
+      <h2 class="text-3xl font-extrabold text-white">LLM vs. AI Assistant vs. Agentic AI — What Powers Sevents OS?</h2>
+      <p class="text-sm text-slate-400 mt-1">Why generic chatbots fail on construction sites, and how Agentic AI takes verified real-world actions.</p>
+
+      <div class="mt-6 border border-slate-800 rounded-2xl overflow-hidden">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-800/80 text-slate-300 font-bold border-b border-slate-700">
+            <tr>
+              <th class="p-3.5">Dimension</th>
+              <th class="p-3.5">1. Standard LLM (e.g. ChatGPT)</th>
+              <th class="p-3.5">2. AI Assistant (Static RAG)</th>
+              <th class="p-3.5 bg-slate-800 text-amber-400">3. Sevents Agentic AI Engine</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/80 text-slate-300">
+            <tr class="bg-slate-950/40">
+              <td class="p-3.5 font-bold text-white">Primary Function</td>
+              <td class="p-3.5 text-slate-400">Predicts next word from public internet training.</td>
+              <td class="p-3.5 text-slate-400">Answers questions from static uploaded PDF documents.</td>
+              <td class="p-3.5 font-semibold text-sky-400 bg-slate-900/60">Reasons through complex tasks, breaks into steps, executes tools.</td>
+            </tr>
+            <tr class="bg-slate-950/20">
+              <td class="p-3.5 font-bold text-white">System Interaction</td>
+              <td class="p-3.5 text-slate-400">Zero access to software or databases. Pure text.</td>
+              <td class="p-3.5 text-slate-400">Read-only document search. Cannot trigger actions.</td>
+              <td class="p-3.5 font-semibold text-sky-400 bg-slate-900/60">Executes live SQL queries, checks stock, and drafts formal records.</td>
+            </tr>
+            <tr class="bg-slate-950/40">
+              <td class="p-3.5 font-bold text-white">Context Awareness</td>
+              <td class="p-3.5 text-slate-400">Generic knowledge, no idea about your project.</td>
+              <td class="p-3.5 text-slate-400">Knows text in uploaded PDF, but unaware of live site inventory.</td>
+              <td class="p-3.5 font-semibold text-sky-400 bg-slate-900/60">Real-time project state (Live store balances, BOQ rates, BIM IFCs).</td>
+            </tr>
+            <tr class="bg-slate-950/20">
+              <td class="p-3.5 font-bold text-white">Action Governance</td>
+              <td class="p-3.5 text-slate-400">None (prone to hallucination without validation).</td>
+              <td class="p-3.5 text-slate-400">Passive advice (user must still do all work manually).</td>
+              <td class="p-3.5 font-bold text-amber-400 bg-slate-900/60">Human-in-the-Loop (HITL) gate: Actions pause for 1-click human sign-off.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: A DAY IN THE LIFE -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Practical Operational Impact</div>
+      <h2 class="text-3xl font-extrabold text-white">A Day in the Life: How Sevents OS Transforms Daily Site Operations</h2>
+      <p class="text-sm text-slate-400 mt-1">From administrative firefighting to instant automated resolution in three daily scenarios.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-amber-400">Level 12 Beam Rebar Clash</h3>
+            <span class="inline-block mt-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold text-[11px]">⚡ 4 Days ➔ 20 Seconds</span>
+            <p class="text-rose-400/90 text-xs mt-3 leading-relaxed">
+              <strong>BEFORE:</strong> Site engineer spends 4 hours hunting drawing revisions, drafts RFI in Word, emails back and forth with consultant. Turnaround: 4 days.
+            </p>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              <strong>SEVENTS OS:</strong> Engineer types "Draft RFI for Level 12 beam clash with MEP duct." Copilot checks IFC specs, drafts formal RFI with proposed solution, and pauses for 1-click approval.
+            </p>
+          </div>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-amber-400">Impending Rebar Stockout</h3>
+            <span class="inline-block mt-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold text-[11px]">⚡ Zero Unplanned Downtime</span>
+            <p class="text-rose-400/90 text-xs mt-3 leading-relaxed">
+              <strong>BEFORE:</strong> Site runs out of 16mm rebar on a Friday during concrete pour. Work stops for 48 hours. Crane & labor sit idle. Direct loss: $12,000.
+            </p>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              <strong>SEVENTS OS:</strong> Agent analyzes 7-day lookahead schedule against live stock balance. Alerts: "16mm rebar will drop below 25-ton threshold in 48 hours." Prepares draft purchase requisition for review.
+            </p>
+          </div>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-amber-400">Subcontractor Variation Claim</h3>
+            <span class="inline-block mt-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold text-[11px]">⚡ 100% Margin Protection</span>
+            <p class="text-rose-400/90 text-xs mt-3 leading-relaxed">
+              <strong>BEFORE:</strong> Subcontractor submits a $45,000 extra work claim. QS spends 3 days searching through paper site logs and emails to verify work front readiness.
+            </p>
+            <p class="text-slate-300 text-xs mt-3 leading-relaxed">
+              <strong>SEVENTS OS:</strong> Commercial Copilot cross-references site weather logs, material gate passes, and BOQ item rates to substantiate contractual entitlement in 30 seconds.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: DEPARTMENT TRANSFORMATION -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Organizational Value</div>
+      <h2 class="text-3xl font-extrabold text-white">What Changes in Each Department After Implementing Sevents OS?</h2>
+      <p class="text-sm text-slate-400 mt-1">Every stakeholder group gains purpose-built tools and autonomous support.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3.5 mt-8">
+        <div class="p-4 rounded-2xl bg-slate-950/70 border border-sky-500/40">
+          <h3 class="text-xs font-bold text-sky-400">Site & Civil Eng</h3>
+          <ul class="mt-3 space-y-2 text-[11px] text-slate-300">
+            <li>• Instant RFI drafting & drawing cross-checks</li>
+            <li>• Mobile-ready daily site inspection logging</li>
+            <li>• Clash detection between MEP & Structural</li>
+            <li class="text-amber-400 font-semibold pt-1">Result: 70% reduction in admin paperwork</li>
+          </ul>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-950/70 border border-amber-500/40">
+          <h3 class="text-xs font-bold text-amber-400">Commercial & QS</h3>
+          <ul class="mt-3 space-y-2 text-[11px] text-slate-300">
+            <li>• Tender vs. Actual BOQ quantity reconciliation</li>
+            <li>• Automated delay & overhead impact cost models</li>
+            <li>• Substantiated variation claim defense</li>
+            <li class="text-amber-400 font-semibold pt-1">Result: Zero unbilled scope changes</li>
+          </ul>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-950/70 border border-emerald-500/40">
+          <h3 class="text-xs font-bold text-emerald-400">Procurement & Stores</h3>
+          <ul class="mt-3 space-y-2 text-[11px] text-slate-300">
+            <li>• Live stock balance ledger across yards & bins</li>
+            <li>• Automated Goods Received Notes (GRN) matching</li>
+            <li>• Predictive reorder alerts tied to schedule</li>
+            <li class="text-amber-400 font-semibold pt-1">Result: Elimination of ghost stockouts</li>
+          </ul>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-950/70 border border-rose-500/40">
+          <h3 class="text-xs font-bold text-rose-400">Quality & HSE</h3>
+          <ul class="mt-3 space-y-2 text-[11px] text-slate-300">
+            <li>• Instant incident logging with severity scoring</li>
+            <li>• PPE compliance tracking & inspection gates</li>
+            <li>• Automatic regulatory compliance reporting</li>
+            <li class="text-amber-400 font-semibold pt-1">Result: Full audit-readiness & lower risk</li>
+          </ul>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-950/70 border border-purple-500/40">
+          <h3 class="text-xs font-bold text-purple-400">Executive & Directors</h3>
+          <ul class="mt-3 space-y-2 text-[11px] text-slate-300">
+            <li>• Single cross-project executive dashboard</li>
+            <li>• Predictive schedule lookahead alerts</li>
+            <li>• Real-time cash flow & budget tracking</li>
+            <li class="text-amber-400 font-semibold pt-1">Result: Total portfolio visibility & control</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: HUMAN IN THE LOOP SAFETY -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Safety & Governance Architecture</div>
+      <h2 class="text-3xl font-extrabold text-white">Human-in-the-Loop (HITL) Guardrails: Total Executive Control</h2>
+      <p class="text-sm text-slate-400 mt-1">Autonomous agents handle analysis and preparation; authorized humans retain 100% sign-off authority.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-sky-500/40">
+          <h3 class="text-base font-bold text-sky-400">🟢 Safe Read Tools (Zero Risk — Fully Autonomous)</h3>
+          <ul class="mt-4 space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2"><span>✔</span> Checking real-time warehouse inventory and stock levels</li>
+            <li class="flex items-start gap-2"><span>✔</span> Querying technical specifications, contract clauses, and BOQs</li>
+            <li class="flex items-start gap-2"><span>✔</span> Calculating critical path delay overhead costs ($/day)</li>
+            <li class="flex items-start gap-2"><span>✔</span> Searching drawing revisions and CAD/BIM metadata</li>
+            <li class="flex items-start gap-2"><span>✔</span> Synthesizing progress summaries and executive briefs</li>
+          </ul>
+          <p class="text-xs text-slate-500 mt-6 italic">Executed autonomously with sub-second response times.</p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-amber-500/40">
+          <h3 class="text-base font-bold text-amber-400">🟡 State Mutation Tools (Strict HITL Checkpoint)</h3>
+          <ul class="mt-4 space-y-2.5 text-xs text-slate-300">
+            <li class="flex items-start gap-2"><span>🔒</span> Drafting and issuing formal RFIs to client/consultant</li>
+            <li class="flex items-start gap-2"><span>🔒</span> Creating Purchase Orders or Goods Received Notes (GRN)</li>
+            <li class="flex items-start gap-2"><span>🔒</span> Dispersing inventory via Material Issue Slips (MIN)</li>
+            <li class="flex items-start gap-2"><span>🔒</span> Updating project milestones or baseline schedule dates</li>
+            <li class="flex items-start gap-2"><span>🔒</span> Authorizing submittals or inspection approvals</li>
+          </ul>
+          <p class="text-xs text-amber-400 font-semibold mt-6 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+            Agent pauses execution and renders a prominent approval banner. Requires authorized human click with full audit trail.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: STAGES OF IMPLEMENTATION -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Implementation Methodology</div>
+      <h2 class="text-3xl font-extrabold text-white">A Phased, Low-Risk Implementation Roadmap: Value from Week 3</h2>
+      <p class="text-sm text-slate-400 mt-1">We don't ask clients to wait 12 months for ROI. Phased rollout ensures rapid adoption and team confidence.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-sky-500/40">
+          <h3 class="text-sm font-bold text-sky-400">Stage 1: Foundation OS</h3>
+          <p class="text-xs text-slate-400 mt-0.5 font-semibold">Weeks 1 – 3</p>
+          <ul class="mt-4 space-y-2 text-xs text-slate-300">
+            <li>• Deploy Sevents OS Tenant & Roles</li>
+            <li>• Setup Store Locations & Site Yards</li>
+            <li>• Ingest Master BOQ Catalogue</li>
+            <li>• Establish Baseline Project Schedules</li>
+            <li class="text-amber-400 font-bold pt-2">Deliverable: Single ERP Active</li>
+          </ul>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-amber-500/40">
+          <h3 class="text-sm font-bold text-amber-400">Stage 2: Knowledge RAG</h3>
+          <p class="text-xs text-slate-400 mt-0.5 font-semibold">Weeks 4 – 6</p>
+          <ul class="mt-4 space-y-2 text-xs text-slate-300">
+            <li>• Ingest Specifications & Drawings</li>
+            <li>• Convert IFC BIM models for web viewing</li>
+            <li>• Setup Vector Search Knowledge Assistant</li>
+            <li>• Team query training on project specs</li>
+            <li class="text-amber-400 font-bold pt-2">Deliverable: Instant Document Search</li>
+          </ul>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-emerald-500/40">
+          <h3 class="text-sm font-bold text-emerald-400">Stage 3: Department Agents</h3>
+          <p class="text-xs text-slate-400 mt-0.5 font-semibold">Weeks 7 – 10</p>
+          <ul class="mt-4 space-y-2 text-xs text-slate-300">
+            <li>• Activate Site Engineer Copilot</li>
+            <li>• Activate Inventory & Store Copilot</li>
+            <li>• Connect Custom ERP Webhooks & MCPs</li>
+            <li>• Rollout HITL Approval Gate Workflows</li>
+            <li class="text-amber-400 font-bold pt-2">Deliverable: Automated Daily Tasks</li>
+          </ul>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950/70 border border-purple-500/40">
+          <h3 class="text-sm font-bold text-purple-400">Stage 4: Autonomous Scale</h3>
+          <p class="text-xs text-slate-400 mt-0.5 font-semibold">Month 3+</p>
+          <ul class="mt-4 space-y-2 text-xs text-slate-300">
+            <li>• Automated lookahead schedule alerts</li>
+            <li>• Cross-project multi-agent collaboration</li>
+            <li>• Predictive cash flow & variation forecasting</li>
+            <li>• Enterprise supply chain optimization</li>
+            <li class="text-amber-400 font-bold pt-2">Deliverable: Full Autonomous Scale</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: CLIENT PREREQUISITES -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Client Onboarding Readiness</div>
+      <h2 class="text-3xl font-extrabold text-white">Prerequisites from Client: What We Need to Launch</h2>
+      <p class="text-sm text-slate-400 mt-1">Standard project documentation required during the initial 7-day ingestion sprint.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-sky-500/40">
+          <h3 class="text-base font-bold text-sky-400">Technical & Engineering Data</h3>
+          <div class="mt-4 space-y-3.5 text-xs">
+            <div>
+              <p class="font-bold text-white">📄 Current Master BOQ (Bill of Quantities)</p>
+              <p class="text-slate-400 mt-0.5">Excel (.xlsx) format with item codes, descriptions, units of measure, and tender rates.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 Architectural & Structural Drawing Sets</p>
+              <p class="text-slate-400 mt-0.5">PDF drawing packages for current active construction packages.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 BIM / IFC 3D Model Files</p>
+              <p class="text-slate-400 mt-0.5">IFC format 3D models for automated web-based clash detection and visual walkthroughs.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 Baseline Construction Schedule</p>
+              <p class="text-slate-400 mt-0.5">Primavera P6 (.xer) or MS Project (.mpp) with critical path milestones.</p>
+            </div>
+          </div>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-amber-500/40">
+          <h3 class="text-base font-bold text-amber-400">Commercial & Operational Templates</h3>
+          <div class="mt-4 space-y-3.5 text-xs">
+            <div>
+              <p class="font-bold text-white">📄 Standard RFI & Variation Formats</p>
+              <p class="text-slate-400 mt-0.5">Current corporate RFI, Site Memo, and Change Order templates and letterheads.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 Sample Supplier Invoices & Delivery Notes</p>
+              <p class="text-slate-400 mt-0.5">Historical sample tickets to calibrate OCR and automated Goods Received Note (GRN) matching.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 Material & Equipment Catalogues</p>
+              <p class="text-slate-400 mt-0.5">List of frequent site stores consumables, rebar sizes, concrete mixes, and PPE types.</p>
+            </div>
+            <div>
+              <p class="font-bold text-white">📄 Delegation of Authority (DOA) Matrix</p>
+              <p class="text-slate-400 mt-0.5">Rules specifying who can approve Purchase Orders, variations, and milestone sign-offs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 11: PROJECTED BUSINESS ROI -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Financial & Operational Returns</div>
+      <h2 class="text-3xl font-extrabold text-white">Quantified Return on Investment (ROI) for Contractors & Developers</h2>
+      <p class="text-sm text-slate-400 mt-1">Proven metrics delivered through unified ERP workflows and autonomous agentic assistance.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-emerald-500/40">
+          <div class="text-4xl font-extrabold text-emerald-400">15%</div>
+          <h3 class="text-base font-bold text-white mt-1">Material Waste Reduction</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Achieved through real-time store balances, automated reorder thresholds, and eliminating phantom site orders.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-sky-500/40">
+          <div class="text-4xl font-extrabold text-sky-400">60%</div>
+          <h3 class="text-base font-bold text-white mt-1">Faster RFI Turnaround</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Technical queries drafted, referenced, and reviewed in minutes instead of 5-10 day communication lulls.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-amber-500/40">
+          <div class="text-4xl font-extrabold text-amber-400">100%</div>
+          <h3 class="text-base font-bold text-white mt-1">Variation Claim Recovery</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Every site disruption is logged with contractual clauses, weather logs, and timeline impact proof.
+          </p>
+        </div>
+        <div class="p-6 rounded-2xl bg-slate-950/80 border border-purple-500/40">
+          <div class="text-4xl font-extrabold text-purple-400">3.5 hrs</div>
+          <h3 class="text-base font-bold text-white mt-1">Saved per Engineer Daily</h3>
+          <p class="text-slate-300 text-xs mt-2 leading-relaxed">
+            Engineers eliminate tedious data entry, spending their time directly on site quality and safety oversight.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 12: PILOT PLAN & NEXT STEPS -->
+    <div class="slide flex-col justify-start max-w-6xl w-full h-[620px] rounded-3xl bg-slate-900 border border-slate-800 p-10 shadow-2xl overflow-y-auto">
+      <div class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Next Steps</div>
+      <h2 class="text-3xl font-extrabold text-white">Launch Plan: 30-Day Guided Pilot Program</h2>
+      <p class="text-sm text-slate-400 mt-1">Experience immediate project visibility on one live project before enterprise-wide scaling.</p>
+
+      <div class="mt-8 space-y-4">
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+          <span class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">Day 1 – 3</span>
+          <div>
+            <h4 class="text-sm font-bold text-white">Step 1: Select Pilot Project</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Identify 1 representative active project (e.g. commercial tower, infrastructure package).</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+          <span class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">Day 4 – 10</span>
+          <div>
+            <h4 class="text-sm font-bold text-white">Step 2: Data Ingestion Sprint</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Upload BOQ, architectural drawing sets, and store location catalog into Sevents OS.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+          <span class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">Day 11 – 15</span>
+          <div>
+            <h4 class="text-sm font-bold text-white">Step 3: Site Team Activation</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Conduct 2-hour onboarding session with site engineers, storekeeper, and commercial manager.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+          <span class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">Day 16 – 28</span>
+          <div>
+            <h4 class="text-sm font-bold text-white">Step 4: Live Co-Pilot Operation</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Run daily RFIs, store checks, and lookahead schedule updates with AI copilot assistance.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+          <span class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">Day 29 – 30</span>
+          <div>
+            <h4 class="text-sm font-bold text-white">Step 5: Executive Review</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Quantify hours saved, variation recovery, and user adoption metrics to plan full rollout.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Bar: Keyboard Shortcuts & Status -->
+  <footer class="flex items-center justify-between px-8 py-3 border-t border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+    <div class="flex items-center gap-4">
+      <span>Use <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">◀</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">▶</kbd> or <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Space</kbd> to navigate</span>
+      <span>Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">F</kbd> for Fullscreen</span>
+    </div>
+    <div>
+      <span>Generated for Sevents OS Executive Presentation</span>
+    </div>
+  </footer>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const indicator = document.getElementById('slideIndicator');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    let currentIndex = 0;
+
+    function updateSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+      currentIndex = index;
+
+      slides.forEach((s, idx) => {
+        if (idx === currentIndex) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+
+      indicator.innerText = `Slide ${currentIndex + 1} of ${slides.length}`;
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === slides.length - 1;
+    }
+
+    prevBtn.addEventListener('click', () => updateSlide(currentIndex - 1));
+    nextBtn.addEventListener('click', () => updateSlide(currentIndex + 1));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        updateSlide(currentIndex + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        updateSlide(currentIndex - 1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    updateSlide(0);
+  </script>
+</body>
+</html>
