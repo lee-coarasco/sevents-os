@@ -302,6 +302,8 @@ export function createAgentsService(
         agent,
         tools: toolsMap,
         toolExecutor,
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
         onAuditLog: async (event) => {
           await repository.saveRunAuditLog(token, {
             id: "audit-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),

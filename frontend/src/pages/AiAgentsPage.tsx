@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -63,6 +63,16 @@ export function AiAgentsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [conversationThread, setConversationThread] = useState<Array<{
+    id: string;
+    role: "user" | "assistant" | "tool" | "status";
+    content: string;
+    toolName?: string;
+    timestamp: string;
+    pendingAction?: any;
+    executionId?: string;
+  }>>([]);
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
   // Create / Edit Agent Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -127,7 +137,24 @@ export function AiAgentsPage() {
       } catch {}
       setAgents(finalAgentList);
       setTools(toolList);
-      setExecutions(execList);
+
+      let finalExecList = [...execList];
+      try {
+        const storedExecs = localStorage.getItem("sevents_agent_executions");
+        if (storedExecs) {
+          const localList: AgentExecution[] = JSON.parse(storedExecs);
+          const existingIds = new Set(finalExecList.map((e) => e.id));
+          for (const le of localList) {
+            if (!existingIds.has(le.id)) {
+              finalExecList.push(le);
+            }
+          }
+          finalExecList.sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+      } catch {}
+      setExecutions(finalExecList);
       const mergedProviders: ProviderMeta[] = [...(provResult.providers || [])];
       try {
         const stored = localStorage.getItem("sevents_custom_providers");
@@ -196,6 +223,12 @@ export function AiAgentsPage() {
   useEffect(() => {
     loadData();
   }, [session?.access_token]);
+
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [conversationThread, runningAgent]);
 
   const handleSelectActiveProvider = async (providerId: string) => {
     if (!session?.access_token || switchingProvider) return;
@@ -526,8 +559,41 @@ export function AiAgentsPage() {
 
     const currentAgent = agents.find((a) => a.id === selectedAgentId);
 
+    const userMsgId = "user-" + Date.now();
+    const tempStatusId = "status-" + Date.now();
+
+    const userMsg = {
+      id: userMsgId,
+      role: "user" as const,
+      content: promptToSend,
+      timestamp: new Date().toISOString(),
+    };
+
+    const statusMsg = {
+      id: tempStatusId,
+      role: "status" as const,
+      content: `${currentAgent?.name || "Agent"} is analyzing inquiry & evaluating tools...`,
+      timestamp: new Date().toISOString(),
+    };
+
+    setConversationThread((prev) => [...prev, userMsg, statusMsg]);
+    setConsolePrompt("");
     setRunningAgent(true);
+
     try {
+      let storedKey: string | undefined = storedCredentials["openrouter"]?.apiKey;
+      let storedUrl: string | undefined = storedCredentials["openrouter"]?.baseUrl;
+      if (!storedKey) {
+        try {
+          const stored = localStorage.getItem("sevents_provider_credentials");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            storedKey = parsed["openrouter"]?.apiKey || parsed[currentAgent?.model || ""]?.apiKey;
+            storedUrl = parsed["openrouter"]?.baseUrl;
+          }
+        } catch {}
+      }
+
       const exec = await agentService.runAgent(
         session.access_token,
         selectedAgentId,
@@ -535,35 +601,112 @@ export function AiAgentsPage() {
         undefined,
         undefined,
         currentAgent?.model,
-        currentAgent?.system_prompt
+        currentAgent?.system_prompt,
+        storedKey,
+        storedUrl
       );
+
       setActiveExecution(exec);
-      setConsolePrompt("");
-      // Refresh execution history
-      const updatedExecs = await agentService.listExecutions(session.access_token);
-      setExecutions(updatedExecs);
+
+      const newMessages: Array<{
+        id: string;
+        role: "user" | "assistant" | "tool" | "status";
+        content: string;
+        toolName?: string;
+        timestamp: string;
+        pendingAction?: any;
+        executionId?: string;
+      }> = (exec.messages || [])
+        .filter((m) => m.role !== "user")
+        .map((m) => ({
+          id: m.id || "msg-" + Math.random().toString(36).substring(2, 7),
+          role: m.role as any,
+          content: m.content,
+          toolName: (m as any).toolName,
+          timestamp: m.timestamp || new Date().toISOString(),
+          pendingAction: exec.status === "paused_waiting_approval" ? exec.pending_action || null : null,
+          executionId: exec.id,
+        }));
+
+      if (newMessages.length === 0 && exec.output_summary) {
+        newMessages.push({
+          id: "summary-" + exec.id,
+          role: "assistant",
+          content: exec.output_summary,
+          toolName: undefined,
+          timestamp: new Date().toISOString(),
+          pendingAction: exec.status === "paused_waiting_approval" ? exec.pending_action || null : null,
+          executionId: exec.id,
+        });
+      }
+
+      setConversationThread((prev) => [
+        ...prev.filter((m) => m.id !== tempStatusId),
+        ...newMessages,
+      ]);
+
+      setExecutions((prev) => {
+        const updated = [exec, ...prev.filter((e) => e.id !== exec.id)];
+        try {
+          localStorage.setItem("sevents_agent_executions", JSON.stringify(updated.slice(0, 50)));
+        } catch {}
+        return updated;
+      });
     } catch (err: any) {
+      setConversationThread((prev) => [
+        ...prev.filter((m) => m.id !== tempStatusId),
+        {
+          id: "err-" + Date.now(),
+          role: "assistant" as const,
+          content: `⚠️ Agent execution error: ${err.message || "Failed to execute"}. Please verify your provider API key.`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
       alert("Execution error: " + err.message);
     } finally {
       setRunningAgent(false);
     }
   };
 
-  const handleApproval = async (approved: boolean) => {
-    if (!activeExecution || !session?.access_token || approving) return;
+  const handleApproval = async (approved: boolean, targetExecId?: string) => {
+    const execIdToApprove = targetExecId || activeExecution?.id;
+    if (!execIdToApprove || !session?.access_token || approving) return;
     setApproving(true);
     try {
       const resumed = await agentService.approveAction(
         session.access_token,
-        activeExecution.id,
+        execIdToApprove,
         approved,
         approved ? undefined : rejectionReason
       );
       setActiveExecution(resumed);
       setIsRejecting(false);
       setRejectionReason("");
-      const updatedExecs = await agentService.listExecutions(session.access_token);
-      setExecutions(updatedExecs);
+
+      const resumedMessages = (resumed.messages || [])
+        .filter((m) => m.role !== "user")
+        .map((m) => ({
+          id: m.id || "res-" + Math.random().toString(36).substring(2, 7),
+          role: m.role as any,
+          content: m.content,
+          toolName: (m as any).toolName,
+          timestamp: m.timestamp || new Date().toISOString(),
+          pendingAction: null,
+          executionId: resumed.id,
+        }));
+
+      setConversationThread((prev) => [
+        ...prev.map((m) => (m.executionId === execIdToApprove ? { ...m, pendingAction: null } : m)),
+        ...resumedMessages,
+      ]);
+
+      setExecutions((prev) => {
+        const updated = [resumed, ...prev.filter((e) => e.id !== resumed.id)];
+        try {
+          localStorage.setItem("sevents_agent_executions", JSON.stringify(updated.slice(0, 50)));
+        } catch {}
+        return updated;
+      });
     } catch (err: any) {
       alert("Failed to process approval: " + err.message);
     } finally {
@@ -1003,26 +1146,40 @@ export function AiAgentsPage() {
                       {selectedAgent?.name || "Agent Console"}
                     </span>
                   </div>
-                  {activeExecution && (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${
-                        activeExecution.status === "paused_waiting_approval"
-                          ? "bg-amber-500 text-white animate-pulse"
-                          : activeExecution.status === "completed"
-                          ? "bg-emerald-600 text-white"
-                          : activeExecution.status === "rejected"
-                          ? "bg-rose-600 text-white"
-                          : "bg-zinc-700 text-zinc-200"
-                      }`}
-                    >
-                      {activeExecution.status.replace(/_/g, " ")}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {conversationThread.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConversationThread([]);
+                          setActiveExecution(null);
+                        }}
+                        className="text-[11px] text-zinc-400 hover:text-white transition-colors"
+                      >
+                        Clear Chat
+                      </button>
+                    )}
+                    {activeExecution && (
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${
+                          activeExecution.status === "paused_waiting_approval"
+                            ? "bg-amber-500 text-white animate-pulse"
+                            : activeExecution.status === "completed"
+                            ? "bg-emerald-600 text-white"
+                            : activeExecution.status === "rejected"
+                            ? "bg-rose-600 text-white"
+                            : "bg-zinc-700 text-zinc-200"
+                        }`}
+                      >
+                        {activeExecution.status.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Messages Body */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-stone-50/50">
-                  {!activeExecution ? (
+                  {conversationThread.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-center p-8 text-zinc-400">
                       <div>
                         <svg className="mx-auto h-12 w-12 text-zinc-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1036,7 +1193,7 @@ export function AiAgentsPage() {
                     </div>
                   ) : (
                     <>
-                      {activeExecution.messages.map((m, idx) => (
+                      {conversationThread.map((m, idx) => (
                         <div
                           key={m.id || idx}
                           className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
@@ -1045,93 +1202,111 @@ export function AiAgentsPage() {
                             {m.role === "user"
                               ? "You"
                               : m.role === "tool"
-                              ? `Tool Result [${m.toolName}]`
+                              ? `Tool Result [${m.toolName || "tool"}]`
+                              : m.role === "status"
+                              ? `${selectedAgent?.name || "Agent"} • Working`
                               : selectedAgent?.name || "Assistant"}
                           </span>
-                          <div
-                            className={`rounded-2xl px-4 py-3 text-xs leading-relaxed max-w-[90%] shadow-xs ${
-                              m.role === "user"
-                                ? "bg-zinc-900 text-white rounded-tr-xs"
-                                : m.role === "tool"
-                                ? "bg-zinc-800 font-mono text-zinc-200 rounded-tl-xs overflow-x-auto whitespace-pre"
-                                : "bg-white text-zinc-800 border border-zinc-200 rounded-tl-xs whitespace-pre-wrap"
-                            }`}
-                          >
-                            {m.content}
-                          </div>
-                        </div>
-                      ))}
 
-                      {/* PROMINENT HUMAN-IN-THE-LOOP APPROVAL BANNER */}
-                      {activeExecution.status === "paused_waiting_approval" &&
-                        activeExecution.pending_action && (
-                          <div className="rounded-2xl border-2 border-amber-400 bg-amber-50/90 p-5 shadow-md">
-                            <div className="flex items-center gap-2 text-amber-900 font-bold text-sm mb-1">
-                              <span className="h-3 w-3 rounded-full bg-amber-500 animate-ping" />
-                              <span>Human-In-The-Loop Approval Checkpoint</span>
+                          {m.role === "status" ? (
+                            <div className="flex items-center gap-2.5 rounded-2xl px-4 py-3 text-xs leading-relaxed bg-brand/10 border border-brand/20 text-brand-dark shadow-xs rounded-tl-xs">
+                              <span className="flex gap-1 items-center">
+                                <span className="h-2 w-2 rounded-full bg-brand animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <span className="h-2 w-2 rounded-full bg-brand animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <span className="h-2 w-2 rounded-full bg-brand animate-bounce" style={{ animationDelay: "300ms" }} />
+                              </span>
+                              <span className="font-medium text-zinc-800">{m.content}</span>
                             </div>
-                            <p className="text-xs text-amber-800 mb-3">
-                              Agent paused execution because <strong>"{activeExecution.pending_action.toolName}"</strong> modifies project state. Review the proposed action below:
-                            </p>
+                          ) : (
+                            <div
+                              className={`rounded-2xl px-4 py-3 text-xs leading-relaxed max-w-[90%] shadow-xs ${
+                                m.role === "user"
+                                  ? "bg-zinc-900 text-white rounded-tr-xs whitespace-pre-wrap"
+                                  : m.role === "tool"
+                                  ? "bg-zinc-900 font-mono text-zinc-200 rounded-tl-xs overflow-x-auto whitespace-pre"
+                                  : "bg-white text-zinc-800 border border-zinc-200 rounded-tl-xs whitespace-pre-wrap"
+                              }`}
+                            >
+                              {m.content}
+                            </div>
+                          )}
 
-                            <div className="rounded-xl border border-amber-200 bg-white p-3 font-mono text-xs text-zinc-800 mb-3 max-h-48 overflow-y-auto">
-                              <div className="text-[10px] uppercase font-bold text-zinc-400 mb-1">
-                                Proposed Tool Payload
+                          {/* INLINE HUMAN-IN-THE-LOOP APPROVAL BANNER IF ACTION IS PENDING */}
+                          {m.pendingAction && (
+                            <div className="mt-3 w-full max-w-[90%] rounded-2xl border-2 border-amber-400 bg-amber-50/90 p-5 shadow-md">
+                              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm mb-1">
+                                <span className="h-3 w-3 rounded-full bg-amber-500 animate-ping" />
+                                <span>Human-In-The-Loop Approval Checkpoint</span>
                               </div>
-                              {JSON.stringify(activeExecution.pending_action.input, null, 2)}
-                            </div>
+                              <p className="text-xs text-amber-800 mb-3">
+                                Agent paused execution because <strong>"{m.pendingAction.toolName}"</strong> modifies project state. Review the proposed action below:
+                              </p>
 
-                            <p className="text-xs text-zinc-600 mb-4">
-                              <strong>Rationale:</strong> {activeExecution.pending_action.rationale}
-                            </p>
+                              <div className="rounded-xl border border-amber-200 bg-white p-3 font-mono text-xs text-zinc-800 mb-3 max-h-48 overflow-y-auto">
+                                <div className="text-[10px] uppercase font-bold text-zinc-400 mb-1">
+                                  Proposed Tool Payload
+                                </div>
+                                {JSON.stringify(m.pendingAction.input, null, 2)}
+                              </div>
 
-                            {isRejecting ? (
-                              <div className="space-y-2 border-t border-amber-200 pt-3">
-                                <label className="block text-xs font-semibold text-zinc-700">
-                                  Rejection Explanation for Agent Audit
-                                </label>
-                                <textarea
-                                  rows={2}
-                                  value={rejectionReason}
-                                  onChange={(e) => setRejectionReason(e.target.value)}
-                                  placeholder="State why this action cannot be executed..."
-                                  className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none bg-white"
-                                />
-                                <div className="flex justify-end gap-2">
+                              <p className="text-xs text-zinc-600 mb-4">
+                                <strong>Rationale:</strong> {m.pendingAction.rationale}
+                              </p>
+
+                              {isRejecting ? (
+                                <div className="space-y-2 border-t border-amber-200 pt-3">
+                                  <label className="block text-xs font-semibold text-zinc-700">
+                                    Rejection Explanation for Agent Audit
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    placeholder="State why this action cannot be executed..."
+                                    className="w-full rounded-lg border border-zinc-300 p-2 text-xs focus:border-brand focus:outline-none bg-white"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsRejecting(false)}
+                                      className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-200"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproval(false, m.executionId)}
+                                      disabled={approving}
+                                      className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                                    >
+                                      Confirm Rejection
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-3 pt-2 border-t border-amber-200">
                                   <button
-                                    onClick={() => setIsRejecting(false)}
-                                    className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-200"
+                                    type="button"
+                                    onClick={() => setIsRejecting(true)}
+                                    className="rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                                   >
-                                    Cancel
+                                    Reject Action
                                   </button>
                                   <button
-                                    onClick={() => handleApproval(false)}
+                                    type="button"
+                                    onClick={() => handleApproval(true, m.executionId)}
                                     disabled={approving}
-                                    className="rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                                    className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition-all"
                                   >
-                                    Confirm Rejection
+                                    {approving ? "Executing Action..." : "Approve & Execute Action"}
                                   </button>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-end gap-3 pt-2 border-t border-amber-200">
-                                <button
-                                  onClick={() => setIsRejecting(true)}
-                                  className="rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                                >
-                                  Reject Action
-                                </button>
-                                <button
-                                  onClick={() => handleApproval(true)}
-                                  disabled={approving}
-                                  className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition-all"
-                                >
-                                  {approving ? "Executing Action..." : "Approve & Execute Action"}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div ref={chatBottomRef} />
                     </>
                   )}
                 </div>
@@ -1156,9 +1331,16 @@ export function AiAgentsPage() {
                     <button
                       type="submit"
                       disabled={runningAgent || !consolePrompt.trim()}
-                      className="rounded-xl bg-zinc-900 px-5 py-2 text-xs font-bold text-white hover:bg-zinc-800 disabled:opacity-40"
+                      className="flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2 text-xs font-bold text-white hover:bg-zinc-800 disabled:opacity-40 transition-all"
                     >
-                      {runningAgent ? "Running Agent..." : "Send Prompt"}
+                      {runningAgent ? (
+                        <>
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                          <span>Working...</span>
+                        </>
+                      ) : (
+                        <span>Send Prompt</span>
+                      )}
                     </button>
                   </form>
                 </div>

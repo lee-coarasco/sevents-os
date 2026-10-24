@@ -196,6 +196,8 @@ export interface RunAgentInput {
   idempotencyKey?: string;
   model?: string;
   systemPrompt?: string;
+  apiKey?: string;
+  baseUrl?: string;
 }
 
 export interface ApproveAgentInput {

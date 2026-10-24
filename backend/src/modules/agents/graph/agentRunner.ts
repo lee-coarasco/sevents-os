@@ -18,6 +18,8 @@ export interface AgentRunnerContext {
   agent: AgentDefinition;
   tools: Map<string, AgentTool>;
   toolExecutor: ToolExecutor;
+  apiKey?: string;
+  baseUrl?: string;
   onAuditLog?: (event: {
     eventType: string;
     details: Record<string, unknown>;
@@ -749,6 +751,11 @@ export class AgentRunner {
 
   private getAdapterForAgent() {
     const model = (this.ctx.agent.model || "").toLowerCase();
+    const configOverride = {
+      apiKey: this.ctx.apiKey,
+      baseUrl: this.ctx.baseUrl,
+    };
+
     if (
       model.includes("openrouter") ||
       model.includes(":free") ||
@@ -757,29 +764,30 @@ export class AgentRunner {
       model.includes("qwen") ||
       model.includes("mistral")
     ) {
-      return createAiAdapter({ provider: "openrouter" });
+      return createAiAdapter({ provider: "openrouter", ...configOverride });
     }
     if (model.includes("gemini")) {
-      return createAiAdapter({ provider: "gemini" });
+      return createAiAdapter({ provider: "gemini", ...configOverride });
     }
     if (model.includes("claude")) {
-      return createAiAdapter({ provider: "anthropic" });
+      return createAiAdapter({ provider: "anthropic", ...configOverride });
     }
     if (model.includes("gpt") || model.includes("o1-")) {
-      if (process.env.OPENAI_API_KEY) {
-        return createAiAdapter({ provider: "openai" });
+      if (process.env.OPENAI_API_KEY && !this.ctx.apiKey?.startsWith("sk-or-")) {
+        return createAiAdapter({ provider: "openai", ...configOverride });
       }
       const def = resolveDefaultProvider();
       if (
         def === "openrouter" ||
+        this.ctx.apiKey?.startsWith("sk-or-") ||
         process.env.OPENROUTER_API_KEY ||
         (process.env.OPENAI_BASE_URL && process.env.OPENAI_BASE_URL.includes("openrouter"))
       ) {
-        return createAiAdapter({ provider: "openrouter" });
+        return createAiAdapter({ provider: "openrouter", ...configOverride });
       }
-      return createAiAdapter({ provider: "openai" });
+      return createAiAdapter({ provider: "openai", ...configOverride });
     }
-    return createAiAdapter();
+    return createAiAdapter(configOverride);
   }
 
   private async synthesizeSummary(agentName: string, toolKey: string, data: any, userPrompt?: string): Promise<string> {
