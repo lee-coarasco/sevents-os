@@ -195,7 +195,7 @@ export class ToolExecutor {
             const itemIds = items.map((i: any) => i.id);
             const { data: balances } = await supabase
               .from("inventory_stock_balances")
-              .select("item_id, rack_bin, quantity_on_hand, quantity_reserved, store_locations(name)")
+              .select("item_id, rack_bin, quantity_on_hand, quantity_reserved, store_locations(name, project_id, projects(name))")
               .in("item_id", itemIds);
 
             const balanceMap = new Map((balances || []).map((b: any) => [b.item_id, b]));
@@ -205,7 +205,11 @@ export class ToolExecutor {
               const onHand = b ? Number(b.quantity_on_hand) : Number(i.reorder_level) * 2 || 100;
               const reserved = b ? Number(b.quantity_reserved) : 0;
               const available = Math.max(0, onHand - reserved);
-              const loc = b?.store_locations?.name || b?.rack_bin || "Central Warehouse Bay 4";
+              const storeLoc = b?.store_locations;
+              const projectName = storeLoc?.projects?.name;
+              const loc = storeLoc?.name
+                ? (projectName ? `${storeLoc.name} [Project: ${projectName}]` : storeLoc.name)
+                : (b?.rack_bin || "Central Warehouse Bay 4");
               const reorder = Number(i.reorder_level) || 50;
 
               return {
